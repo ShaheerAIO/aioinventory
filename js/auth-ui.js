@@ -115,6 +115,7 @@ const AuthUI = (() => {
       <span class="user-name">${esc(name)}</span>
       <span class="user-role" style="color:${roleColour}">${roleLabel}</span>
       ${Auth.isAdmin() ? '<button class="btn btn-ghost btn-xs" id="btn-manage-users">Manage users</button>' : ''}
+      ${Auth.isAdmin() ? '<button class="btn btn-ghost btn-xs" id="btn-hubspot-map">HubSpot mapping</button>' : ''}
       <button class="btn btn-ghost btn-xs" id="btn-sign-out">Sign out</button>`;
     header.appendChild(bar);
 
@@ -122,6 +123,7 @@ const AuthUI = (() => {
       if (confirm('Sign out?')) Auth.signOut();
     });
     document.getElementById('btn-manage-users')?.addEventListener('click', showUsersPanel);
+    document.getElementById('btn-hubspot-map')?.addEventListener('click', showHubspotMapPanel);
   }
 
   // ── Apply role restrictions ───────────────────────────────────────────
@@ -435,6 +437,49 @@ const AuthUI = (() => {
     } catch(e) {
       container.innerHTML = `<div style="color:var(--danger-text);font-size:13px;">Error loading users: ${e.message}</div>`;
     }
+  }
+
+  // ── Admin: HubSpot Company mapping panel ───────────────────────────────
+  function showHubspotMapPanel() {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.id = 'hubspot-map-overlay';
+
+    const customers = Inventory.getCustomers();
+    const unitsByCustomer = Object.fromEntries(Inventory.getDeployedByCustomer().map(b => [b.customer, b.units]));
+    const map = DB.getHubspotCompanyMap();
+
+    const rows = customers.map(c => `
+      <div class="form-grid g2" style="margin-bottom:8px;align-items:center;">
+        <div style="font-size:13px;">${esc(c)} <span style="color:var(--text-hint);font-size:11px;">(${unitsByCustomer[c] || 0} deployed)</span></div>
+        <input class="fi hubspot-id-input" data-customer="${esc(c)}" placeholder="HubSpot Company ID" value="${esc(map[c] || '')}" />
+      </div>`).join('');
+
+    overlay.innerHTML = `
+      <div class="modal-box" style="width:700px;max-height:80vh;overflow-y:auto;">
+        <div class="modal-title" style="display:flex;align-items:center;justify-content:space-between;">
+          <span>HubSpot Company mapping</span>
+          <button class="btn-remove-row" id="close-hubspot-map">×</button>
+        </div>
+        <div style="font-size:12px;color:var(--text-hint);margin-bottom:14px;">
+          Link each customer name to its HubSpot Company ID (find this in the company's HubSpot URL). Only mapped customers are included in the nightly sync.
+        </div>
+        ${customers.length ? `<div id="hubspot-map-rows">${rows}</div>` : `<div style="color:var(--text-hint);font-size:13px;">No customers found yet.</div>`}
+        <div style="display:flex;justify-content:flex-end;margin-top:12px;">
+          <button class="btn btn-primary" id="btn-save-hubspot-map">Save mapping</button>
+        </div>
+      </div>`;
+
+    document.body.appendChild(overlay);
+    overlay.querySelector('#close-hubspot-map').addEventListener('click', () => overlay.remove());
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+    overlay.querySelector('#btn-save-hubspot-map')?.addEventListener('click', () => {
+      overlay.querySelectorAll('.hubspot-id-input').forEach(inp => {
+        DB.setHubspotCompanyId(inp.dataset.customer, inp.value);
+      });
+      overlay.remove();
+    });
   }
 
   function esc(s) { return String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
