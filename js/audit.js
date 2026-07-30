@@ -15,11 +15,24 @@ const Audit = (() => {
   let _lostSet    = new Set();
   let _phase      = 1;    // 1=setup, 2=counting, 3=report
   let _report     = null;
+  let _cutoff     = '';   // "received on/before" cutoff captured when the count starts
 
   function _esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
   const fmt$ = n => n > 0 ? '$' + n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
   const fmtDate = iso => iso ? new Date(iso).toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'}) : '—';
   const _key = item => item.product + '||' + (item.location || '');
+
+  // "Received on/before" cutoff — blank = no filter
+  function _cutoffDate() { return document.getElementById('audit-date-filter')?.value || ''; }
+  function _passesCutoff(r) {
+    const d = _cutoffDate();
+    if (!d) return true;
+    if (!r.receivedDate) return true; // no IN date known — keep it in the count
+    // Compare in local time: the date picker is a local date, receivedDate is UTC ISO
+    const dt = new Date(r.receivedDate);
+    const local = dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0');
+    return local <= d;
+  }
 
   // ── init ──────────────────────────────────────────────────────────────
   function init() {
@@ -165,6 +178,7 @@ const Audit = (() => {
     _scanned      = {};
     _nsCounts     = paused.nsCounts || {};
     _lostSet      = new Set(paused.lostSet || []);
+    _cutoff       = paused.cutoff || '';
     _phase        = 2;
 
     // Restore scanned sets (arrays → Sets)
@@ -228,7 +242,7 @@ const Audit = (() => {
     const sel  = document.getElementById('audit-product-picker');
     const locF = document.getElementById('audit-loc-filter')?.value || '';
     if (!sel) return;
-    const inStock = Inventory.getAllSerialRows().filter(r => r.status === 'in-stock');
+    const inStock = Inventory.getAllSerialRows().filter(r => r.status === 'in-stock' && _passesCutoff(r));
     // Build product+location combos
     const combos = {};
     inStock.forEach(r => {
@@ -252,6 +266,11 @@ const Audit = (() => {
   }
 
   function _wireSetupButtons() {
+    const dateF = document.getElementById('audit-date-filter');
+    if (dateF && !dateF._wired) {
+      dateF._wired = true;
+      dateF.addEventListener('change', () => { _populateProductPicker(); _renderCountList(); });
+    }
     const addBtn = document.getElementById('btn-add-to-count');
     if (addBtn && !addBtn._wired) {
       addBtn._wired = true;
@@ -278,7 +297,7 @@ const Audit = (() => {
 
   function _addAllProducts() {
     const locF    = document.getElementById('audit-loc-filter')?.value || '';
-    const inStock = Inventory.getAllSerialRows().filter(r => r.status === 'in-stock');
+    const inStock = Inventory.getAllSerialRows().filter(r => r.status === 'in-stock' && _passesCutoff(r));
     const combos  = {};
     inStock.forEach(r => {
       if (locF && r.location !== locF) return;
@@ -297,7 +316,7 @@ const Audit = (() => {
   function _addToCountList(product, location, doRender = true) {
     const inStock = Inventory.getAllSerialRows().filter(r =>
       r.status === 'in-stock' && r.product === product &&
-      (!location || r.location === location)
+      (!location || r.location === location) && _passesCutoff(r)
     );
     if (!inStock.length) return;
     const isNS     = inStock.every(r => r.serial.startsWith('NS-'));
@@ -318,7 +337,8 @@ const Audit = (() => {
     const startBtn = document.getElementById('btn-start-count');
     if (!body) return;
 
-    if (badge) badge.textContent = _countList.length ? `(${_countList.length} products)` : '';
+    const cutoff = _cutoffDate();
+    if (badge) badge.textContent = _countList.length ? `(${_countList.length} products${cutoff ? ' · received ≤ ' + fmtDate(cutoff + 'T00:00:00') : ''})` : '';
     if (startBtn) startBtn.style.display = _countList.length ? '' : 'none';
 
     if (!_countList.length) {
@@ -500,9 +520,8 @@ const Audit = (() => {
     const productReports = savedCountList.map(item => {
       const k = item.product + '||' + (item.location||'');
       const st = savedScanned[k] || { matched: new Set(), unexpected: [] };
-      const unitCost = item.systemCount > 0
-        ? Inventory.getAllSerialRows().filter(r=>r.product===item.product&&r.status==='in-stock'&&r.cost!=null).reduce((a,r)=>a+r.cost,0) / Math.max(1,item.systemCount)
-        : 0;
+      const _costed = Inventory.getAllSerialRows().filter(r=>r.product===item.product&&r.status==='in-stock'&&r.cost!=null);
+      const unitCost = _costed.length ? _costed.reduce((a,r)=>a+r.cost,0) / _costed.length : 0;
 
       if (item.isNS) {
         const phys = savedNsCounts[k];
@@ -696,6 +715,7 @@ const Audit = (() => {
     _countList = JSON.parse(JSON.stringify(record._countList));
     _nsCounts  = Object.assign({}, record._nsCounts || {});
     _lostSet   = new Set(record.writtenOffSerials || []);
+    _cutoff    = record.cutoffDate || '';
     _phase     = 2;
 
     // Restore scanned state — exclude serials that have been written off
@@ -993,6 +1013,7 @@ const Audit = (() => {
     _scanned = {};
     _nsCounts = {};
     _lostSet  = new Set();
+    _cutoff   = _cutoffDate();
 
     // Init scan state per item
     _countList.forEach(item => {
@@ -1197,6 +1218,7 @@ const Audit = (() => {
     DB.savePausedAudit(email, {
       countList: _countList, scanned: scannedSerializable, nsCounts: _nsCounts,
       lostSet: [..._lostSet], missing: _getMissingFromState(_countList, scannedSerializable),
+      cutoff: _cutoff,
       savedAt: new Date().toISOString(), userEmail: email,
       userName: Auth.getName ? Auth.getName() : email, autoSaved: true,
     });
@@ -1382,9 +1404,8 @@ const Audit = (() => {
     const productReports = _countList.map(item => {
       const k   = _key(item);
       const st  = _scanned[k];
-      const unitCost = item.systemCount > 0
-        ? Inventory.getAllSerialRows().filter(r => r.product === item.product && r.status === 'in-stock' && r.cost != null).reduce((a,r)=>a+r.cost,0) / Math.max(1, item.systemCount)
-        : 0;
+      const _costed = Inventory.getAllSerialRows().filter(r => r.product === item.product && r.status === 'in-stock' && r.cost != null);
+      const unitCost = _costed.length ? _costed.reduce((a,r)=>a+r.cost,0) / _costed.length : 0;
 
       if (item.isNS) {
         const phys     = _nsCounts[k];
@@ -1445,6 +1466,7 @@ const Audit = (() => {
       completedBy: Auth.getName ? Auth.getName() : (Auth.getUser()?.email || 'Unknown'),
       scope: _countList.map(i => i.product + (i.location?' @ '+i.location:'')).join(', '),
       productCount: _countList.length,
+      cutoffDate: _cutoff || '',
       locF: '', catF: '', prodF: '',
       expected: totalExpected, matched: totalMatched, missing: totalMissing,
       unexpected: totalUnexpected, lost: 0, missingValue,
@@ -1616,6 +1638,7 @@ const Audit = (() => {
               countList: _countList, scanned: scannedSerializable,
               nsCounts: _nsCounts, lostSet: [..._lostSet],
               missing: _getMissingFromState(_countList, scannedSerializable),
+              cutoff: _cutoff,
               savedAt: new Date().toISOString(), userEmail: email,
               userName: Auth.getName ? Auth.getName() : email, autoSaved: true,
             });
@@ -1884,6 +1907,7 @@ const Audit = (() => {
         nsCounts:   _nsCounts,
         lostSet:    [..._lostSet],
         missing:    missingSerials,
+        cutoff:     _cutoff,
         pausedAt:   new Date().toISOString(),
       });
       _reset();

@@ -167,6 +167,7 @@ const Inventory = (() => {
           testNotes,
           poNumber:  inMv?.poNumber  || DB.getSerialPO(serial) || '',
           cost:      DB.getSerialCost(serial),
+          receivedDate: inMv?.date || '',
         });
       });
     });

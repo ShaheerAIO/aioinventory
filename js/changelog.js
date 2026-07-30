@@ -4,6 +4,15 @@
  */
 var CHANGELOG = [
   {
+    version: 'v103',
+    date: '2026-07-30',
+    title: 'Stock Count — Received-Date Filter',
+    changes: [
+      { type: 'new', text: 'Stock Count setup now has a "Received on/before" date filter — pick a date and the count list only includes stock received up to that day, so untouched recent shipments (e.g. a whole room of new stock) can be left out of a physical count. Serials received after the cutoff still warn as "in stock but not in your count list" if scanned by mistake' },
+      { type: 'fixed', text: 'Variance report "Value at risk" now uses the true average unit cost of in-stock items — previously it divided the whole product\'s stock value by only the counted units, which inflated the figure when counting a subset' },
+    ],
+  },
+  {
     version: 'v102',
     date: '2026-07-15',
     title: 'Serial Rename Safety — No More Vanishing Units',
