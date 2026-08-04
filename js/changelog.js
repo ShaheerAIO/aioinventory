@@ -4,6 +4,14 @@
  */
 var CHANGELOG = [
   {
+    version: 'v104',
+    date: '2026-08-03',
+    title: 'Stock Count — Date Scope Visible Everywhere',
+    changes: [
+      { type: 'new', text: 'Counts done with a "Received on/before" date filter now show that date everywhere after the fact: the variance report header, the count history table, the historical report view, the missing-stock review modal, the active-count scope label, and the exported CSV. Previously there was no way to tell what date range a completed count had covered' },
+    ],
+  },
+  {
     version: 'v103',
     date: '2026-07-30',
     title: 'Stock Count — Received-Date Filter',

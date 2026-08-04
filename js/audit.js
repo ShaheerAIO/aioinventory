@@ -409,7 +409,7 @@ const Audit = (() => {
             ${r.completedAt ? new Date(r.completedAt).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : fmtDate(r.date)}<br>
             <span style="font-size:10px;">${r.completedAt ? new Date(r.completedAt).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) : ''}</span>
           </td>
-          <td style="font-size:12px">${_esc(r.scope)} ${r.locked ? '<span style="font-size:10px;font-weight:700;color:#1a7a3c;background:#eaf7ee;border:1px solid #b8e0c4;border-radius:3px;padding:1px 5px;margin-left:4px;">✅ LOCKED</span>' : ''}</td>
+          <td style="font-size:12px">${_esc(r.scope)} ${r.locked ? '<span style="font-size:10px;font-weight:700;color:#1a7a3c;background:#eaf7ee;border:1px solid #b8e0c4;border-radius:3px;padding:1px 5px;margin-left:4px;">✅ LOCKED</span>' : ''}${r.cutoffDate ? `<div style="font-size:10px;color:var(--text-muted);margin-top:2px;white-space:nowrap;">📅 received ≤ ${fmtDate(r.cutoffDate + 'T00:00:00')}</div>` : ''}</td>
           <td style="font-size:11px;color:var(--text-muted);">${_esc(r.completedBy || '—')}</td>
           <td>${r.expected}</td>
           <td style="color:#1a7a3c;font-weight:600">${r.matched}</td>
@@ -574,6 +574,7 @@ const Audit = (() => {
           <strong>${_esc(record.scope)}</strong>
           <span style="color:var(--text-muted);margin-left:8px;">${record.completedAt ? new Date(record.completedAt).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : fmtDate(record.date)}</span>
           ${record.completedBy ? `<span style="color:var(--text-muted);margin-left:8px;">by <strong>${_esc(record.completedBy)}</strong></span>` : ''}
+          ${record.cutoffDate ? `<span style="color:var(--text-muted);margin-left:8px;">· 📅 received ≤ <strong>${fmtDate(record.cutoffDate + 'T00:00:00')}</strong></span>` : ''}
           ${(record.writtenOffSerials||[]).length>0?`<span style="margin-left:8px;color:#9c2a00;">· ${(record.writtenOffSerials||[]).length} written off</span>`:''}
           ${(record.foundSerials||[]).length>0?`<span style="margin-left:8px;color:#1a7a3c;">· ${(record.foundSerials||[]).length} found</span>`:''}
           ${record.locked?`<span style="margin-left:10px;font-size:11px;font-weight:700;color:#1a7a3c;background:#eaf7ee;border:1px solid #b8e0c4;border-radius:4px;padding:2px 8px;">🔒 LOCKED${record.lockedBy?' · '+_esc(record.lockedBy):''}</span>`:''}
@@ -750,9 +751,9 @@ const Audit = (() => {
     document.getElementById('audit-report-panel').style.display = 'none';
     document.getElementById('audit-active-panel').style.display = '';
 
-    const scopeLabel = _countList.length === 1
+    const scopeLabel = (_countList.length === 1
       ? _countList[0].product + (_countList[0].location ? ' @ ' + _countList[0].location : '')
-      : `${_countList.length} products`;
+      : `${_countList.length} products`) + (_cutoff ? ' · received ≤ ' + fmtDate(_cutoff + 'T00:00:00') : '');
     const progressEl = document.getElementById('audit-progress-title');
     const scopeEl = document.getElementById('audit-scope-label');
     if (progressEl) progressEl.textContent = 'Resumed count';
@@ -841,7 +842,7 @@ const Audit = (() => {
           <span>⚠ Missing stock — ${_esc(record.scope)}</span>
           <button class="btn-remove-row" id="audit-review-close">×</button>
         </div>
-        <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">${fmtDate(record.date)} · ${totalPending > 0 ? `${totalPending} unit${totalPending!==1?'s':''} pending action` : 'All resolved'}</div>
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">${fmtDate(record.date)}${record.cutoffDate ? ' · 📅 received ≤ ' + fmtDate(record.cutoffDate + 'T00:00:00') : ''} · ${totalPending > 0 ? `${totalPending} unit${totalPending!==1?'s':''} pending action` : 'All resolved'}</div>
         ${nsHtml ? `<div style="margin-bottom:12px;"><div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">No-serial items (write off by quantity)</div>${nsHtml}</div>` : ''}
 
         ${pending.length > 0 ? `
@@ -1030,9 +1031,9 @@ const Audit = (() => {
     document.getElementById('audit-active-panel').style.display  = '';
     document.getElementById('audit-report-panel').style.display  = 'none';
 
-    const scopeLabel = _countList.length === 1
+    const scopeLabel = (_countList.length === 1
       ? _countList[0].product + (_countList[0].location ? ' @ ' + _countList[0].location : '')
-      : `${_countList.length} products`;
+      : `${_countList.length} products`) + (_cutoff ? ' · received ≤ ' + fmtDate(_cutoff + 'T00:00:00') : '');
     document.getElementById('audit-scope-label').textContent   = scopeLabel;
     document.getElementById('audit-progress-title').textContent = 'Count in progress';
 
@@ -1494,9 +1495,13 @@ const Audit = (() => {
   function _renderReport() {
     const { productReports, totalExpected, totalMatched, totalMissing, totalUnexpected,
             totalNsVariance, nsGroupsEntered, missingValue } = _report;
+    const cutoff = _report._historicalRecord ? (_report._historicalRecord.cutoffDate || '') : _cutoff;
 
     // Summary cards
     document.getElementById('audit-report-summary').innerHTML = `
+      ${cutoff ? `<div style="margin-bottom:12px;padding:8px 14px;background:var(--bg-hover);border:1px solid var(--border);border-radius:8px;font-size:13px;color:var(--text-muted);">
+        📅 Count scope: stock received on or before <strong>${fmtDate(cutoff + 'T00:00:00')}</strong> — stock received after this date was excluded from the count
+      </div>` : ''}
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
         <div class="svc-stat-card" style="background:#eaf7ee;border-color:#b8e0c4;color:#1a6b38;flex:1;min-width:110px;">
           <div class="svc-stat-count">${totalMatched}<span style="font-size:14px;font-weight:400;margin-left:4px;">/ ${totalExpected}</span></div>
@@ -1948,7 +1953,9 @@ const Audit = (() => {
   // ── export CSV ────────────────────────────────────────────────────────
   function _exportCSV() {
     if (!_report) return;
+    const cutoff = _report._historicalRecord ? (_report._historicalRecord.cutoffDate || '') : _cutoff;
     const rows = [['Product','Location','Type','Serial / Group','System Qty','Physical Qty','Variance','Result','Written Off']];
+    if (cutoff) rows.unshift(['Count scope: stock received on or before ' + fmtDate(cutoff + 'T00:00:00')]);
     _report.productReports.forEach(pr => {
       const item = pr.item;
       if (pr.type === 'ns') {
