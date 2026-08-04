@@ -4,6 +4,24 @@
  */
 var CHANGELOG = [
   {
+    version: 'v106',
+    date: '2026-08-04',
+    title: 'Database Capacity — Count History Gets Its Own Storage',
+    changes: [
+      { type: 'new', text: 'The inventory database was approaching Firestore\'s 1MB per-document limit, mostly due to completed stock counts (each stores a full serial-number snapshot for resume/replay). Count history can now be split into its own storage — one document per count — giving it effectively unlimited room. Admins: the yellow capacity banner now has a "Move count history to its own storage now" button; click it once, then ask everyone to refresh the app' },
+      { type: 'improved', text: 'The capacity warning now shows which data is using the space and reports the true main-database size. After the split, anything an old, un-refreshed tab writes back is automatically absorbed into the new storage' },
+    ],
+  },
+  {
+    version: 'v105',
+    date: '2026-08-04',
+    title: 'Stock Count — Completing a Count No Longer Duplicates It',
+    changes: [
+      { type: 'fixed', text: 'Completing a count now clears its auto-saved in-progress copy. Previously the finished count came back as a resumable "paused" count (banner + admin Active Counts panel), and completing that copy created a duplicate entry in Count History' },
+      { type: 'fixed', text: 'Resuming a completed count from history and finishing it now updates the original history record in place instead of adding a second one. Serials already written off on that count stay written off instead of reappearing as missing' },
+    ],
+  },
+  {
     version: 'v104',
     date: '2026-08-03',
     title: 'Stock Count — Date Scope Visible Everywhere',

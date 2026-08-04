@@ -16,6 +16,7 @@ const Audit = (() => {
   let _phase      = 1;    // 1=setup, 2=counting, 3=report
   let _report     = null;
   let _cutoff     = '';   // "received on/before" cutoff captured when the count starts
+  let _resumedFromId = null; // id of the completed history record this count was resumed from — complete updates it instead of adding a duplicate
 
   function _esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
   const fmt$ = n => n > 0 ? '$' + n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : '—';
@@ -179,6 +180,7 @@ const Audit = (() => {
     _nsCounts     = paused.nsCounts || {};
     _lostSet      = new Set(paused.lostSet || []);
     _cutoff       = paused.cutoff || '';
+    _resumedFromId = paused.resumedFromId || null;
     _phase        = 2;
 
     // Restore scanned sets (arrays → Sets)
@@ -447,7 +449,7 @@ const Audit = (() => {
           allRecs[ri].lockedBy = Auth.getName ? Auth.getName() : (Auth.getUser()?.email || 'Unknown');
           allRecs[ri].lockedAt = new Date().toISOString();
         }
-        DB.save();
+        DB.saveAuditRecord(allRecs[ri]);
         _renderHistory();
       });
     });
@@ -461,7 +463,7 @@ const Audit = (() => {
         if (!confirm(`Delete count record for "${rec.scope}"?\n\nThis removes the record only — no stock movements are affected.`)) return;
         const allRecs = DB.getAuditRecords();
         const ri = allRecs.findIndex(r => r.id === rec.id);
-        if (ri > -1) { allRecs.splice(ri, 1); DB.save(); }
+        if (ri > -1) DB.deleteAuditRecord(rec.id);
         _renderHistory();
       });
     });
@@ -602,7 +604,7 @@ const Audit = (() => {
     if (lockBtn) lockBtn.addEventListener('click', () => {
       if (!confirm(`Lock "${record.scope}" as fully resolved?\nNo further edits or write-offs will be possible.`)) return;
       const recs = DB.getAuditRecords(); const ri = recs.findIndex(r => r.id === record.id);
-      if (ri > -1) { recs[ri].locked = true; recs[ri].lockedBy = Auth.getName?Auth.getName():(Auth.getUser()?.email||'Unknown'); recs[ri].lockedAt = new Date().toISOString(); Object.assign(record, recs[ri]); DB.save(); }
+      if (ri > -1) { recs[ri].locked = true; recs[ri].lockedBy = Auth.getName?Auth.getName():(Auth.getUser()?.email||'Unknown'); recs[ri].lockedAt = new Date().toISOString(); Object.assign(record, recs[ri]); DB.saveAuditRecord(recs[ri]); }
       document.getElementById('audit-report-panel').style.display = 'none';
       document.getElementById('audit-setup-panel').style.display = '';
       _report = null; _renderHistory();
@@ -611,7 +613,7 @@ const Audit = (() => {
     if (unlockBtn) unlockBtn.addEventListener('click', () => {
       if (!confirm(`Unlock this count? Edits and write-offs will be possible again.`)) return;
       const recs = DB.getAuditRecords(); const ri = recs.findIndex(r => r.id === record.id);
-      if (ri > -1) { recs[ri].locked = false; recs[ri].lockedBy = null; recs[ri].lockedAt = null; Object.assign(record, recs[ri]); DB.save(); }
+      if (ri > -1) { recs[ri].locked = false; recs[ri].lockedBy = null; recs[ri].lockedAt = null; Object.assign(record, recs[ri]); DB.saveAuditRecord(recs[ri]); }
       document.getElementById('audit-report-panel').style.display = 'none';
       document.getElementById('audit-setup-panel').style.display = '';
       _report = null; _renderHistory();
@@ -703,7 +705,7 @@ const Audit = (() => {
     // Step 3: persist — movements via the append-safe path, audit record via save
     Object.assign(record, recs[ri]);
     DB.addMovements(newMovements);
-    DB.save();
+    DB.saveAuditRecord(recs[ri]);
 
     // Step 4: refresh report
     _viewHistoricalReport(record);
@@ -717,6 +719,7 @@ const Audit = (() => {
     _nsCounts  = Object.assign({}, record._nsCounts || {});
     _lostSet   = new Set(record.writtenOffSerials || []);
     _cutoff    = record.cutoffDate || '';
+    _resumedFromId = record.id;
     _phase     = 2;
 
     // Restore scanned state — exclude serials that have been written off
@@ -909,7 +912,7 @@ const Audit = (() => {
         if (!rec.foundSerials) rec.foundSerials = [];
         if (!rec.foundSerials.includes(serial)) rec.foundSerials.push(serial);
       }
-      DB.save();
+      DB.saveAuditRecord(rec);
       // Update record reference for next action
       Object.assign(record, rec);
     }
@@ -959,7 +962,7 @@ const Audit = (() => {
           allRecords[recIdx].missing = _nsTotal3 + _sm3;
           allRecords[recIdx].matched = allRecords[recIdx].expected - allRecords[recIdx].missing;
           Object.assign(record, allRecords[recIdx]);
-          DB.save();
+          DB.saveAuditRecord(allRecords[recIdx]);
         }
 
         // Refresh the modal
@@ -1015,6 +1018,7 @@ const Audit = (() => {
     _nsCounts = {};
     _lostSet  = new Set();
     _cutoff   = _cutoffDate();
+    _resumedFromId = null;
 
     // Init scan state per item
     _countList.forEach(item => {
@@ -1219,7 +1223,7 @@ const Audit = (() => {
     DB.savePausedAudit(email, {
       countList: _countList, scanned: scannedSerializable, nsCounts: _nsCounts,
       lostSet: [..._lostSet], missing: _getMissingFromState(_countList, scannedSerializable),
-      cutoff: _cutoff,
+      cutoff: _cutoff, resumedFromId: _resumedFromId,
       savedAt: new Date().toISOString(), userEmail: email,
       userName: Auth.getName ? Auth.getName() : email, autoSaved: true,
     });
@@ -1402,6 +1406,9 @@ const Audit = (() => {
     let missingValue  = 0;
     const allMissingSerials = [], allUnexpectedSerials = [];
 
+    // Serials already written off (from a resumed count) are accounted for — not missing again
+    const _woSet = new Set([..._lostSet].map(s => s.toUpperCase()));
+
     const productReports = _countList.map(item => {
       const k   = _key(item);
       const st  = _scanned[k];
@@ -1417,7 +1424,7 @@ const Audit = (() => {
         if (diff !== null && diff < 0) { totalMissing += Math.abs(diff); missingValue += short; }
         return { item, type:'ns', phys, diff, short };
       } else {
-        const missing  = item.systemSerials.filter(s => !st.matched.has(s.toUpperCase()));
+        const missing  = item.systemSerials.filter(s => !st.matched.has(s.toUpperCase()) && !_woSet.has(s.toUpperCase()));
         const matched  = [...st.matched];
         const unexp    = st.unexpected;
         const mVal     = missing.length * unitCost;
@@ -1461,7 +1468,7 @@ const Audit = (() => {
       _scannedSnapshot[k] = { matched: [...v.matched], unexpected: v.unexpected };
     });
 
-    DB.addAuditRecord({
+    const rec = {
       id: Date.now(), date: new Date().toISOString(),
       completedAt: new Date().toISOString(),
       completedBy: Auth.getName ? Auth.getName() : (Auth.getUser()?.email || 'Unknown'),
@@ -1470,12 +1477,12 @@ const Audit = (() => {
       cutoffDate: _cutoff || '',
       locF: '', catF: '', prodF: '',
       expected: totalExpected, matched: totalMatched, missing: totalMissing,
-      unexpected: totalUnexpected, lost: 0, missingValue,
+      unexpected: totalUnexpected, lost: _lostSet.size, missingValue,
       nsVariance: nsGroupsEntered > 0 ? totalNsVariance : null,
       missingSerials: allMissingSerials.map(r=>r.serial),
       matchedSerials: productReports.filter(pr=>pr.matched).flatMap(pr=>pr.matched),
       unexpectedSerials: allUnexpectedSerials.map(r=>r.serial),
-      writtenOffSerials: [],
+      writtenOffSerials: [..._lostSet],
       foundSerials: [],
       nsShortfalls,
       // Full snapshot for resume & report replay
@@ -1483,7 +1490,26 @@ const Audit = (() => {
       _scanned: _scannedSnapshot,
       _nsCounts: Object.assign({}, _nsCounts),
       completed: true,
-    });
+    };
+
+    // Resumed from an existing history record → update it in place (keep its id/date)
+    // instead of adding a second record for the same count.
+    const _recs = DB.getAuditRecords();
+    const _prevIdx = _resumedFromId != null ? _recs.findIndex(r => r.id === _resumedFromId) : -1;
+    if (_prevIdx > -1) {
+      rec.id   = _recs[_prevIdx].id;
+      rec.date = _recs[_prevIdx].date;
+      _recs[_prevIdx] = rec;
+      DB.saveAuditRecord(rec);
+    } else {
+      DB.addAuditRecord(rec);
+    }
+    _report._recordId = rec.id; // so live-report edits patch THIS record, not blindly the last one
+
+    // Clear the auto-saved in-progress copy — otherwise the finished count comes
+    // back as a resumable "paused" count and ends up completed twice.
+    const _ce = Auth.getUser()?.email;
+    if (_ce) DB.clearPausedAudit(_ce);
 
     _renderReport();
 
@@ -1675,7 +1701,7 @@ const Audit = (() => {
               st.unexpected = (st.unexpected||[]).filter(s => s.toUpperCase() !== serial.toUpperCase());
             });
             Object.assign(rec, recs[ri]);
-            DB.save();
+            DB.saveAuditRecord(recs[ri]);
           }
           _viewHistoricalReport(rec);
           return;
@@ -1689,13 +1715,13 @@ const Audit = (() => {
         });
         const records = DB.getAuditRecords();
         if (records.length) {
-          const last = records[records.length-1];
+          const last = records.find(r => r.id === _report?._recordId) || records[records.length-1];
           last.unexpectedSerials = (last.unexpectedSerials||[]).filter(s => s.toUpperCase() !== serial.toUpperCase());
           last.unexpected = last.unexpectedSerials.length;
           Object.values(last._scanned||{}).forEach(st => {
             st.unexpected = (st.unexpected||[]).filter(s => s.toUpperCase() !== serial.toUpperCase());
           });
-          DB.save();
+          DB.saveAuditRecord(last);
         }
       });
     });
@@ -1760,7 +1786,7 @@ const Audit = (() => {
             recs[ri].missing = _nsTotal + _serialMissing;
             recs[ri].matched = recs[ri].expected - recs[ri].missing;
             Object.assign(rec, recs[ri]);
-            DB.save();
+            DB.saveAuditRecord(recs[ri]);
           }
           // Refresh the historical report
           _viewHistoricalReport(rec);
@@ -1768,7 +1794,8 @@ const Audit = (() => {
           // Live report — update lostSet count and refresh
           if (!_lostSet) _lostSet = new Set();
           const records = DB.getAuditRecords();
-          if (records.length) { records[records.length-1].lost = (records[records.length-1].lost||0) + qty; DB.save(); }
+          const liveRec = records.find(r => r.id === _report?._recordId) || records[records.length-1];
+          if (liveRec) { liveRec.lost = (liveRec.lost||0) + qty; DB.saveAuditRecord(liveRec); }
           btn.textContent = `✓ ${qty} written off`;
           btn.disabled = true;
           btn.style.color = '#888';
@@ -1809,7 +1836,7 @@ const Audit = (() => {
     // Use the record linked to this report if viewing historical
     const _patchRec = _report?._historicalRecord
       ? records.find(r => r.id === _report._historicalRecord.id)
-      : records[records.length-1];
+      : (records.find(r => r.id === _report?._recordId) || records[records.length-1]);
     if (_patchRec) {
       if (!_patchRec.writtenOffSerials) _patchRec.writtenOffSerials = [];
       serials.forEach(s => {
@@ -1822,7 +1849,7 @@ const Audit = (() => {
       _patchRec.missing = (_patchRec.missingSerials||[]).filter(x => !_woSet2.has(x.toUpperCase()) && !_fSet2.has(x.toUpperCase())).length;
       _patchRec.matched = _patchRec.expected - _patchRec.missing;
       if (_report?._historicalRecord) Object.assign(_report._historicalRecord, _patchRec);
-      DB.save();
+      DB.saveAuditRecord(_patchRec);
     }
     // Clear auto-saved audit — count is complete
     const _ce = Auth.getUser()?.email; if (_ce) DB.clearPausedAudit(_ce);
@@ -1913,6 +1940,7 @@ const Audit = (() => {
         lostSet:    [..._lostSet],
         missing:    missingSerials,
         cutoff:     _cutoff,
+        resumedFromId: _resumedFromId,
         pausedAt:   new Date().toISOString(),
       });
       _reset();
@@ -1930,7 +1958,7 @@ const Audit = (() => {
     // Only clear the saved audit when explicitly cancelling/completing — NOT when pausing
     if (clearSaved) { const _re = Auth.getUser()?.email; if (_re) DB.clearPausedAudit(_re); }
     _countList = []; _scanned = {}; _nsCounts = {}; _lostSet = new Set();
-    _serialLookup = {}; _phase = 1; _report = null;
+    _serialLookup = {}; _phase = 1; _report = null; _resumedFromId = null;
     const logWrap = document.getElementById('audit-scan-log-wrap');
     if (logWrap) logWrap.style.display = 'none';
     const logEl = document.getElementById('audit-scan-log');

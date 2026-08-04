@@ -13,6 +13,17 @@ const DB_CONFIG = {
 const DB = (() => {
   let _pendingWrite = false;
   let _data  = { movements: [], thresholds: {}, shipments: [], serialCosts: {}, serialConditions: {}, customSuppliers: [], customLocations: [], orders: [], suppliers: [], productRecords: [], auditRecords: [], pendingUsers: {}, pendingDeployments: [], pausedAudits: {}, hubspotCompanyMap: {} };
+  // When main doc has `auditsSplit: true`, audit records live in the `audits`
+  // collection (one doc per count) instead of the auditRecords array — this is
+  // the escape hatch from the 1MB per-document limit. _data.auditRecords is
+  // still the in-memory home either way, so readers don't care.
+  let _auditsSplit = false;
+  let _auditsUnsub = null;
+
+  function _assignData(d) {
+    _auditsSplit = !!d.auditsSplit;
+    _data = { movements: d.movements||[], thresholds: d.thresholds||{}, shipments: d.shipments||[], serialCosts: d.serialCosts||{}, serialConditions: d.serialConditions||{}, purchaseOrders: d.purchaseOrders||{}, serialPOs: d.serialPOs||{}, customSuppliers: d.customSuppliers||[], customLocations: d.customLocations||[], orders: d.orders||[], suppliers: d.suppliers||[], productRecords: d.productRecords||[], auditRecords: _auditsSplit ? (_data.auditRecords||[]) : (d.auditRecords||[]), pendingUsers: d.pendingUsers||{}, pendingDeployments: d.pendingDeployments||[], pausedAudits: d.pausedAudits||{}, hubspotCompanyMap: d.hubspotCompanyMap||{} };
+  }
   let _db    = null;
   let _ready = false;
   let _onReadyCallbacks = [];
@@ -28,10 +39,14 @@ const DB = (() => {
       const docRef = doc(_db, 'inventory', 'main');
       const snap   = await getDoc(docRef);
       if (snap.exists()) {
-        const d = snap.data();
-        _data = { movements: d.movements||[], thresholds: d.thresholds||{}, shipments: d.shipments||[], serialCosts: d.serialCosts||{}, serialConditions: d.serialConditions||{}, purchaseOrders: d.purchaseOrders||{}, serialPOs: d.serialPOs||{}, customSuppliers: d.customSuppliers||[], customLocations: d.customLocations||[], orders: d.orders||[], suppliers: d.suppliers||[], productRecords: d.productRecords||[], auditRecords: d.auditRecords||[], pendingUsers: d.pendingUsers||{}, pendingDeployments: d.pendingDeployments||[], pausedAudits: d.pausedAudits||{}, hubspotCompanyMap: d.hubspotCompanyMap||{} };
+        _assignData(snap.data());
       } else {
         await setDoc(docRef, _data);
+      }
+      if (_auditsSplit) {
+        await _initAuditsSplit();
+        const d0 = snap.exists() ? snap.data() : {};
+        if (Array.isArray(d0.auditRecords) && d0.auditRecords.length) _sweepLegacyAudits(d0.auditRecords);
       }
 
       // Real-time listener — keeps all users in sync
@@ -39,12 +54,18 @@ const DB = (() => {
         if (!snap.exists()) return;
         if (_pendingWrite) return;
         const d = snap.data();
-        _data = { movements: d.movements||[], thresholds: d.thresholds||{}, shipments: d.shipments||[], serialCosts: d.serialCosts||{}, serialConditions: d.serialConditions||{}, purchaseOrders: d.purchaseOrders||{}, serialPOs: d.serialPOs||{}, customSuppliers: d.customSuppliers||[], customLocations: d.customLocations||[], orders: d.orders||[], suppliers: d.suppliers||[], productRecords: d.productRecords||[], auditRecords: d.auditRecords||[], pendingUsers: d.pendingUsers||{}, pendingDeployments: d.pendingDeployments||[], pausedAudits: d.pausedAudits||{}, hubspotCompanyMap: d.hubspotCompanyMap||{} };
+        const wasSplit = _auditsSplit;
+        _assignData(d);
+        if (_auditsSplit && !wasSplit) _initAuditsSplit(); // an admin ran the split while this tab was open
+        // An old-cache client wrote the auditRecords array back into main — absorb & remove it
+        if (_auditsSplit && Array.isArray(d.auditRecords) && d.auditRecords.length) _sweepLegacyAudits(d.auditRecords);
         if (typeof _currentView !== 'undefined') _refreshView();
       });
 
       _ready = true;
       _onReadyCallbacks.forEach(fn => fn());
+      // Surface the size warning on load (not just on save) so the admin sees the split button
+      if (typeof Auth !== 'undefined' && Auth.onReady) Auth.onReady(() => { const n = _mainSize(); if (n > 850000) _sizeBanner(n); });
       _walReplay(); // re-attempt any appends that never got server-confirmed last session
     } catch(err) {
       console.error('DB init error:', err);
@@ -165,12 +186,109 @@ const DB = (() => {
   async function _persist(fieldNames) {
     if (!_db) { _noDbFail(); return; }
     try {
-      const payload = JSON.stringify(_data);
-      if (payload.length > 850000) _sizeBanner(payload.length);
+      const len = _mainSize();
+      if (len > 850000) _sizeBanner(len);
       const { doc, updateDoc } = await import(FS_URL);
       const upd = {};
-      for (const k of fieldNames) if (_data[k] !== undefined) upd[k] = _data[k];
+      for (const k of fieldNames) {
+        if (_auditsSplit && k === 'auditRecords') continue; // records live in the audits collection now
+        if (_data[k] !== undefined) upd[k] = _data[k];
+      }
       await _guardedWrite(() => updateDoc(doc(_db, 'inventory', 'main'), upd));
+    } catch(e) { _writeFail(e); }
+  }
+
+  // What actually gets stored in inventory/main (excludes split-out audit records)
+  function _mainDocData() {
+    if (!_auditsSplit) return _data;
+    const copy = { ..._data, auditsSplit: true };
+    delete copy.auditRecords;
+    return copy;
+  }
+  function _mainSize() { try { return JSON.stringify(_mainDocData()).length; } catch(_) { return 0; } }
+
+  // ── Split audit records into their own collection (audits/<id>) ─────────
+  function _initAuditsSplit() {
+    if (_auditsUnsub) return Promise.resolve();
+    return new Promise(resolve => {
+      let first = true;
+      const done = () => { if (first) { first = false; resolve(); } };
+      import(FS_URL).then(({ collection, onSnapshot }) => {
+        _auditsUnsub = onSnapshot(collection(_db, 'audits'), snap => {
+          _data.auditRecords = snap.docs.map(x => x.data()).sort((a, b) => (a.id || 0) - (b.id || 0));
+          if (first) done();
+          else if (typeof _currentView !== 'undefined') _refreshView();
+        }, err => { console.error('[DB] audits listener error:', err); done(); });
+      }).catch(err => { console.error('[DB] audits listener failed to start:', err); done(); });
+    });
+  }
+
+  async function _writeAuditDocs(records) {
+    const { doc, writeBatch } = await import(FS_URL);
+    // Flush by count AND accumulated size — a batch is limited to 500 writes / ~10MiB
+    let b = writeBatch(_db), n = 0, bytes = 0;
+    for (const r of records) {
+      b.set(doc(_db, 'audits', String(r.id)), r);
+      n++; bytes += JSON.stringify(r).length;
+      if (n >= 100 || bytes > 2000000) { await b.commit(); b = writeBatch(_db); n = 0; bytes = 0; }
+    }
+    if (n > 0) await b.commit();
+  }
+
+  // One-time migration, run by an admin from the size banner (or console:
+  // DB.splitAudits()). Idempotent — safe to re-run.
+  async function splitAudits() {
+    if (!_db) throw new Error('Not connected to the server');
+    if (_auditsSplit) return _data.auditRecords.length;
+    const { doc, getDoc, updateDoc, deleteField } = await import(FS_URL);
+    // Fresh read so records added by other users since our last snapshot are included
+    const snap = await getDoc(doc(_db, 'inventory', 'main'));
+    const d = snap.exists() ? snap.data() : {};
+    const byId = new Map();
+    [...(d.auditRecords || []), ...(_data.auditRecords || [])].forEach((r, i) => {
+      if (!r) return;
+      if (r.id == null) r.id = (Date.parse(r.date) || 0) + i; // ancient record without an id — don't drop it
+      byId.set(String(r.id), r);
+    });
+    const recs = [...byId.values()].sort((a, b) => (a.id || 0) - (b.id || 0));
+    await _writeAuditDocs(recs);
+    await updateDoc(doc(_db, 'inventory', 'main'), { auditsSplit: true, auditRecords: deleteField() });
+    _auditsSplit = true;
+    _data.auditRecords = recs;
+    await _initAuditsSplit();
+    console.warn('[DB] split complete — ' + recs.length + ' count records moved to the audits collection; main doc is now ~' + Math.round(_mainSize() / 1024) + 'KB');
+    return recs.length;
+  }
+
+  // After the split, an old-cache tab's _save() can write the whole auditRecords
+  // array back into main. Absorb anything new by id, then delete the field again.
+  let _sweeping = false;
+  async function _sweepLegacyAudits(legacy) {
+    if (_sweeping || !Array.isArray(legacy) || !legacy.length) return;
+    _sweeping = true;
+    try {
+      const have = new Set((_data.auditRecords || []).map(r => String(r.id)));
+      const missing = legacy.filter(r => r && r.id != null && !have.has(String(r.id)));
+      if (missing.length) await _writeAuditDocs(missing);
+      const { doc, updateDoc, deleteField } = await import(FS_URL);
+      await updateDoc(doc(_db, 'inventory', 'main'), { auditRecords: deleteField() });
+      console.warn('[DB] swept ' + missing.length + ' legacy audit record(s) written by an old-version tab');
+    } catch(e) { console.error('[DB] audit sweep failed:', e); }
+    finally { _sweeping = false; }
+  }
+
+  async function _saveAuditDoc(record) {
+    if (!_db) { _noDbFail(); return; }
+    try {
+      const { doc, setDoc } = await import(FS_URL);
+      await _guardedWrite(() => setDoc(doc(_db, 'audits', String(record.id)), record));
+    } catch(e) { _writeFail(e); }
+  }
+  async function _deleteAuditDoc(id) {
+    if (!_db) { _noDbFail(); return; }
+    try {
+      const { doc, deleteDoc } = await import(FS_URL);
+      await _guardedWrite(() => deleteDoc(doc(_db, 'audits', String(id))));
     } catch(e) { _writeFail(e); }
   }
 
@@ -196,7 +314,7 @@ const DB = (() => {
     if (!_db) { _noDbFail(); return; }
     try {
       const { doc, setDoc } = await import(FS_URL);
-      await _guardedWrite(() => setDoc(doc(_db, 'inventory', 'main'), _data));
+      await _guardedWrite(() => setDoc(doc(_db, 'inventory', 'main'), _mainDocData()));
     } catch(e) { _writeFail(e); }
   }
 
@@ -222,7 +340,10 @@ const DB = (() => {
   function _sizeBanner(len) {
     if (typeof document === 'undefined') return;
     const kb = Math.round(len / 1024);
-    console.warn('[DB] inventory document is ~' + kb + 'KB — approaching the Firestore 1MB per-document limit.');
+    const byField = Object.entries(_mainDocData()).map(([k, v]) => [k, JSON.stringify(v).length]).sort((a, b) => b[1] - a[1]);
+    console.warn('[DB] inventory document is ~' + kb + 'KB — approaching the Firestore 1MB per-document limit. Size by field:',
+      Object.fromEntries(byField.map(([k, n]) => [k, Math.round(n / 1024) + 'KB'])));
+    const top = byField.slice(0, 3).map(([k, n]) => k + ' ' + Math.round(n / 1024) + 'KB').join(' · ');
     let el = document.getElementById('db-size-warn');
     if (!el) {
       el = document.createElement('div');
@@ -230,7 +351,27 @@ const DB = (() => {
       el.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99999;background:#8a6d00;color:#fff;padding:8px 18px;font:13px/1.4 system-ui,-apple-system,sans-serif;text-align:center;';
       document.body.appendChild(el);
     }
-    el.innerHTML = '⚠️ Inventory database is ~' + kb + 'KB of the 1024KB per-document limit. Approaching capacity — tell the admin to split the data before it stops saving.';
+    const canSplit = !_auditsSplit && typeof Auth !== 'undefined' && Auth.isAdmin && Auth.isAdmin();
+    el.innerHTML = '⚠️ Inventory database is ~' + kb + 'KB of the 1024KB per-document limit (' + _esc(top) + '). '
+      + (canSplit
+          ? '<button id="db-split-btn" style="margin-left:10px;padding:3px 12px;border:1px solid #fff;border-radius:5px;background:transparent;color:#fff;font:inherit;font-weight:700;cursor:pointer;">Move count history to its own storage now</button>'
+          : (_auditsSplit ? 'Count history is already split out — tell the admin.' : 'Approaching capacity — tell the admin to split the data before it stops saving.'));
+    const btn = document.getElementById('db-split-btn');
+    if (btn) btn.onclick = async () => {
+      btn.disabled = true; btn.textContent = 'Moving…';
+      try {
+        const n = await splitAudits();
+        const sz = _mainSize();
+        if (sz > 850000) { _sizeBanner(sz); }
+        else {
+          el.innerHTML = '✅ Moved ' + n + ' count record(s) to their own storage. Main database is now ~' + Math.round(sz / 1024) + 'KB. Ask everyone to refresh the app.';
+          setTimeout(() => el.remove(), 15000);
+        }
+      } catch(e) {
+        btn.disabled = false; btn.textContent = 'Move count history to its own storage now';
+        alert('Split failed: ' + (e && (e.message || e.code) || e));
+      }
+    };
   }
 
   function onReady(fn)          { if (_ready) fn(); else _onReadyCallbacks.push(fn); }
@@ -345,7 +486,16 @@ const DB = (() => {
   function getProductRecords()      { return _data.productRecords||[]; }
 
   function exportJSON()          { return JSON.stringify(_data, null, 2); }
-  function importJSON(str)       { const p=JSON.parse(str); if(!Array.isArray(p.movements)) throw new Error('Invalid format'); _data={shipments:[],serialCosts:{},purchaseOrders:{},hubspotCompanyMap:{},...p}; _persistFull(); }
+  function importJSON(str) {
+    const p=JSON.parse(str); if(!Array.isArray(p.movements)) throw new Error('Invalid format');
+    _data={shipments:[],serialCosts:{},purchaseOrders:{},hubspotCompanyMap:{},...p};
+    delete _data.auditsSplit; // storage-layout flag, not data — _mainDocData() re-adds it when split
+    if (_auditsSplit && (_data.auditRecords||[]).length) {
+      // Restore audit records into the collection (overwrites same ids; extra docs not in the backup are left alone)
+      _writeAuditDocs(_data.auditRecords).catch(e => _writeFail(e));
+    }
+    _persistFull();
+  }
 
   // ── Purchase Orders ────────────────────────────────────────────────────
   // poNumber -> { poNumber, supplier, date, lines: [{product, unitCost}] }
@@ -383,7 +533,9 @@ const DB = (() => {
   function getCustomSuppliers() { return _data.customSuppliers || []; }
   function getCustomLocations() { return _data.customLocations || []; }
 
-  function addAuditRecord(record)  { if(!_data.auditRecords) _data.auditRecords=[]; _data.auditRecords.push(record); _save(); }
+  function addAuditRecord(record)  { if(!_data.auditRecords) _data.auditRecords=[]; _data.auditRecords.push(record); if (_auditsSplit) _saveAuditDoc(record); else _save(); }
+  function saveAuditRecord(record) { if (!record || record.id == null) return; if (_auditsSplit) _saveAuditDoc(record); else _save(); }
+  function deleteAuditRecord(id)   { _data.auditRecords = (_data.auditRecords||[]).filter(r => String(r.id) !== String(id)); if (_auditsSplit) _deleteAuditDoc(id); else _save(); }
   function getAuditRecords()       { return _data.auditRecords || []; }
 
   // Paused audits — map keyed by user email, supports multiple concurrent users
@@ -472,7 +624,7 @@ const DB = (() => {
   }
 
   init();
-  return { onReady, getData, save:_save, addMovement, addMovements, setThreshold, getThreshold, addShipment, updateShipment, removeShipment, setSerialCost, getSerialCost, setProductCost, setHubspotCompanyId, getHubspotCompanyId, getHubspotCompanyMap, deleteSerial, renameSerial, updateSerialCondition, getSerialCondition, savePO, getPO, getAllPOs, getPONumbers, getPOUnitCost, setSerialPO, getSerialPO, addCustomSupplier, addCustomLocation, getCustomSuppliers, getCustomLocations, addOrder, updateOrder, removeOrder, getOrders, addSupplier, updateSupplier, removeSupplier, getSupplierRecords, addProductRecord, updateProductRecord, removeProductRecord, getProductRecords, addAuditRecord, getAuditRecords, setPendingUser, getPendingUser, removePendingUser, addPendingDeployment, getPendingDeployments, removePendingDeployment, updatePendingDeployment, savePausedAudit, getPausedAudit, getAllPausedAudits, clearPausedAudit, exportJSON, importJSON, uploadDocument, addDocumentToShipment, removeDocumentFromShipment, addDocumentToOrder };
+  return { onReady, getData, save:_save, addMovement, addMovements, setThreshold, getThreshold, addShipment, updateShipment, removeShipment, setSerialCost, getSerialCost, setProductCost, setHubspotCompanyId, getHubspotCompanyId, getHubspotCompanyMap, deleteSerial, renameSerial, updateSerialCondition, getSerialCondition, savePO, getPO, getAllPOs, getPONumbers, getPOUnitCost, setSerialPO, getSerialPO, addCustomSupplier, addCustomLocation, getCustomSuppliers, getCustomLocations, addOrder, updateOrder, removeOrder, getOrders, addSupplier, updateSupplier, removeSupplier, getSupplierRecords, addProductRecord, updateProductRecord, removeProductRecord, getProductRecords, addAuditRecord, saveAuditRecord, deleteAuditRecord, splitAudits, getAuditRecords, setPendingUser, getPendingUser, removePendingUser, addPendingDeployment, getPendingDeployments, removePendingDeployment, updatePendingDeployment, savePausedAudit, getPausedAudit, getAllPausedAudits, clearPausedAudit, exportJSON, importJSON, uploadDocument, addDocumentToShipment, removeDocumentFromShipment, addDocumentToOrder };
 })();
 
 let _currentView = 'dashboard';
