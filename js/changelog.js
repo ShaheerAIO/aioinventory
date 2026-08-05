@@ -6,9 +6,9 @@ var CHANGELOG = [
   {
     version: 'v106',
     date: '2026-08-04',
-    title: 'Database Capacity — Count History Gets Its Own Storage',
+    title: 'Database Capacity — Storage Split',
     changes: [
-      { type: 'new', text: 'The inventory database was approaching Firestore\'s 1MB per-document limit, mostly due to completed stock counts (each stores a full serial-number snapshot for resume/replay). Count history can now be split into its own storage — one document per count — giving it effectively unlimited room. Admins: the yellow capacity banner now has a "Move count history to its own storage now" button; click it once, then ask everyone to refresh the app' },
+      { type: 'new', text: 'The inventory database was approaching Firestore\'s 1MB per-document limit. The two biggest, ever-growing datasets can now be split into their own storage: the movements ledger moves to its own document and count history to one document per count (effectively unlimited room). Admins: the yellow capacity banner has a "Split the database now" button — one click migrates everything safely, then ask everyone to refresh the app' },
       { type: 'improved', text: 'The capacity warning now shows which data is using the space and reports the true main-database size. After the split, anything an old, un-refreshed tab writes back is automatically absorbed into the new storage' },
     ],
   },

@@ -69,7 +69,12 @@ async function runHubspotSync(hubspotToken) {
   const snap = await db.collection('inventory').doc('main').get();
   const data = snap.data() || {};
 
-  const movements = data.movements || [];
+  // After the storage split (movementsSplit flag) the ledger lives in its own doc
+  let movements = data.movements || [];
+  if (data.movementsSplit) {
+    const mvSnap = await db.collection('inventory').doc('movements').get();
+    movements = (mvSnap.data() || {}).movements || [];
+  }
   const serialCosts = data.serialCosts || {};
   const hubspotCompanyMap = data.hubspotCompanyMap || {};
   // pendingDeployments intentionally excluded — not committed movements yet.
