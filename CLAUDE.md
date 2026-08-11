@@ -28,6 +28,23 @@ Layered design:
 
 Views are sections `#v-<name>` in `index.html`; navigation buttons carry `data-view="<name>"` and `app.js` toggles visibility.
 
+**Cloud Functions (`functions/`)** — Node 20, `firebase-functions` v2, deployed separately from the
+static frontend (`firebase deploy --only functions`; the frontend is GitHub Pages).
+`hubspotNightlySync` (scheduled) and `hubspotSyncManual` (HTTP, shared-secret query param) push
+deployed-hardware rollups into HubSpot. `metrics` (HTTP, `X-Metrics-Key` header) is a read-only
+aggregate feed for the executive dashboard — stock/deployed/in-transit units and value, plus
+per-period received/deployed/RMA flows. Secrets are Firebase Secret Manager params
+(`defineSecret`): `HUBSPOT_TOKEN`, `MANUAL_TRIGGER_KEY`, `METRICS_KEY`. All three functions read
+inventory through `inventoryStats.js`.
+
+**`functions/inventoryStats.js` is the single server-side copy of the aggregation rules** —
+a reimplementation of `getAvailableSerials` / `getDeployedSerialRows` / `getDeployedByCustomer`
+from `js/inventory.js`, which can't be imported into a Cloud Function because it's a browser
+IIFE global. Both the HubSpot sync and the metrics endpoint use it. **If you change how stock or
+deployment is derived in `js/inventory.js`, change it here too** — nothing enforces this.
+It takes `db` as a parameter rather than importing `firebase-admin`, so it is unit-testable
+without Firebase.
+
 ## Key Files & Entry Points
 - `index.html` — single-page app shell: header/nav, all view templates (`#v-dashboard`, `#v-orders`, `#v-transit`, `#v-stock-list`, `#v-deployed`, `#v-stocktake`, `#v-reports`, `#v-lookup`, `#v-history`, etc.), and the ordered `<script>` tags. **The app entry point.**
 - `js/auth.js` — Firebase Auth + user-profile/role logic (`Auth`).
@@ -39,6 +56,9 @@ Views are sections `#v-<name>` in `index.html`; navigation buttons carry `data-v
 - `js/ui.js` — all DOM rendering (`UI`).
 - `js/audit.js` — physical stock-count workflow (`Audit`).
 - `js/changelog.js` — `CHANGELOG` array powering the "What's New" view; currently at `v101`.
+- `functions/index.js` — Cloud Function entry points (`hubspotNightlySync`, `hubspotSyncManual`, `metrics`).
+- `functions/inventoryStats.js` — shared server-side inventory aggregation (see above).
+- `functions/hubspotSync.js` — HubSpot company rollup logic.
 - `js/app.js` — boot, navigation, event wiring (IIFE, no exports).
 - `css/styles.v4.css` — the active stylesheet (referenced by `index.html`). `styles.css` and `styles.v2.css` are older/unused versions.
 - `logo.png` — app/login logo. `.nojekyll` — disables Jekyll for GitHub Pages.

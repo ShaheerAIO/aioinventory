@@ -36,3 +36,42 @@ exports.hubspotSyncManual = onRequest(
     }
   }
 );
+
+// ── Metrics feed for the executive dashboard ─────────────────────────────────
+// Read-only aggregates. Guarded by a shared secret in the X-Metrics-Key header
+// rather than a query param, so the key doesn't land in request logs.
+const METRICS_KEY = defineSecret('METRICS_KEY');
+const { loadInventory, computeMetrics } = require('./inventoryStats');
+
+exports.metrics = onRequest({ secrets: [METRICS_KEY], cors: false }, async (req, res) => {
+  const key = req.get('X-Metrics-Key') || '';
+  const expected = METRICS_KEY.value() || '';
+  // Fail closed — an unset secret rejects everything rather than opening up.
+  if (!expected || key !== expected) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+
+  const from = String(req.query.from || '');
+  const to = String(req.query.to || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
+    res.status(400).json({ error: 'from and to are required, as YYYY-MM-DD' });
+    return;
+  }
+  const fromMs = Date.parse(from + 'T00:00:00Z');
+  // `to` is inclusive, so extend to the end of that day.
+  const toMs = Date.parse(to + 'T00:00:00Z') + 86400000;
+  if (isNaN(fromMs) || isNaN(toMs) || fromMs >= toMs) {
+    res.status(400).json({ error: 'from must not be after to' });
+    return;
+  }
+
+  try {
+    const inv = await loadInventory(admin.firestore());
+    const m = computeMetrics(inv, fromMs, toMs);
+    res.json({ generatedAt: new Date().toISOString(), period: { from, to }, ...m });
+  } catch (e) {
+    console.error('metrics failed:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
