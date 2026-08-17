@@ -521,13 +521,21 @@ const DB = (() => {
 
   // Delete a serial from all movements (removes it from stock entirely)
   function deleteSerial(serial) {
-    const s = serial.toUpperCase();
+    return deleteSerials([serial]);
+  }
+
+  // Batch delete — same semantics as deleteSerial but one rewrite of the
+  // movements doc for the whole list (deleting N serials one by one would
+  // re-persist the entire ledger N times).
+  function deleteSerials(serials) {
+    if (!serials || !serials.length) return;
+    const kill = new Set(serials.map(s => s.toUpperCase()));
     _data.movements = _data.movements.map(mv => ({
       ...mv,
-      serials: mv.serials.filter(x => x.toUpperCase() !== s)
+      serials: mv.serials.filter(x => !kill.has(x.toUpperCase()))
     })).filter(mv => mv.serials.length > 0);
-    delete _data.serialCosts[s];
-    _persist([...SAVE_FIELDS, 'movements']);
+    kill.forEach(s => { delete _data.serialCosts[s]; });
+    return _persist([...SAVE_FIELDS, 'movements']);
   }
 
   // Rename a serial across all movements and cost records
@@ -732,7 +740,7 @@ const DB = (() => {
   }
 
   init();
-  return { onReady, getData, save:_save, addMovement, addMovements, setThreshold, getThreshold, addShipment, updateShipment, removeShipment, setSerialCost, getSerialCost, setProductCost, setHubspotCompanyId, getHubspotCompanyId, getHubspotCompanyMap, deleteSerial, renameSerial, updateSerialCondition, getSerialCondition, savePO, getPO, getAllPOs, getPONumbers, getPOUnitCost, setSerialPO, getSerialPO, addCustomSupplier, addCustomLocation, getCustomSuppliers, getCustomLocations, addOrder, updateOrder, removeOrder, getOrders, addSupplier, updateSupplier, removeSupplier, getSupplierRecords, addProductRecord, updateProductRecord, removeProductRecord, getProductRecords, addAuditRecord, saveAuditRecord, deleteAuditRecord, splitStorage, getAuditRecords, setPendingUser, getPendingUser, removePendingUser, addPendingDeployment, getPendingDeployments, removePendingDeployment, updatePendingDeployment, savePausedAudit, getPausedAudit, getAllPausedAudits, clearPausedAudit, exportJSON, importJSON, uploadDocument, addDocumentToShipment, removeDocumentFromShipment, addDocumentToOrder };
+  return { onReady, getData, save:_save, addMovement, addMovements, setThreshold, getThreshold, addShipment, updateShipment, removeShipment, setSerialCost, getSerialCost, setProductCost, setHubspotCompanyId, getHubspotCompanyId, getHubspotCompanyMap, deleteSerial, deleteSerials, renameSerial, updateSerialCondition, getSerialCondition, savePO, getPO, getAllPOs, getPONumbers, getPOUnitCost, setSerialPO, getSerialPO, addCustomSupplier, addCustomLocation, getCustomSuppliers, getCustomLocations, addOrder, updateOrder, removeOrder, getOrders, addSupplier, updateSupplier, removeSupplier, getSupplierRecords, addProductRecord, updateProductRecord, removeProductRecord, getProductRecords, addAuditRecord, saveAuditRecord, deleteAuditRecord, splitStorage, getAuditRecords, setPendingUser, getPendingUser, removePendingUser, addPendingDeployment, getPendingDeployments, removePendingDeployment, updatePendingDeployment, savePausedAudit, getPausedAudit, getAllPausedAudits, clearPausedAudit, exportJSON, importJSON, uploadDocument, addDocumentToShipment, removeDocumentFromShipment, addDocumentToOrder };
 })();
 
 let _currentView = 'dashboard';

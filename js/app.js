@@ -306,6 +306,19 @@
         }
       });
 
+      // Warn (don't block) when the same units look like they were already
+      // received as non-serialised — the serial-level guards can't catch this.
+      const _phLoc = document.getElementById('in-loc').value.trim();
+      const _phConflicts = Inventory.getPlaceholderConflicts(inRows, _phLoc);
+      if (_phConflicts.length > 0) {
+        const _phMsg = _phConflicts.map(c =>
+          `• ${c.product}: ${c.placeholders} non-serialised unit${c.placeholders!==1?'s':''} already in stock at ${c.location}, receiving ${c.incoming} serial${c.incoming!==1?'s':''} now`
+        ).join('\n');
+        if (!confirm(
+          `Possible double-count:\n\n${_phMsg}\n\nIf these are the same physical units, cancel and either receive them against the shipment (In Transit → Receive) or remove the non-serialised placeholders first. Continuing will count them twice.\n\nReceive anyway?`
+        )) return;
+      }
+
       Inventory.stockIn({
         supplier:   document.getElementById('in-supplier').value.trim(),
         location:   document.getElementById('in-loc').value.trim(),

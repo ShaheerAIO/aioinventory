@@ -448,6 +448,9 @@ const Inventory = (() => {
       );
     }
 
+    // Placeholder overlap is NOT blocked here — see getPlaceholderConflicts,
+    // which the Stock In form uses to warn before calling this.
+
     const poNumber = (receipt.poNumber || '').trim();
 
     products.forEach((p, i) => {
@@ -494,6 +497,26 @@ const Inventory = (() => {
         date: new Date().toISOString(),
       });
     });
+  }
+
+  // Real serials arriving for a product that still holds NS- placeholders at the
+  // same location usually means those units were already received as
+  // non-serialised (e.g. straight off a shipment) and are about to be counted
+  // twice. The duplicate guards in stockIn only compare exact serials, so they
+  // can't see this. Returns one entry per affected product row, [] if clean.
+  function getPlaceholderConflicts(products, location) {
+    if (!location) return [];
+    const map = getInventoryMap();
+    return (products || []).map(p => {
+      const incoming = (p.serials || []).filter(s => !s.toUpperCase().startsWith('NS-'));
+      if (incoming.length === 0) return null;
+      const v = map[p.product + '||' + location];
+      if (!v) return null;
+      const placeholders = [...v.inStock].filter(s => s.toUpperCase().startsWith('NS-')).length;
+      return placeholders > 0
+        ? { product: p.product, location, placeholders, incoming: incoming.length }
+        : null;
+    }).filter(Boolean);
   }
 
   // ── Shipments (In Transit) ────────────────────────────────────────────
@@ -1008,7 +1031,7 @@ const Inventory = (() => {
   }
 
     DB.onReady(() => refreshProducts());
-    return { getInventoryMap, getStockByProduct, getDeployedByProduct, getDeployedByCustomer, getCustomerDetail, getAllSerialRows, getDeployedSerialRows, getRmaTlDispatchedRows, getTotalLossRows, getAvailableSerials, getLowStockItems, getSerialInfo, getSerialKnownProduct, stockIn, createShipment, receiveShipment, receivePartialShipment, stockOut, stockOutByProduct, stagePendingDeployment, confirmDeployment, confirmDeployments, getPendingDeploymentSerials, getLocations, getSuppliers, getProducts, isSerialEditable, getCustomers, getStats, recallToServicing, createOrder, refreshProducts, CATEGORIES, PRODUCTS };
+    return { getInventoryMap, getStockByProduct, getDeployedByProduct, getDeployedByCustomer, getCustomerDetail, getAllSerialRows, getDeployedSerialRows, getRmaTlDispatchedRows, getTotalLossRows, getAvailableSerials, getLowStockItems, getSerialInfo, getSerialKnownProduct, stockIn, getPlaceholderConflicts, createShipment, receiveShipment, receivePartialShipment, stockOut, stockOutByProduct, stagePendingDeployment, confirmDeployment, confirmDeployments, getPendingDeploymentSerials, getLocations, getSuppliers, getProducts, isSerialEditable, getCustomers, getStats, recallToServicing, createOrder, refreshProducts, CATEGORIES, PRODUCTS };
 
   function createOrder(opts) {
     const { supplier, poNumber, expectedBy, products, taxRate, taxAmount, taxRef } = opts;

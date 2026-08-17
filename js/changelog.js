@@ -4,6 +4,14 @@
  */
 var CHANGELOG = [
   {
+    version: 'v107',
+    date: '2026-08-17',
+    title: 'Stock In — Double-Count Warning for Non-Serialised Stock',
+    changes: [
+      { type: 'fixed', text: 'Receiving serials for a product that already has non-serialised units in stock at the same location now warns before saving. This happens when a shipment is received without serials (creating placeholder units) and the real serials are later entered through Stock In — both sets counted, so the product showed roughly double. The existing duplicate checks only compared exact serial numbers, so they could not see it. The warning can be dismissed if the units genuinely are separate' },
+    ],
+  },
+  {
     version: 'v106',
     date: '2026-08-04',
     title: 'Database Capacity — Storage Split',
