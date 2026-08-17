@@ -513,7 +513,8 @@ const UI = (() => {
             <button class="btn btn-orange btn-xs" data-split-order="${o.id}" title="Register another partial shipment for remaining units">&#9986; Split Again</button>
             <button class="btn btn-ghost btn-xs" data-cancel-order="${o.id}">Cancel</button>` : ''}
             ${o.status === 'in-transit' ? `<button class="btn btn-success btn-xs" data-part-receive-order="${o.id}" title="Receive some or all units now, scan serials on arrival">&#9986; Receive Part</button>
-            <button class="btn btn-ghost btn-xs" data-full-receive-order="${o.id}" title="Receive all units from this shipment">Receive All</button>` : ''}
+            <button class="btn btn-ghost btn-xs" data-full-receive-order="${o.id}" title="Receive all units from this shipment">Receive All</button>
+            <button class="btn btn-orange btn-xs" data-close-order="${o.id}" title="Mark as delivered without adding stock &#8212; for units already entered into the system">&#10003; Already in Stock</button>` : ''}
           </div>
         </div>
         ${detailPanel}
@@ -559,6 +560,39 @@ const UI = (() => {
         if (s) showReceiveModal(s.id);
       });
     });
+    container.querySelectorAll('[data-close-order]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const orderId = parseInt(btn.dataset.closeOrder);
+        const order   = DB.getOrders().find(o => o.id === orderId);
+        if (!order) return;
+        const ships = DB.getData().shipments.filter(s =>
+          s.status === 'in-transit' &&
+          (s.orderId === orderId || (s.poNumber === order.poNumber && s.supplier === order.supplier))
+        );
+        if (!ships.length) { showAlert('No in-transit shipment found for this order.', 'error'); return; }
+        closeWithoutStock(ships, `${order.supplier || 'this order'} · ${order.poNumber || ''}`);
+      });
+    });
+  }
+
+  // Mark shipments delivered without writing any stock — for units that were
+  // already entered into the system by hand. Deliberately explicit, because the
+  // alternative (Receive) is what double-counts them.
+  function closeWithoutStock(shipments, label) {
+    const units = shipments.reduce((a, s) => a + s.products.reduce((b, p) => b + p.serials.length, 0), 0);
+    if (!confirm(
+      `Mark ${shipments.length > 1 ? shipments.length + ' shipments' : 'this shipment'} for ${label} as delivered?\n\n` +
+      `${units} unit${units!==1?'s':''} will be cleared from In Transit and NO stock will be added — use this only when the units are already in Stock Holding.\n\n` +
+      `To actually receive them into stock, cancel and use Receive Part / Receive All instead.`
+    )) return;
+    const by = (typeof Auth !== 'undefined' && Auth.getName) ? Auth.getName() : '';
+    try {
+      shipments.forEach(s => Inventory.closeShipmentWithoutStock(s.id, by));
+      renderOrderList();
+      renderTransitList();
+      renderDashboard();
+      showAlert(`${units} unit${units!==1?'s':''} cleared from In Transit — no stock added`, 'success');
+    } catch (err) { showAlert(err.message, 'error'); }
   }
 
   // ── In Transit ────────────────────────────────────────────────────────
@@ -592,6 +626,7 @@ const UI = (() => {
           </div>
           <div class="shipment-actions">
             <button class="btn btn-success btn-xs" data-receive="${s.id}">Receive</button>
+            <button class="btn btn-orange btn-xs" data-close-ship="${s.id}" title="Mark as delivered without adding stock — for units already entered into the system">✓ Already in Stock</button>
             <label class="btn btn-ghost btn-xs" style="cursor:pointer;" title="Attach document"><input type="file" data-upload-shipment="${s.id}" style="display:none;" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" />📎 Doc</label>
             <button class="btn btn-ghost btn-xs" data-cancel="${s.id}">Cancel</button>
           </div>
@@ -605,6 +640,13 @@ const UI = (() => {
 
     container.querySelectorAll('[data-receive]').forEach(btn => {
       btn.addEventListener('click', () => showReceiveModal(parseInt(btn.dataset.receive)));
+    });
+
+    container.querySelectorAll('[data-close-ship]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const s = DB.getData().shipments.find(x => x.id === parseInt(btn.dataset.closeShip));
+        if (s) closeWithoutStock([s], `${s.supplier || 'this shipment'}${s.poNumber ? ' · ' + s.poNumber : ''}`);
+      });
     });
     container.querySelectorAll('[data-cancel]').forEach(btn => {
       btn.addEventListener('click', () => {
@@ -969,7 +1011,9 @@ const UI = (() => {
             <div class="shipment-card-title">
               ${esc(s.supplier || 'Shipment')} → <span class="loc-badge">${esc(s.actualLocation || s.location || '?')}</span>
               ${s.poNumber ? `<span class="po-lock-badge">🔒 ${esc(s.poNumber)}</span>` : ''}
-              <span class="badge b-in" style="margin-left:6px;font-size:10px;">✓ Received</span>
+              ${s.receivedWithoutStock
+                ? `<span class="badge b-partial" style="margin-left:6px;font-size:10px;" title="Marked delivered without adding stock — the units were already in the system">✓ Delivered · no stock added</span>`
+                : `<span class="badge b-in" style="margin-left:6px;font-size:10px;">✓ Received</span>`}
             </div>
             <div class="shipment-card-meta">
               ${totalUnits} unit${totalUnits !== 1 ? 's' : ''} · ${s.products.length} product${s.products.length !== 1 ? 's' : ''}
@@ -1494,7 +1538,9 @@ Items will remain in Stock Holding with no customer attached.`)) return;
             <div class="shipment-card-title">
               ${esc(s.supplier || 'Shipment')} → <span class="loc-badge">${esc(s.actualLocation || s.location || '?')}</span>
               ${s.poNumber ? `<span class="po-lock-badge">🔒 ${esc(s.poNumber)}</span>` : ''}
-              <span class="badge b-in" style="margin-left:6px;font-size:10px;">✓ Received</span>
+              ${s.receivedWithoutStock
+                ? `<span class="badge b-partial" style="margin-left:6px;font-size:10px;" title="Marked delivered without adding stock — the units were already in the system">✓ Delivered · no stock added</span>`
+                : `<span class="badge b-in" style="margin-left:6px;font-size:10px;">✓ Received</span>`}
             </div>
             <div class="shipment-card-meta">
               ${totalUnits} unit${totalUnits !== 1 ? 's' : ''} · ${s.products.length} product${s.products.length !== 1 ? 's' : ''}

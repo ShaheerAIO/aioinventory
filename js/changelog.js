@@ -4,6 +4,15 @@
  */
 var CHANGELOG = [
   {
+    version: 'v108',
+    date: '2026-08-17',
+    title: 'In Transit — Close a Delivery Without Adding Stock',
+    changes: [
+      { type: 'new', text: 'New "✓ Already in Stock" action on in-transit shipments and on in-transit purchase orders. It clears the shipment from In Transit and marks the order received without creating any stock — for deliveries that arrived a while ago and were already entered into the system by hand. Previously the only options were Receive (which added the units a second time, showing the product as double) or Cancel (which erased the shipment record)' },
+      { type: 'improved', text: 'Shipment History labels these as "Delivered · no stock added" so they are not mistaken for a normal receipt' },
+    ],
+  },
+  {
     version: 'v107',
     date: '2026-08-17',
     title: 'Stock In — Double-Count Warning for Non-Serialised Stock',

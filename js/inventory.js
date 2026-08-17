@@ -664,6 +664,33 @@ const Inventory = (() => {
 
 
   // ── Partial Receive ───────────────────────────────────────────────────
+  // Close an in-transit shipment as received WITHOUT creating any stock, for
+  // deliveries whose units were already entered by hand. The shipment record and
+  // its unit counts are kept for history (and flagged), but no IN movements are
+  // written, so nothing is counted twice. The linked order is only marked
+  // received once no other in-transit shipment is left against it.
+  function closeShipmentWithoutStock(id, by) {
+    const shipment = DB.getData().shipments.find(s => s.id === id);
+    if (!shipment) throw new Error('Shipment not found.');
+    if (shipment.status !== 'in-transit') throw new Error('This shipment is not in transit.');
+    const now = new Date().toISOString();
+    DB.updateShipment(id, {
+      status: 'received', receivedAt: now, receivedBy: by || '',
+      receivedWithoutStock: true,
+    });
+    const order = shipment.orderId
+      ? DB.getOrders().find(o => o.id === shipment.orderId)
+      : DB.getOrders().find(o => o.poNumber === shipment.poNumber);
+    if (order) {
+      const stillInTransit = DB.getData().shipments.some(s =>
+        s.status === 'in-transit' &&
+        (s.orderId === order.id || (s.poNumber === order.poNumber && s.supplier === order.supplier))
+      );
+      if (!stillInTransit) DB.updateOrder(order.id, { status: 'received', receivedAt: now, receivedWithoutStock: true });
+    }
+    return shipment;
+  }
+
   // Receive a subset of units from an in-transit shipment.
   // parts = [{product, category, serials: string[], qty: number}]
   //   serials: user-scanned real serials (replaces NS- placeholders)
@@ -1031,7 +1058,7 @@ const Inventory = (() => {
   }
 
     DB.onReady(() => refreshProducts());
-    return { getInventoryMap, getStockByProduct, getDeployedByProduct, getDeployedByCustomer, getCustomerDetail, getAllSerialRows, getDeployedSerialRows, getRmaTlDispatchedRows, getTotalLossRows, getAvailableSerials, getLowStockItems, getSerialInfo, getSerialKnownProduct, stockIn, getPlaceholderConflicts, createShipment, receiveShipment, receivePartialShipment, stockOut, stockOutByProduct, stagePendingDeployment, confirmDeployment, confirmDeployments, getPendingDeploymentSerials, getLocations, getSuppliers, getProducts, isSerialEditable, getCustomers, getStats, recallToServicing, createOrder, refreshProducts, CATEGORIES, PRODUCTS };
+    return { getInventoryMap, getStockByProduct, getDeployedByProduct, getDeployedByCustomer, getCustomerDetail, getAllSerialRows, getDeployedSerialRows, getRmaTlDispatchedRows, getTotalLossRows, getAvailableSerials, getLowStockItems, getSerialInfo, getSerialKnownProduct, stockIn, getPlaceholderConflicts, createShipment, receiveShipment, receivePartialShipment, closeShipmentWithoutStock, stockOut, stockOutByProduct, stagePendingDeployment, confirmDeployment, confirmDeployments, getPendingDeploymentSerials, getLocations, getSuppliers, getProducts, isSerialEditable, getCustomers, getStats, recallToServicing, createOrder, refreshProducts, CATEGORIES, PRODUCTS };
 
   function createOrder(opts) {
     const { supplier, poNumber, expectedBy, products, taxRate, taxAmount, taxRef } = opts;
