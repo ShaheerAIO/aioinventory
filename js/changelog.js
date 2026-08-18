@@ -4,6 +4,19 @@
  */
 var CHANGELOG = [
   {
+    version: 'v109',
+    date: '2026-08-18',
+    title: 'Move Stock Between Warehouses',
+    changes: [
+      { type: 'new', text: 'Stock can now be moved between warehouses, with a dispatch and receive protocol like a supplier shipment. In Stock Holding, tick items and hit "⇄ Dispatch selected" — or filter by location and use "⇄ Dispatch all N units at <location>" to move a whole warehouse. The units leave stock at the source immediately and sit in flight until they land' },
+      { type: 'new', text: 'In Transit has a new "⇄ Warehouse transfers in flight" panel. Receive the whole load, or "Receive part…" to tick off only what actually turned up on the truck — the rest stays in flight until it arrives. "✕ Cancel" puts the remaining units back into stock at the source warehouse' },
+      { type: 'new', text: 'For a move that already happened before anyone recorded it, tick "Already arrived" in the dispatch box and it is dispatched and received in one step, with both legs still logged' },
+      { type: 'improved', text: 'Nothing gets lost or double-counted in flight: units on a truck are counted as In Transit (not Stock Holding, not Deployed), cannot be dispatched, deployed or received a second time, and are left out of stock counts so an audit at either warehouse is not thrown off' },
+      { type: 'improved', text: 'A unit keeps its condition, cost, PO link, test details and original received date across a move, so a transfer never resets a unit\'s age or makes a faulty unit look like new stock. A reorder threshold set at the old warehouse is carried over to the new one' },
+      { type: 'improved', text: 'Transfers are counted separately from receipts and dispatches everywhere — History (new "⇄ Transfers" filter), the dashboard totals, Stock Deployed, the accountant exports and the executive dashboard feed. Moving stock between warehouses never looks like a customer deployment' },
+    ],
+  },
+  {
     version: 'v108',
     date: '2026-08-17',
     title: 'In Transit — Close a Delivery Without Adding Stock',

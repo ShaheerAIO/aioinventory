@@ -1360,7 +1360,7 @@
     if (view === 'products')   UI.renderProductList();
     if (view === 'suppliers')  UI.renderSupplierList();
     if (view === 'orders')     { UI.populateDataLists(); if (!ordRows.length) ordRows=[newOrdRow()]; renderOrdRows(); UI.renderOrderList(); }
-    if (view === 'transit')    { UI.populateDataLists(); if (!trRows.length) trRows=[newTrRow()]; renderTrRows(); UI.renderTransitList(); }
+    if (view === 'transit')    { UI.populateDataLists(); if (!trRows.length) trRows=[newTrRow()]; renderTrRows(); UI.renderTransferList(); UI.renderTransitList(); }
     if (view === 'stock-list') { UI.populateStockListFilters(); UI.renderStockBreakdown(); UI.renderStockList(); }
     if (view === 'deployed')   { UI.populateDeployedFilters(); UI.renderDeployed(); }
     if (view === 'servicing')  UI.renderServicing();

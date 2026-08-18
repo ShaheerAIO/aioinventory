@@ -167,10 +167,33 @@ const Inventory = (() => {
           testNotes,
           poNumber:  inMv?.poNumber  || DB.getSerialPO(serial) || '',
           cost:      DB.getSerialCost(serial),
-          receivedDate: inMv?.date || '',
+          receivedDate: inMv?.receivedDate || inMv?.date || '',
         });
       });
     });
+    // Units in flight between two warehouses — out of stock at the source, not
+    // yet stock at the destination. Filed under the destination, as an inbound
+    // supplier shipment is.
+    getInFlightTransfers().forEach(t => {
+      const inFlight = new Set(_inFlightSerials(t));
+      (t.products || []).forEach(p => {
+        p.serials.filter(sn => inFlight.has(sn.toUpperCase())).forEach(serial => {
+          rows.push({
+            serial,
+            product:      p.product,
+            category:     p.category,
+            location:     t.to || '',
+            status:       'in-transit',
+            condition:    '',
+            transferId:   t.id,
+            transferFrom: t.from || '',
+            poNumber:     DB.getSerialPO(serial) || '',
+            cost:         DB.getSerialCost(serial),
+          });
+        });
+      });
+    });
+
     // Also add in-transit serials
     DB.getData().shipments.filter(s => s.status === 'in-transit').forEach(s => {
       s.products.forEach(p => {
@@ -199,7 +222,7 @@ const Inventory = (() => {
     // Build a map: serial -> last OUT movement
     const lastOut = {};
     movements.forEach(mv => {
-      if (mv.type === 'OUT' && !mv.isRmaTl) {
+      if (mv.type === 'OUT' && !mv.isRmaTl && !mv.isTransfer) {
         mv.serials.forEach(s => {
           lastOut[s] = { ...mv };
         });
@@ -299,7 +322,20 @@ const Inventory = (() => {
       });
     });
 
+    // On a truck between warehouses. The dispatch leg is an OUT, so this has to
+    // override the 'dispatched' status the movements loop above set.
+    let transferInFlight = null;
+    getInFlightTransfers().forEach(t => {
+      const inFlight = new Set(_inFlightSerials(t));
+      if (!inFlight.has(s)) return;
+      const p = (t.products || []).find(pr => pr.serials.map(x => x.toUpperCase()).includes(s));
+      status = 'in-transit'; currentLocation = t.to || null;
+      if (p) { currentProduct = p.product; currentCategory = p.category; }
+      transferInFlight = { id: t.id, from: t.from || '', to: t.to || '', dispatchedAt: t.dispatchedAt || '', by: t.by || '', ref: t.ref || '', expectedBy: t.expectedBy || '' };
+    });
+
     const result = { serial: s, history, status, currentProduct, currentLocation, currentCategory };
+    if (transferInFlight) result.transferInFlight = transferInFlight;
 
     // Pending deployment — a staged serial is still physically in stock, so this
     // coexists with the in-stock status.
@@ -386,7 +422,7 @@ const Inventory = (() => {
     const timeline = [];
     const everHere = {};                    // serial -> the OUT movement that put it here
     movements.forEach(mv => {
-      if (mv.type === 'OUT' && !mv.isRmaTl && (mv.customer || '(no customer)') === customer) {
+      if (mv.type === 'OUT' && !mv.isRmaTl && !mv.isTransfer && (mv.customer || '(no customer)') === customer) {
         timeline.push({ date: mv.date, product: mv.product, count: mv.serials.length, by: mv.by || '', ref: mv.ref || '', serials: mv.serials });
         mv.serials.forEach(s => { everHere[s] = mv; });
       }
@@ -440,6 +476,7 @@ const Inventory = (() => {
     DB.getData().shipments.filter(s => s.status === 'in-transit').forEach(s => {
       s.products.forEach(p => p.serials.forEach(s => inTransitSerials.add(s.toUpperCase())));
     });
+    getTransferInFlightSerials().forEach(s => inTransitSerials.add(s));
     const transitDups = realIncoming.filter(({ serial }) => inTransitSerials.has(serial));
     if (transitDups.length > 0) {
       throw new Error(
@@ -558,6 +595,7 @@ const Inventory = (() => {
     DB.getData().shipments.filter(s => s.status === 'in-transit').forEach(s => {
       s.products.forEach(p => p.serials.forEach(s => inTransitSerials.add(s.toUpperCase())));
     });
+    getTransferInFlightSerials().forEach(s => inTransitSerials.add(s));
     const transitDups = realIncoming.filter(s => inTransitSerials.has(s));
     if (transitDups.length > 0) {
       throw new Error(
@@ -881,6 +919,272 @@ const Inventory = (() => {
       });
     });
   }
+
+  // ── Warehouse transfers (dispatch → receive) ──────────────────────────
+  // Moving stock between warehouses is two steps, because a truck takes time:
+  //
+  //   dispatchTransfer()  the load leaves the source — an OUT leg per product
+  //                       bucket plus a transfer record holding the manifest. The
+  //                       units are now in flight: no longer stock at the source,
+  //                       not yet stock at the destination.
+  //   receiveTransfer()   the load lands — an IN leg at the destination. Can be
+  //                       called with a subset for a part-load; the rest stays in
+  //                       flight until it arrives.
+  //   cancelTransfer()    the load came back / never left — IN legs at the SOURCE,
+  //                       putting the stock back exactly as it was.
+  //
+  // Every leg is flagged isTransfer so nothing reads it as a supplier receipt or a
+  // customer dispatch (getDeployedSerialRows, getStats, getCustomerDetail and the
+  // server-side copies in functions/inventoryStats.js all skip them).
+
+  // Transfer ids. A multi-source dispatch creates several records inside the same
+  // millisecond, so the timestamp alone is not unique — hence the counter.
+  let _transferSeq = 0;
+  function _newTransferId() { return `TR-${Date.now()}-${++_transferSeq}`; }
+
+  // Serials on a transfer that have not been received yet.
+  function _inFlightSerials(t) {
+    const received = new Set((t.receivedSerials || []).map(s => s.toUpperCase()));
+    return (t.products || []).flatMap(p => p.serials).map(s => s.toUpperCase()).filter(s => !received.has(s));
+  }
+
+  function getInFlightTransfers() {
+    return DB.getTransfers().filter(t => t.status === 'in-transit');
+  }
+
+  // Every serial currently on a truck between two warehouses.
+  function getTransferInFlightSerials() {
+    const set = new Set();
+    getInFlightTransfers().forEach(t => _inFlightSerials(t).forEach(s => set.add(s)));
+    return set;
+  }
+
+  function _latestInMovements() {
+    const originIn = {};
+    DB.getData().movements.forEach(mv => {
+      if (mv.type === 'IN') mv.serials.forEach(s => { originIn[s.toUpperCase()] = mv; });
+    });
+    return originIn;
+  }
+
+  // The provenance fields getAllSerialRows reads off a serial's latest IN
+  // movement. Carried across a transfer so a move never resets a unit's
+  // condition, its stock age (audit cut-off dates use it) or its PO link.
+  function _serialProvenance(serial, originIn) {
+    const o = originIn[serial.toUpperCase()] || {};
+    return {
+      supplier:     o.supplier || '',
+      condition:    o.condition || '',
+      used:         o.used === true || o.condition === 'used',
+      testedBy:     o.testedBy || '',
+      testedAt:     o.testedAt || '',
+      testNotes:    o.testNotes || '',
+      poNumber:     o.poNumber || DB.getSerialPO(serial) || '',
+      receivedDate: o.receivedDate || o.date || '',
+    };
+  }
+
+  // One IN movement per (product, distinct provenance) — a single movement cannot
+  // express two different conditions or received dates.
+  function _transferInMovements(o) {
+    const originIn = _latestInMovements();
+    const groups = {};
+    o.serials.forEach(sn => {
+      const prov = _serialProvenance(sn, originIn);
+      const k = JSON.stringify(prov);
+      if (!groups[k]) groups[k] = { prov, serials: [] };
+      groups[k].serials.push(sn.toUpperCase());
+    });
+    const now = new Date().toISOString();
+    return Object.values(groups).map(({ prov, serials }) => ({
+      id: Date.now() + Math.random(),
+      type: 'IN',
+      product: o.product, category: o.category, location: o.location,
+      ...prov,
+      receivedBy: o.by || '',
+      ref: o.ref || '',
+      isTransfer: true, transferFrom: o.transferFrom, transferId: o.transferId,
+      ...(o.cancelled ? { transferCancelled: true } : {}),
+      serials,
+      date: now,
+    }));
+  }
+
+  // Step 1 — the load leaves. Pass receiveNow for stock that has already arrived
+  // (a move being recorded after the fact): it is dispatched and received in one
+  // go, so the two-step trail still exists.
+  function dispatchTransfer(opts) {
+    const { serials, toLocation, by, ref, expectedBy, receiveNow } = opts;
+    const dest = (toLocation || '').trim();
+    if (!dest) throw new Error('Destination location is required.');
+    if (!serials || serials.length === 0) throw new Error('Select at least one item to transfer.');
+
+    const list = [...new Set(serials.map(s => s.trim().toUpperCase()).filter(Boolean))];
+
+    const avail = getAvailableSerials();
+    const notInStock = list.filter(s => !avail.has(s));
+    if (notInStock.length > 0)
+      throw new Error('Cannot dispatch — not in Stock Holding: ' + notInStock.join(', '));
+
+    // A staged deployment records the location it was staged from, so moving the
+    // unit out from under it would leave the two disagreeing.
+    const staged = getPendingDeploymentSerials();
+    const stagedHits = list.filter(s => staged.has(s));
+    if (stagedHits.length > 0)
+      throw new Error(
+        `Cannot dispatch — ${stagedHits.length} item${stagedHits.length > 1 ? 's are' : ' is'} staged for deployment ` +
+        `(${stagedHits.slice(0, 5).join(', ')}${stagedHits.length > 5 ? '…' : ''}). ` +
+        'Confirm or cancel the pending deployment first.'
+      );
+
+    // Group by source bucket (product + location), as stockOut does
+    const map = getInventoryMap();
+    const groups = {};
+    list.forEach(sn => {
+      Object.values(map).forEach(v => {
+        if (v.inStock.has(sn)) {
+          const k = v.product + '||' + v.location;
+          if (!groups[k]) groups[k] = { product: v.product, category: v.category, location: v.location, serials: [] };
+          groups[k].serials.push(sn);
+        }
+      });
+    });
+
+    const moving = Object.values(groups).filter(g => g.location !== dest);
+    if (moving.length === 0) throw new Error(`Everything selected is already at ${dest}.`);
+
+    // One record per source location, so a transfer always reads "A → B"
+    const bySource = {};
+    moving.forEach(g => { (bySource[g.location] = bySource[g.location] || []).push(g); });
+
+    const now     = new Date().toISOString();
+    const created = [];
+
+    Object.entries(bySource).forEach(([from, gs]) => {
+      const id = _newTransferId();
+
+      DB.addMovements(gs.map(g => ({
+        id: Date.now() + Math.random(),
+        type: 'OUT',
+        product: g.product, category: g.category, location: from,
+        customer: '', by: by || '', ref: ref || '',
+        isTransfer: true, transferTo: dest, transferId: id,
+        serials: [...g.serials],
+        date: now,
+      })));
+
+      const record = {
+        id,
+        from, to: dest,
+        status: 'in-transit',
+        by: by || '', ref: ref || '',
+        expectedBy: expectedBy || '',
+        dispatchedAt: now,
+        products: gs.map(g => ({ product: g.product, category: g.category, serials: [...g.serials] })),
+        receivedSerials: [],
+      };
+      DB.addTransfer(record);
+      created.push(record);
+    });
+
+    if (!DB.getCustomLocations().includes(dest)) DB.addCustomLocation(dest);
+
+    if (receiveNow) created.forEach(t => receiveTransfer(t.id, { by }));
+
+    return {
+      transfers: created,
+      units: moving.reduce((a, g) => a + g.serials.length, 0),
+      skipped: list.length - moving.reduce((a, g) => a + g.serials.length, 0),  // already at the destination
+      from: Object.keys(bySource),
+      to: dest,
+      received: !!receiveNow,
+    };
+  }
+
+  // Step 2 — the load lands. Omit opts.serials to receive everything still in
+  // flight; pass a subset for a part-load.
+  function receiveTransfer(transferId, opts = {}) {
+    const t = DB.getTransfers().find(x => x.id === transferId);
+    if (!t) throw new Error('Transfer not found.');
+    if (t.status !== 'in-transit') throw new Error('This transfer is not in flight.');
+
+    const dest = (opts.actualLocation || t.to || '').trim();
+    if (!dest) throw new Error('Receiving location is required.');
+
+    const inFlight = _inFlightSerials(t);
+    const landing  = opts.serials && opts.serials.length
+      ? [...new Set(opts.serials.map(s => s.trim().toUpperCase()))]
+      : inFlight;
+    if (!landing.length) throw new Error('Select at least one unit to receive.');
+    const notInFlight = landing.filter(s => !inFlight.includes(s));
+    if (notInFlight.length > 0)
+      throw new Error('Not in flight on this transfer: ' + notInFlight.join(', '));
+
+    const landingSet = new Set(landing);
+    const moves = [];
+    const thresholds = DB.getData().thresholds || {};
+    (t.products || []).forEach(p => {
+      const batch = p.serials.filter(sn => landingSet.has(sn.toUpperCase()));
+      if (!batch.length) return;
+      moves.push(..._transferInMovements({
+        serials: batch, product: p.product, category: p.category, location: dest,
+        transferFrom: t.from, by: opts.by, ref: t.ref, transferId: t.id,
+      }));
+      // Carry an explicitly set reorder threshold over to the new location
+      const srcKey = p.product + '||' + t.from;
+      const dstKey = p.product + '||' + dest;
+      if (thresholds[srcKey] !== undefined && thresholds[dstKey] === undefined)
+        DB.setThreshold(dstKey, thresholds[srcKey]);
+    });
+    DB.addMovements(moves);
+
+    const receivedSerials = [...(t.receivedSerials || []), ...landing];
+    const remaining = _inFlightSerials({ ...t, receivedSerials }).length;
+    const at = new Date().toISOString();
+    DB.updateTransfer(t.id, {
+      receivedSerials,
+      receiptLog: [...(t.receiptLog || []), { at, by: opts.by || '', units: landing.length, location: dest }],
+      ...(dest !== t.to ? { actualLocation: dest } : {}),
+      ...(remaining === 0 ? { status: 'received', receivedAt: at, receivedBy: opts.by || '' } : {}),
+    });
+    if (!DB.getCustomLocations().includes(dest)) DB.addCustomLocation(dest);
+
+    return { received: landing.length, remaining, complete: remaining === 0, to: dest };
+  }
+
+  // The load came back, or never actually left — put the in-flight units back at
+  // the source. Anything already received at the destination stays there.
+  function cancelTransfer(transferId, opts = {}) {
+    const t = DB.getTransfers().find(x => x.id === transferId);
+    if (!t) throw new Error('Transfer not found.');
+    if (t.status !== 'in-transit') throw new Error('This transfer is not in flight.');
+
+    const inFlight = _inFlightSerials(t);
+    if (!inFlight.length) throw new Error('Nothing left in flight on this transfer.');
+
+    const set   = new Set(inFlight);
+    const moves = [];
+    (t.products || []).forEach(p => {
+      const batch = p.serials.filter(sn => set.has(sn.toUpperCase()));
+      if (!batch.length) return;
+      moves.push(..._transferInMovements({
+        serials: batch, product: p.product, category: p.category, location: t.from,
+        transferFrom: t.to, by: opts.by, transferId: t.id, cancelled: true,
+        ref: 'Transfer cancelled' + (t.ref ? ' · ' + t.ref : ''),
+      }));
+    });
+    DB.addMovements(moves);
+
+    DB.updateTransfer(t.id, {
+      status: 'cancelled',
+      cancelledAt: new Date().toISOString(),
+      cancelledBy: opts.by || '',
+      returnedSerials: inFlight,
+    });
+
+    return { returned: inFlight.length, to: t.from };
+  }
+
   function getLocations() {
     const fromData = [...DB.getData().movements.map(m => m.location), ...DB.getData().shipments.map(s => s.location)].filter(Boolean);
     return [...new Set([...fromData, ...DB.getCustomLocations()])].sort();
@@ -901,10 +1205,11 @@ const Inventory = (() => {
     const { movements, shipments } = DB.getData();
     const map   = getInventoryMap();
     const items = Object.values(map);
-    const inTransitCount = shipments.filter(s => s.status === 'in-transit').reduce((a, s) => a + s.products.reduce((b, p) => b + p.serials.length, 0), 0);
+    const inTransitCount = shipments.filter(s => s.status === 'in-transit').reduce((a, s) => a + s.products.reduce((b, p) => b + p.serials.length, 0), 0)
+                         + getTransferInFlightSerials().size;   // units on a truck between warehouses
     return {
-      totalIn:      movements.filter(m => m.type === 'IN').reduce((a, m) => a + m.serials.length, 0),
-      totalOut:     movements.filter(m => m.type === 'OUT').reduce((a, m) => a + m.serials.length, 0),
+      totalIn:      movements.filter(m => m.type === 'IN'  && !m.isTransfer).reduce((a, m) => a + m.serials.length, 0),
+      totalOut:     movements.filter(m => m.type === 'OUT' && !m.isTransfer).reduce((a, m) => a + m.serials.length, 0),
       inStock:      items.reduce((a, v) => a + v.inStock.size, 0),
       inTransit:    inTransitCount,
       deployed:     getDeployedSerialRows().length,
@@ -1058,7 +1363,7 @@ const Inventory = (() => {
   }
 
     DB.onReady(() => refreshProducts());
-    return { getInventoryMap, getStockByProduct, getDeployedByProduct, getDeployedByCustomer, getCustomerDetail, getAllSerialRows, getDeployedSerialRows, getRmaTlDispatchedRows, getTotalLossRows, getAvailableSerials, getLowStockItems, getSerialInfo, getSerialKnownProduct, stockIn, getPlaceholderConflicts, createShipment, receiveShipment, receivePartialShipment, closeShipmentWithoutStock, stockOut, stockOutByProduct, stagePendingDeployment, confirmDeployment, confirmDeployments, getPendingDeploymentSerials, getLocations, getSuppliers, getProducts, isSerialEditable, getCustomers, getStats, recallToServicing, createOrder, refreshProducts, CATEGORIES, PRODUCTS };
+    return { getInventoryMap, getStockByProduct, getDeployedByProduct, getDeployedByCustomer, getCustomerDetail, getAllSerialRows, getDeployedSerialRows, getRmaTlDispatchedRows, getTotalLossRows, getAvailableSerials, getLowStockItems, getSerialInfo, getSerialKnownProduct, stockIn, getPlaceholderConflicts, createShipment, receiveShipment, receivePartialShipment, closeShipmentWithoutStock, stockOut, stockOutByProduct, dispatchTransfer, receiveTransfer, cancelTransfer, getInFlightTransfers, getTransferInFlightSerials, stagePendingDeployment, confirmDeployment, confirmDeployments, getPendingDeploymentSerials, getLocations, getSuppliers, getProducts, isSerialEditable, getCustomers, getStats, recallToServicing, createOrder, refreshProducts, CATEGORIES, PRODUCTS };
 
   function createOrder(opts) {
     const { supplier, poNumber, expectedBy, products, taxRate, taxAmount, taxRef } = opts;

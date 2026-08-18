@@ -269,6 +269,7 @@ html, body { font-family: var(--font); font-size: 14px; background: var(--bg-3);
 .b-partial { background: #fff3e0; color: #e65100; border: 1px solid #ffcc02; }
 .b-zero    { background: var(--danger-bg);  color: var(--danger-text); }
 .b-transit { background: var(--aio-orange-light); color: var(--aio-orange-dark); border: 1px solid var(--aio-orange); }
+.b-transfer { background: var(--aio-purple-light); color: var(--aio-purple-dark); border: 1px solid var(--aio-purple); }
 .loc-badge { display: inline-block; font-size: 10px; padding: 2px 8px; background: var(--aio-purple-light); color: var(--aio-purple-dark); border-radius: 4px; font-family: var(--mono); border: 1px solid var(--border-md); font-weight: 600; }
 .cat-badge { display: inline-block; font-size: 10px; padding: 2px 8px; background: var(--bg-2); color: var(--text-muted); border-radius: 4px; border: 1px solid var(--border); font-weight: 500; }
 

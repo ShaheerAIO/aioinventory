@@ -86,6 +86,19 @@ Data backup/restore via browser console: `DB.exportJSON()` and `DB.importJSON('<
 - **Single shared Firestore document** (`inventory/main`) holds *all* inventory data and is fully read into memory and rewritten on save. Writes set a `_pendingWrite` flag so the app ignores its own `onSnapshot` echo. Keep this in mind for concurrency — last write generally wins on the whole document.
 - **Modules are IIFE singletons exposing a returned object** — to add functionality, add a method to the relevant module's returned object (see the `return { ... }` at the bottom of each `js/*.js`) and call it from `app.js`/`ui.js`. There is no import/export wiring.
 - **Roles gate the UI**: `AuthUI.applyRoleRestrictions()` (called on boot) hides/disables editing for non-editors. `Auth.canEdit()` and `Auth.isAdmin()` are the gates; respect them when adding write actions.
+- **A location ("warehouse") is not an entity** — it is a string on each movement, and stock is
+  bucketed by `product||location`. A unit's location is the one on its latest `IN` movement.
+- **Warehouse-to-warehouse moves are a two-step protocol** in `js/inventory.js`:
+  `dispatchTransfer` writes an `OUT` leg per product bucket and a record in the `transfers` store
+  (`DB.addTransfer`, main Firestore doc); `receiveTransfer` writes the `IN` legs at the destination
+  (accepts a subset for a part-load); `cancelTransfer` writes them back at the source. Units between
+  the two steps are **in flight**: not in `getAvailableSerials()`, not deployed, surfaced as
+  `status: 'in-transit'` rows filed under the destination. Every leg is flagged `isTransfer: true`,
+  and **anything that reads an `OUT` as a dispatch or an `IN` as a supplier receipt must skip them** —
+  `getDeployedSerialRows`, `getCustomerDetail`, `getStats`, and `functions/inventoryStats.js`
+  (which must also count in-flight transfers as in-transit). Transfer `IN` legs carry the provenance
+  fields `getAllSerialRows` reads off the latest `IN` (condition, used, tested*, PO, `receivedDate`),
+  so a move never resets a unit's condition or its stock age.
 - **Serial numbers are the primary key** for units. Auto-generated placeholders use an `NS-` prefix (non-serialised items); real serials replace these on receipt. Serials are generally upper-cased before lookup.
 - **HTML is built via template strings** with manual escaping (`esc(...)` helpers defined per module). When rendering user/data-driven text, escape it the same way to avoid breaking markup.
 - `README.md` and `js/changelog.js` are maintained by hand; the changelog is the most reliable record of recent feature work.

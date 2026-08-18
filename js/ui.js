@@ -149,7 +149,7 @@ const UI = (() => {
       : '<div class="empty">No stock deployed yet</div>';
     document.getElementById('dash-recent').innerHTML = recent.length
       ? `<table><thead><tr><th style="width:40%">Product</th><th style="width:13%">Type</th><th style="width:25%">Location</th><th style="width:22%">Date</th></tr></thead><tbody>
-         ${recent.map(m => `<tr><td style="font-weight:500">${esc(m.product)}</td><td><span class="badge ${m.type==='IN'?'b-in':'b-out'}">${m.type}</span></td><td><span class="loc-badge">${esc(m.location||'—')}</span></td><td style="color:var(--text-hint)">${fmtDate(m.date)}</td></tr>`).join('')}
+         ${recent.map(m => `<tr><td style="font-weight:500">${esc(m.product)}</td><td><span class="badge ${m.type==='IN'?'b-in':'b-out'}">${m.type}</span>${m.isTransfer?'<span class="badge b-transfer" style="margin-left:3px;">⇄</span>':''}</td><td><span class="loc-badge">${esc(m.location||'—')}</span></td><td style="color:var(--text-hint)">${fmtDate(m.date)}</td></tr>`).join('')}
          </tbody></table>`
       : '<div class="empty">No movements yet</div>';
 
@@ -600,7 +600,9 @@ const UI = (() => {
     const { shipments } = DB.getData();
     const active = shipments.filter(s => s.status === 'in-transit').reverse();
     const badge = document.getElementById('transit-count-badge');
-    if (badge) badge.textContent = active.length > 0 ? `(${active.length})` : '';
+    // Warehouse transfers are waiting to be received here too, so they count
+    const waiting = active.length + Inventory.getInFlightTransfers().length;
+    if (badge) badge.textContent = waiting > 0 ? `(${waiting})` : '';
 
     const container = document.getElementById('transit-list');
     if (!container) return;
@@ -1616,6 +1618,7 @@ Items will remain in Stock Holding with no customer attached.`)) return;
   // ── Stock Deployed ────────────────────────────────────────────────────
   // ── Stock Breakdown (by product, with condition columns) ─────────────
   let _invProductFilter = ''; // product name filter set by clicking a breakdown row
+  const _invSelected = new Set(); // serials ticked in the serial table (for transfers)
 
   function renderStockBreakdown() {
     const tbody   = document.getElementById('inv-breakdown-body');
@@ -1748,10 +1751,26 @@ Items will remain in Stock Holding with no customer attached.`)) return;
 
     // Editors and admins get an action column (edit serial / delete)
     const showActions = isAdmin || canEdit;
+    // ...and a select column, for transferring stock between locations
+    const showSelect  = canEdit;
 
-    // Update table header to show/hide action column
+    // Drop any selection that has since left stock (deployed, deleted, moved)
+    const availableNow = Inventory.getAvailableSerials();
+    [..._invSelected].forEach(sn => { if (!availableNow.has(sn)) _invSelected.delete(sn); });
+
+    // Update table header to show/hide the select + action columns
     const thead = document.querySelector('#v-stock-list table thead tr');
     if (thead) {
+      const existingSelectTh = thead.querySelector('.th-select');
+      if (showSelect && !existingSelectTh) {
+        const th = document.createElement('th');
+        th.className = 'th-select';
+        th.style.width = '30px';
+        th.innerHTML = '<input type="checkbox" id="inv-select-all" title="Select everything shown" />';
+        thead.insertBefore(th, thead.firstChild);
+      } else if (!showSelect && existingSelectTh) {
+        existingSelectTh.remove();
+      }
       const existingAdminTh = thead.querySelector('.th-admin');
       if (showActions && !existingAdminTh) {
         const th = document.createElement('th');
@@ -1762,15 +1781,22 @@ Items will remain in Stock Holding with no customer attached.`)) return;
         existingAdminTh.remove();
       }
     }
+    const colCount = 6 + (showSelect ? 1 : 0) + (showActions ? 1 : 0);
+
+    // Serials the current filters expose that could be transferred (for select-all)
+    const visibleInStock = rows.filter(r => r.status === 'in-stock').map(r => r.serial);
 
     const tbody = document.getElementById('inv-body');
     if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="${showActions ? 7 : 6}"><div class="empty">No items found</div></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="${colCount}"><div class="empty">No items found</div></td></tr>`;
     } else {
       tbody.innerHTML = rows.map(r => {
         const isPOLocked = !!r.poNumber;
         const canEditSerial = isAdmin || (canEdit && Inventory.isSerialEditable(r.product));
         return `<tr data-serial="${esc(r.serial)}">
+          ${showSelect ? `<td>${r.status === 'in-stock'
+            ? `<input type="checkbox" class="inv-sel-chk" data-serial="${esc(r.serial)}"${_invSelected.has(r.serial) ? ' checked' : ''} title="Select for transfer" />`
+            : ''}</td>` : ''}
           <td style="font-family:var(--mono);font-size:11px;font-weight:500">${
             r.serial.startsWith('NS-')
               ? (canEdit && r.status === 'in-stock'
@@ -1848,6 +1874,15 @@ Items will remain in Stock Holding with no customer attached.`)) return;
         });
       });
 
+      // Tick / untick a row for transfer
+      tbody.querySelectorAll('.inv-sel-chk').forEach(chk => {
+        chk.addEventListener('change', () => {
+          if (chk.checked) _invSelected.add(chk.dataset.serial);
+          else             _invSelected.delete(chk.dataset.serial);
+          _syncTransferBar(visibleInStock, locF, showSelect);
+        });
+      });
+
       // Admin: delete serial
       tbody.querySelectorAll('.btn-icon-del').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -1860,6 +1895,8 @@ Items will remain in Stock Holding with no customer attached.`)) return;
         });
       });
     }
+
+    _syncTransferBar(visibleInStock, locF, showSelect);
 
     const footer = document.getElementById('inv-footer');
     footer.textContent = rows.length
@@ -1899,7 +1936,8 @@ Items will remain in Stock Holding with no customer attached.`)) return;
     const { movements } = DB.getData();
 
     let rows = [...movements].reverse().filter(m => {
-      const mt = !typeF  || m.type === typeF;
+      const mt = !typeF  || (typeF === 'TRANSFER' ? m.isTransfer === true
+                                                  : (m.type === typeF && !m.isTransfer));
       const mc = !catF   || m.category === catF;
       const ms = !search || m.product.toLowerCase().includes(search) || (m.customer||'').toLowerCase().includes(search) || (m.supplier||'').toLowerCase().includes(search) || (m.ref||'').toLowerCase().includes(search) || (m.location||'').toLowerCase().includes(search) || (m.receivedBy||'').toLowerCase().includes(search) || m.serials.some(s => s.toLowerCase().includes(search));
       const mdf= !dateFrom || m.date.slice(0,10) >= dateFrom;
@@ -1907,22 +1945,29 @@ Items will remain in Stock Holding with no customer attached.`)) return;
       return mt && mc && ms && mdf && mdt;
     });
 
-    const totalIn  = rows.filter(m => m.type==='IN').reduce((a,m) => a+m.serials.length, 0);
-    const totalOut = rows.filter(m => m.type==='OUT').reduce((a,m) => a+m.serials.length, 0);
+    // A location transfer writes an OUT + IN pair, so it is counted on its own —
+    // nothing was received from a supplier or dispatched to a customer.
+    const totalIn  = rows.filter(m => m.type==='IN'  && !m.isTransfer).reduce((a,m) => a+m.serials.length, 0);
+    const totalOut = rows.filter(m => m.type==='OUT' && !m.isTransfer).reduce((a,m) => a+m.serials.length, 0);
+    const totalTrf = rows.filter(m => m.type==='IN'  &&  m.isTransfer).reduce((a,m) => a+m.serials.length, 0);
     document.getElementById('hist-summary').textContent = rows.length
-      ? `${rows.length} movement${rows.length!==1?'s':''} · ${totalIn} received · ${totalOut} dispatched`
+      ? `${rows.length} movement${rows.length!==1?'s':''} · ${totalIn} received · ${totalOut} dispatched` +
+        (totalTrf ? ` · ${totalTrf} transferred` : '')
       : '';
 
     const tbody = document.getElementById('hist-body');
     if (!rows.length) { tbody.innerHTML = '<tr><td colspan="9"><div class="empty">No movements found</div></td></tr>'; return; }
     tbody.innerHTML = rows.map((m, i) => {
-      const party   = m.type==='IN' ? (m.supplier||'—') : (m.customer||'—');
+      const isTrf   = m.isTransfer === true;
+      const party   = isTrf
+        ? (m.type==='IN' ? `from ${m.transferFrom||'?'}` : `to ${m.transferTo||'?'}`)
+        : (m.type==='IN' ? (m.supplier||'—') : (m.customer||'—'));
       const preview = m.serials.slice(0,3).join(', ') + (m.serials.length>3 ? ` +${m.serials.length-3}` : '');
       const actor = m.type==='IN' ? (m.receivedBy||'—') : (m.by||'—');
       const dl = m.serials.length ? `<button class="btn btn-ghost btn-sm batch-dl" data-idx="${i}" title="Download all ${m.serials.length} serial number${m.serials.length!==1?'s':''} as CSV" style="margin-left:8px;white-space:nowrap;">⬇ CSV</button>` : '';
       return `<tr title="${esc(m.serials.join(', '))}">
         <td style="color:var(--text-hint)">${fmtDateFull(m.date)}</td>
-        <td><span class="badge ${m.type==='IN'?'b-in':'b-out'}">${m.type}</span></td>
+        <td><span class="badge ${m.type==='IN'?'b-in':'b-out'}">${m.type}</span>${isTrf?'<span class="badge b-transfer" style="margin-left:4px;">⇄ TRF</span>':''}</td>
         <td style="font-weight:500">${esc(m.product)}</td>
         <td><span class="cat-badge">${esc(m.category||'—')}</span></td>
         <td><span class="loc-badge">${esc(m.location||'—')}</span></td>
@@ -1980,7 +2025,7 @@ Items will remain in Stock Holding with no customer attached.`)) return;
       ${info.history.length ? `<div class="panel" style="margin-bottom:0">
         <div class="panel-title">Movement history</div>
         <table><thead><tr><th style="width:18%">Date</th><th style="width:10%">Type</th><th style="width:22%">Product</th><th style="width:18%">Location</th><th style="width:18%">Party</th><th style="width:14%">Ref</th></tr></thead>
-        <tbody>${info.history.map(m=>`<tr><td style="color:var(--text-hint)">${fmtDateFull(m.date)}</td><td><span class="badge ${m.type==='IN'?'b-in':'b-out'}">${m.type}</span></td><td>${esc(m.product)}</td><td><span class="loc-badge">${esc(m.location||'—')}</span></td><td>${esc(m.type==='IN'?(m.supplier||'—'):(m.customer||'—'))}</td><td style="color:var(--text-hint)">${esc(m.ref||'—')}</td></tr>`).join('')}</tbody></table>
+        <tbody>${info.history.map(m=>`<tr><td style="color:var(--text-hint)">${fmtDateFull(m.date)}</td><td><span class="badge ${m.type==='IN'?'b-in':'b-out'}">${m.type}</span>${m.isTransfer?'<span class="badge b-transfer" style="margin-left:4px;">⇄ TRF</span>':''}</td><td>${esc(m.product)}</td><td><span class="loc-badge">${esc(m.location||'—')}</span></td><td>${esc(m.isTransfer ? (m.type==='IN' ? 'from ' + (m.transferFrom||'?') : 'to ' + (m.transferTo||'?')) : (m.type==='IN'?(m.supplier||'—'):(m.customer||'—')))}</td><td style="color:var(--text-hint)">${esc(m.ref||'—')}</td></tr>`).join('')}</tbody></table>
       </div>` : ''}`;
   }
 
@@ -2008,7 +2053,7 @@ Items will remain in Stock Holding with no customer attached.`)) return;
   function exportHistoryCSV() {
     const { movements } = DB.getData();
     const rows = [['Date','Type','Product','Category','Location','Qty','Supplier / Customer','Received By','Reference','Serials']];
-    [...movements].reverse().forEach(m => rows.push([fmtDateFull(m.date), m.type, m.product, m.category||'', m.location||'', m.serials.length, m.type==='IN'?(m.supplier||''):(m.customer||''), m.type==='IN'?(m.receivedBy||''):(m.by||''), m.ref||'', m.serials.join(' | ')]));
+    [...movements].reverse().forEach(m => rows.push([fmtDateFull(m.date), m.isTransfer ? m.type + ' (transfer)' : m.type, m.product, m.category||'', m.location||'', m.serials.length, m.type==='IN'?(m.supplier||''):(m.customer||''), m.type==='IN'?(m.receivedBy||''):(m.by||''), m.ref||'', m.serials.join(' | ')]));
     _dlCSV(rows, 'aio_history.csv');
   }
 
@@ -2406,7 +2451,7 @@ Items will remain in Stock Holding with no customer attached.`)) return;
     Object.entries(serialInMovement).forEach(([serial, mv]) => {
       if (mv.condition === 'rma' && !availableSet.has(serial)) {
         // Find the OUT movement for this serial
-        const outMv = [...movements].reverse().find(m => m.type === 'OUT' && m.serials.some(s => s.toUpperCase() === serial));
+        const outMv = [...movements].reverse().find(m => m.type === 'OUT' && !m.isTransfer && m.serials.some(s => s.toUpperCase() === serial));
         returnedRMA.push({
           serial,
           product:   mv.product,
@@ -2500,7 +2545,7 @@ Items will remain in Stock Holding with no customer attached.`)) return;
     const writtenOff = [];
     Object.entries(serialInMovement).forEach(([serial, mv]) => {
       if (mv.condition === 'fail-tl' && !availableSet.has(serial)) {
-        const outMv = [...movements].reverse().find(m => m.type === 'OUT' && m.serials.some(s => s.toUpperCase() === serial));
+        const outMv = [...movements].reverse().find(m => m.type === 'OUT' && !m.isTransfer && m.serials.some(s => s.toUpperCase() === serial));
         writtenOff.push({
           serial,
           product:   mv.product,
@@ -2699,6 +2744,356 @@ Items will remain in Stock Holding with no customer attached.`)) return;
     });
   }
 
+  // ── Transfer between locations ─────────────────────────────────────────
+  // Toolbar above the serial table: transfer the ticked rows, or everything at
+  // the location currently filtered on (a whole-warehouse move).
+  function _syncTransferBar(visibleInStock, locF, canEdit) {
+    const bar = document.getElementById('inv-transfer-bar');
+    if (!bar) return;
+    bar.style.display = canEdit ? 'flex' : 'none';
+    if (!canEdit) return;
+
+    const selBtn = document.getElementById('btn-transfer-selected');
+    const locBtn = document.getElementById('btn-transfer-location');
+    const hint   = document.getElementById('inv-transfer-hint');
+    const n      = _invSelected.size;
+
+    selBtn.textContent   = n ? `⇄ Dispatch selected (${n})` : '⇄ Dispatch selected';
+    selBtn.disabled      = n === 0;
+    selBtn.style.opacity = n === 0 ? '0.5' : '';
+    selBtn.onclick       = () => { if (_invSelected.size) _showTransferModal([..._invSelected]); };
+
+    // Whole-location move — only offered once the location filter narrows to one
+    const atLoc = locF
+      ? Inventory.getAllSerialRows().filter(r => r.status === 'in-stock' && r.location === locF).map(r => r.serial)
+      : [];
+    if (atLoc.length) {
+      locBtn.style.display = '';
+      locBtn.textContent   = `⇄ Dispatch all ${atLoc.length} unit${atLoc.length !== 1 ? 's' : ''} at ${locF}`;
+      locBtn.onclick       = () => _showTransferModal(atLoc);
+    } else {
+      locBtn.style.display = 'none';
+      locBtn.onclick       = null;
+    }
+
+    const selectAll = document.getElementById('inv-select-all');
+    if (selectAll) {
+      selectAll.checked = visibleInStock.length > 0 && visibleInStock.every(sn => _invSelected.has(sn));
+      selectAll.onclick = () => {
+        if (selectAll.checked) visibleInStock.forEach(sn => _invSelected.add(sn));
+        else                   visibleInStock.forEach(sn => _invSelected.delete(sn));
+        renderStockList();
+      };
+    }
+
+    if (hint) hint.textContent = n
+      ? ''
+      : (locF ? '' : 'Tick items to send them to another warehouse, or filter by location to move a whole warehouse');
+  }
+
+  function _showTransferModal(serials) {
+    const existing = document.getElementById('transfer-modal');
+    if (existing) existing.remove();
+
+    const set  = new Set(serials.map(s => s.toUpperCase()));
+    const rows = Inventory.getAllSerialRows().filter(r => r.status === 'in-stock' && set.has(r.serial.toUpperCase()));
+    if (!rows.length) { showAlert('Nothing to dispatch — those items are no longer in stock.', 'error'); return; }
+
+    // One summary line per source location + product
+    const groups = {};
+    rows.forEach(r => {
+      const k = (r.location || '—') + '||' + r.product;
+      if (!groups[k]) groups[k] = { location: r.location || '—', product: r.product, units: 0 };
+      groups[k].units++;
+    });
+    const lines   = Object.values(groups).sort((a, b) => a.location.localeCompare(b.location) || a.product.localeCompare(b.product));
+    const sources = [...new Set(rows.map(r => r.location || '—'))];
+    const byName  = (typeof Auth !== 'undefined' && Auth.getName ? Auth.getName() : '') || '';
+
+    const modal = document.createElement('div');
+    modal.id = 'transfer-modal';
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-box" style="width:540px;">
+        <div class="modal-title" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
+          <span>⇄ Dispatch to Another Warehouse</span>
+          <button class="btn-remove-row" id="transfer-modal-close">×</button>
+        </div>
+        <div style="margin-bottom:1rem;font-size:13px;color:var(--text-muted);">
+          Sending <strong style="color:var(--text);">${rows.length} unit${rows.length !== 1 ? 's' : ''}</strong>
+          out of ${sources.map(l => `<span class="loc-badge">${esc(l)}</span>`).join(' ')}.
+          They leave stock now and land when you receive them in <strong style="color:var(--text);">In Transit</strong>.
+          Condition, cost, PO link and received date travel with them.
+        </div>
+        <div class="table-wrap" style="max-height:170px;overflow-y:auto;margin-bottom:1.25rem;border:1px solid var(--border);border-radius:var(--r-md);">
+          <table style="table-layout:auto;">
+            <thead><tr><th>From</th><th>Product</th><th style="text-align:right;">Units</th></tr></thead>
+            <tbody>${lines.map(l => `<tr>
+              <td><span class="loc-badge">${esc(l.location)}</span></td>
+              <td style="font-weight:500">${esc(l.product)}</td>
+              <td style="text-align:right;font-weight:600">${l.units}</td>
+            </tr>`).join('')}</tbody>
+          </table>
+        </div>
+        <div class="form-grid g2" style="margin-bottom:1rem;">
+          <div class="form-group">
+            <label class="form-label">Send to warehouse *</label>
+            <input class="fi" id="transfer-location" placeholder="e.g. Los Angeles" autocomplete="off" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Expected arrival</label>
+            <input class="fi" type="date" id="transfer-expected" />
+          </div>
+        </div>
+        <div class="form-grid g2" style="margin-bottom:1rem;">
+          <div class="form-group">
+            <label class="form-label">Dispatched by</label>
+            <input class="fi" id="transfer-by" value="${esc(byName)}" placeholder="e.g. Peter Roberts" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Reference / note</label>
+            <input class="fi" id="transfer-ref" placeholder="e.g. Truck 4" />
+          </div>
+        </div>
+        <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--text-muted);margin-bottom:1.25rem;cursor:pointer;">
+          <input type="checkbox" id="transfer-receive-now" style="margin-top:2px;" />
+          <span>Already arrived — receive at the destination straight away
+            <span style="display:block;color:var(--text-hint);">For a move that happened before you got to record it. Both legs are still logged.</span>
+          </span>
+        </label>
+        <div id="transfer-modal-error" style="display:none;color:var(--danger-text);font-size:12px;margin-bottom:10px;"></div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;">
+          <button class="btn btn-ghost" id="transfer-modal-cancel">Cancel</button>
+          <button class="btn btn-primary" id="transfer-modal-confirm">Dispatch ${rows.length} unit${rows.length !== 1 ? 's' : ''}</button>
+        </div>
+      </div>`;
+
+    document.body.appendChild(modal);
+    SmartSelect('transfer-location', Inventory.getLocations, DB.addCustomLocation);
+
+    const close = () => modal.remove();
+    document.getElementById('transfer-modal-close').addEventListener('click', close);
+    document.getElementById('transfer-modal-cancel').addEventListener('click', close);
+    modal.addEventListener('click', e => { if (e.target === modal) close(); });
+
+    // Reflect the shortcut in the button, so it never lies about what happens
+    const confirmBtn = document.getElementById('transfer-modal-confirm');
+    const nowChk     = document.getElementById('transfer-receive-now');
+    const unitLabel  = `${rows.length} unit${rows.length !== 1 ? 's' : ''}`;
+    nowChk.addEventListener('change', () => {
+      confirmBtn.textContent = nowChk.checked ? `Move ${unitLabel} now` : `Dispatch ${unitLabel}`;
+      document.getElementById('transfer-expected').disabled = nowChk.checked;
+    });
+
+    confirmBtn.addEventListener('click', () => {
+      const dest  = document.getElementById('transfer-location').value.trim();
+      const by    = document.getElementById('transfer-by').value.trim();
+      const ref   = document.getElementById('transfer-ref').value.trim();
+      const exp   = document.getElementById('transfer-expected').value;
+      const errEl = document.getElementById('transfer-modal-error');
+      const fail  = msg => { errEl.textContent = msg; errEl.style.display = 'block'; };
+
+      if (!dest) { fail('Destination warehouse is required.'); return; }
+
+      try {
+        const res = Inventory.dispatchTransfer({
+          serials: rows.map(r => r.serial), toLocation: dest, by, ref,
+          expectedBy: nowChk.checked ? '' : exp,
+          receiveNow: nowChk.checked,
+        });
+        close();
+        _invSelected.clear();
+        _refreshAfterTransfer();
+        showAlert(
+          res.received
+            ? `${res.units} unit${res.units !== 1 ? 's' : ''} moved from ${res.from.join(', ')} to ${res.to}`
+            : `${res.units} unit${res.units !== 1 ? 's' : ''} dispatched from ${res.from.join(', ')} to ${res.to} — receive them in In Transit on arrival`,
+          'success'
+        );
+      } catch (e) { fail(e.message); }
+    });
+  }
+
+  // Everything a transfer can change: stock lists, the In Transit panels and the
+  // dashboard counters.
+  function _refreshAfterTransfer() {
+    populateStockListFilters();
+    populateDataLists();
+    refreshSmartSelects();
+    renderStockBreakdown();
+    renderStockList();
+    renderTransferList();
+    renderTransitList();
+    renderDashboard();
+  }
+
+  // ── In-flight warehouse transfers (In Transit view) ────────────────────
+  function renderTransferList() {
+    const container = document.getElementById('transfer-list');
+    if (!container) return;
+    const canEdit = typeof Auth !== 'undefined' && Auth.canEdit();
+    const active  = [...Inventory.getInFlightTransfers()].reverse();
+
+    const panel = document.getElementById('transfer-panel');
+    if (panel) panel.style.display = active.length ? '' : 'none';
+    const countEl = document.getElementById('transfer-count');
+    if (countEl) countEl.textContent = active.length ? `(${active.length})` : '';
+
+    if (!active.length) { container.innerHTML = ''; return; }
+
+    container.innerHTML = active.map(t => {
+      const total    = (t.products || []).reduce((a, p) => a + p.serials.length, 0);
+      const landed   = (t.receivedSerials || []).length;
+      const inFlight = total - landed;
+      const expected = t.expectedBy
+        ? ` · Expected ${new Date(t.expectedBy + 'T00:00:00').toLocaleDateString('en-US',{month:'short',day:'numeric'})}`
+        : '';
+      const received = new Set((t.receivedSerials || []).map(x => x.toUpperCase()));
+      const tags = (t.products || []).map(p => {
+        const left = p.serials.filter(sn => !received.has(sn.toUpperCase())).length;
+        return left ? `<span class="shipment-product-tag"><strong>${esc(p.product)}</strong> · ${left} unit${left !== 1 ? 's' : ''}</span>` : '';
+      }).join('');
+      return `<div class="shipment-card">
+        <div class="shipment-card-header">
+          <div>
+            <div class="shipment-card-title">
+              <span class="loc-badge">${esc(t.from || '?')}</span> → <span class="loc-badge">${esc(t.to || '?')}</span>
+              <span class="badge b-transfer" style="margin-left:6px;">⇄ In flight</span>
+            </div>
+            <div class="shipment-card-meta">
+              ${inFlight} unit${inFlight !== 1 ? 's' : ''} in flight${landed ? ` · ${landed} of ${total} already received` : ''}
+              · Dispatched ${fmtDate(t.dispatchedAt)}${t.by ? ' by ' + esc(t.by) : ''}${expected}${t.ref ? ' · ' + esc(t.ref) : ''}
+            </div>
+          </div>
+          ${canEdit ? `<div class="shipment-actions">
+            <button class="btn btn-success btn-xs" data-recv-all="${esc(t.id)}" title="Receive everything still in flight">✓ Receive all</button>
+            <button class="btn btn-ghost btn-xs" data-recv-part="${esc(t.id)}" title="Receive only some of the load">Receive part…</button>
+            <button class="btn btn-ghost btn-xs" data-cancel-transfer="${esc(t.id)}" title="Send the remaining units back to ${esc(t.from || 'the source')}">✕ Cancel</button>
+          </div>` : ''}
+        </div>
+        <div class="shipment-products">${tags}</div>
+      </div>`;
+    }).join('');
+
+    const by = () => (typeof Auth !== 'undefined' && Auth.getName ? Auth.getName() : '') || '';
+
+    container.querySelectorAll('[data-recv-all]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        try {
+          const res = Inventory.receiveTransfer(btn.dataset.recvAll, { by: by() });
+          _refreshAfterTransfer();
+          showAlert(`${res.received} unit${res.received !== 1 ? 's' : ''} received into stock at ${res.to}`, 'success');
+        } catch (e) { showAlert(e.message, 'error'); }
+      });
+    });
+
+    container.querySelectorAll('[data-recv-part]').forEach(btn => {
+      btn.addEventListener('click', () => _showReceiveTransferModal(btn.dataset.recvPart));
+    });
+
+    container.querySelectorAll('[data-cancel-transfer]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const t = Inventory.getInFlightTransfers().find(x => String(x.id) === btn.dataset.cancelTransfer);
+        if (!t) return;
+        const left = (t.products || []).reduce((a, p) => a + p.serials.length, 0) - (t.receivedSerials || []).length;
+        if (!confirm(`Cancel this transfer?\n\n${left} unit${left !== 1 ? 's' : ''} still in flight will go back into stock at ${t.from}.`)) return;
+        try {
+          const res = Inventory.cancelTransfer(t.id, { by: by() });
+          _refreshAfterTransfer();
+          showAlert(`${res.returned} unit${res.returned !== 1 ? 's' : ''} returned to stock at ${res.to}`, 'success');
+        } catch (e) { showAlert(e.message, 'error'); }
+      });
+    });
+  }
+
+  // Receive part of a load — tick the units that actually turned up.
+  function _showReceiveTransferModal(transferId) {
+    const t = Inventory.getInFlightTransfers().find(x => String(x.id) === String(transferId));
+    if (!t) { showAlert('Transfer not found.', 'error'); return; }
+
+    const existing = document.getElementById('recv-transfer-modal');
+    if (existing) existing.remove();
+
+    const received = new Set((t.receivedSerials || []).map(x => x.toUpperCase()));
+    const groups = (t.products || []).map(p => ({
+      product: p.product,
+      serials: p.serials.filter(sn => !received.has(sn.toUpperCase())),
+    })).filter(g => g.serials.length);
+    const total  = groups.reduce((a, g) => a + g.serials.length, 0);
+    const byName = (typeof Auth !== 'undefined' && Auth.getName ? Auth.getName() : '') || '';
+
+    const modal = document.createElement('div');
+    modal.id = 'recv-transfer-modal';
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-box" style="width:520px;">
+        <div class="modal-title" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
+          <span>Receive from ${esc(t.from || '?')}</span>
+          <button class="btn-remove-row" id="recv-transfer-close">×</button>
+        </div>
+        <div style="margin-bottom:1rem;font-size:13px;color:var(--text-muted);">
+          Tick the units that arrived at <span class="loc-badge">${esc(t.to || '?')}</span>.
+          Anything left unticked stays in flight.
+        </div>
+        <div class="form-group" style="margin-bottom:1rem;">
+          <label class="form-label">Received by</label>
+          <input class="fi" id="recv-transfer-by" value="${esc(byName)}" placeholder="e.g. Peter Roberts" />
+        </div>
+        <label style="display:flex;align-items:center;gap:8px;font-size:12px;color:var(--text-muted);margin-bottom:8px;cursor:pointer;">
+          <input type="checkbox" id="recv-transfer-all" checked /> Select all ${total} unit${total !== 1 ? 's' : ''}
+        </label>
+        <div style="max-height:230px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--r-md);padding:10px;margin-bottom:1.25rem;">
+          ${groups.map(g => `<div style="margin-bottom:10px;">
+            <div style="font-weight:600;font-size:12px;margin-bottom:4px;">${esc(g.product)}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+              ${g.serials.map(sn => `<label class="dep-serial-chk" style="font-size:12px;color:var(--text-muted);font-family:var(--mono);">
+                <input type="checkbox" class="recv-transfer-chk" data-serial="${esc(sn)}" checked />${esc(sn)}
+              </label>`).join('')}
+            </div>
+          </div>`).join('')}
+        </div>
+        <div id="recv-transfer-error" style="display:none;color:var(--danger-text);font-size:12px;margin-bottom:10px;"></div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;">
+          <button class="btn btn-ghost" id="recv-transfer-cancel">Cancel</button>
+          <button class="btn btn-primary" id="recv-transfer-confirm">Receive selected</button>
+        </div>
+      </div>`;
+
+    document.body.appendChild(modal);
+    const close = () => modal.remove();
+    document.getElementById('recv-transfer-close').addEventListener('click', close);
+    document.getElementById('recv-transfer-cancel').addEventListener('click', close);
+    modal.addEventListener('click', e => { if (e.target === modal) close(); });
+
+    const chks     = () => Array.from(modal.querySelectorAll('.recv-transfer-chk'));
+    const checked  = () => chks().filter(c => c.checked).map(c => c.dataset.serial);
+    const confirmB = document.getElementById('recv-transfer-confirm');
+    const syncBtn  = () => { const n = checked().length; confirmB.textContent = `Receive ${n} unit${n !== 1 ? 's' : ''}`; confirmB.disabled = n === 0; };
+    document.getElementById('recv-transfer-all').addEventListener('change', e => {
+      chks().forEach(c => { c.checked = e.target.checked; });
+      syncBtn();
+    });
+    chks().forEach(c => c.addEventListener('change', syncBtn));
+    syncBtn();
+
+    confirmB.addEventListener('click', () => {
+      const errEl = document.getElementById('recv-transfer-error');
+      try {
+        const res = Inventory.receiveTransfer(t.id, {
+          serials: checked(),
+          by: document.getElementById('recv-transfer-by').value.trim(),
+        });
+        close();
+        _refreshAfterTransfer();
+        showAlert(
+          `${res.received} unit${res.received !== 1 ? 's' : ''} received at ${res.to}` +
+          (res.remaining ? ` · ${res.remaining} still in flight` : ''),
+          'success'
+        );
+      } catch (e) { errEl.textContent = e.message; errEl.style.display = 'block'; }
+    });
+  }
+
   // ── SmartSelect ────────────────────────────────────────────────────────
   // Replaces a plain <input> with a styled dropdown of known values + "Add new"
   function SmartSelect(inputId, getOptions, saveNew) {
@@ -2822,6 +3217,6 @@ Items will remain in Stock Holding with no customer attached.`)) return;
   }
 
 
-    return { showAlert, hideAlert, renderDashboard, renderProductList, renderSupplierList, renderOrderList, renderTransitList, renderShipmentHistory, renderStockBreakdown, renderStockList, populateStockListFilters, populateCategoryFilters, renderDeployed, populateDeployedFilters, togglePendingCollapse, setDeployedTab, closeRestaurantDetail, exportDeployedCSV, exportDeployedXLSX, renderHistory, renderLookup, renderServicing, renderRMA, renderTotalLoss, renderRmaTlDispatched, populateDataLists, exportInventoryCSV, exportHistoryCSV, downloadBackup, initSmartSelects, refreshSmartSelects };
+    return { showAlert, hideAlert, renderDashboard, renderProductList, renderSupplierList, renderOrderList, renderTransitList, renderTransferList, renderShipmentHistory, renderStockBreakdown, renderStockList, populateStockListFilters, populateCategoryFilters, renderDeployed, populateDeployedFilters, togglePendingCollapse, setDeployedTab, closeRestaurantDetail, exportDeployedCSV, exportDeployedXLSX, renderHistory, renderLookup, renderServicing, renderRMA, renderTotalLoss, renderRmaTlDispatched, populateDataLists, exportInventoryCSV, exportHistoryCSV, downloadBackup, initSmartSelects, refreshSmartSelects };
 })();
 

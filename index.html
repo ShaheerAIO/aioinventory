@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>AIO Inventory</title>
-  <link rel="stylesheet" href="css/styles.v4.css" />
+  <link rel="stylesheet" href="css/styles.v4.css?v=109" />
   <style>
     .b-used { background: #fceaea !important; color: #a32020 !important; border: 1px solid #d85050 !important; font-size: 9px; padding: 1px 5px; border-radius: 4px; font-weight: 700; letter-spacing: .06em; }
     .used-toggle input:checked + .used-toggle-track { background: #d85050 !important; }
@@ -630,6 +630,13 @@
         <span>+</span> Add another product
       </button>
     </div>
+    <!-- Warehouse transfers in flight -->
+    <div class="panel" id="transfer-panel" style="margin-bottom:1rem;display:none;">
+      <div class="panel-title">⇄ Warehouse transfers in flight <span id="transfer-count" style="font-size:12px;color:var(--text-muted);font-weight:400;"></span></div>
+      <div style="font-size:12px;color:var(--text-muted);margin:-4px 0 10px;">Stock that has left one warehouse and not yet been received at the next. Receive it here when it lands.</div>
+      <div id="transfer-list"></div>
+    </div>
+
     <!-- Active shipments list -->
     <div class="panel">
       <div class="panel-title">Active shipments</div>
@@ -802,6 +809,11 @@
           <option value="cond-fail-tl">🗑 Total Loss</option>
         </select>
         <button class="btn btn-ghost btn-sm" id="btn-clear-product-filter" style="display:none;">✕ All products</button>
+      </div>
+      <div class="search-bar" id="inv-transfer-bar" style="display:none;align-items:center;">
+        <button class="btn btn-sm" id="btn-transfer-selected" disabled>⇄ Transfer selected</button>
+        <button class="btn btn-ghost btn-sm" id="btn-transfer-location" style="display:none;">⇄ Move all stock</button>
+        <span id="inv-transfer-hint" style="font-size:11px;color:var(--text-hint);flex:1;"></span>
       </div>
       <div class="table-wrap">
         <table>
@@ -1176,6 +1188,7 @@
           <option value="">All types</option>
           <option value="IN">Stock In</option>
           <option value="OUT">Stock Out</option>
+          <option value="TRANSFER">⇄ Transfers</option>
         </select>
         <select class="fi" id="hist-cat-filter" style="width:185px;">
           <option value="">All categories</option>
@@ -1209,14 +1222,14 @@
 <script src="js/auth.js?v=101"></script>
 <script src="js/auth-ui.js?v=103"></script>
 <script src="js/scanner.js?v=101"></script>
-<script src="js/db.js?v=108"></script>
-<script src="js/inventory.js?v=106"></script>
+<script src="js/db.js?v=109"></script>
+<script src="js/inventory.js?v=109"></script>
 <script src="js/reports.js?v=101"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="js/ui.js?v=110"></script>
+<script src="js/ui.js?v=111"></script>
 <script src="js/audit.js?v=105"></script>
-<script src="js/changelog.js?v=108"></script>
-<script src="js/app.js?v=107"></script>
+<script src="js/changelog.js?v=109"></script>
+<script src="js/app.js?v=108"></script>
 </body>
 </html>
 
