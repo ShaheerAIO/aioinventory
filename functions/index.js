@@ -41,7 +41,7 @@ exports.hubspotSyncManual = onRequest(
 // Read-only aggregates. Guarded by a shared secret in the X-Metrics-Key header
 // rather than a query param, so the key doesn't land in request logs.
 const METRICS_KEY = defineSecret('METRICS_KEY');
-const { loadInventory, computeMetrics } = require('./inventoryStats');
+const { loadInventory, computeMetrics, computeDeployedByCompany } = require('./inventoryStats');
 
 exports.metrics = onRequest({ secrets: [METRICS_KEY], cors: false }, async (req, res) => {
   const key = req.get('X-Metrics-Key') || '';
@@ -72,6 +72,26 @@ exports.metrics = onRequest({ secrets: [METRICS_KEY], cors: false }, async (req,
     res.json({ generatedAt: new Date().toISOString(), period: { from, to }, ...m });
   } catch (e) {
     console.error('metrics failed:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Per-customer deployed hardware, keyed to HubSpot Company IDs. Same shared
+// secret as /metrics. No date range — deployed is a point-in-time balance.
+exports.deployedByCompany = onRequest({ secrets: [METRICS_KEY], cors: false }, async (req, res) => {
+  const key = req.get('X-Metrics-Key') || '';
+  const expected = METRICS_KEY.value() || '';
+  // Fail closed — an unset secret rejects everything rather than opening up.
+  if (!expected || key !== expected) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+
+  try {
+    const inv = await loadInventory(admin.firestore());
+    res.json({ generatedAt: new Date().toISOString(), ...computeDeployedByCompany(inv) });
+  } catch (e) {
+    console.error('deployedByCompany failed:', e);
     res.status(500).json({ error: e.message });
   }
 });
