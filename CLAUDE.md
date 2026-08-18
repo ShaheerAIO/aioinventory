@@ -64,7 +64,17 @@ without Firebase.
 - `logo.png` — app/login logo. `.nojekyll` — disables Jekyll for GitHub Pages.
 
 ## Build / Run / Test
-There is **no build step and no test suite** in this repo.
+There is **no build step** in this repo, and no test framework/runner — but there is one
+dependency-free test file, run directly with node:
+
+```bash
+node test/transfer-protocol.test.js    # warehouse transfers: dispatch → receive → cancel
+```
+
+It loads `js/inventory.js` as text and evaluates it with a fake `DB` injected (the module is a
+browser IIFE, so it cannot be `require`d), then asserts against both it and
+`functions/inventoryStats.js` — so it catches the two copies of the aggregation rules drifting
+apart. Exits non-zero on failure. Nothing else is covered by tests.
 
 Run locally as static files (commands from `README.md`):
 ```bash
