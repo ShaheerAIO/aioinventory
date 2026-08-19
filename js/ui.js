@@ -1758,7 +1758,7 @@ Items will remain in Stock Holding with no customer attached.`)) return;
     [..._invSelected].forEach(sn => { if (!availableNow.has(sn)) _invSelected.delete(sn); });
 
     // Update table header to show/hide the select + action columns
-    const thead = document.querySelector('#v-stock-list table thead tr');
+    const thead = document.querySelector('#inv-serial-table thead tr');
     if (thead) {
       const existingSelectTh = thead.querySelector('.th-select');
       if (showSelect && !existingSelectTh) {
