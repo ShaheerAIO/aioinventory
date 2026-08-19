@@ -757,6 +757,7 @@ function _refreshView() {
     else if (_currentView==='deployed')   { UI.populateDeployedFilters(); UI.renderDeployed(); }
     else if (_currentView==='history')    UI.renderHistory();
     else if (_currentView==='transit')    UI.renderTransitList();
+    else if (_currentView==='transfers')  UI.renderTransferList();
     else if (_currentView==='orders')     UI.renderOrderList();
     else if (_currentView==='shipment-history') UI.renderShipmentHistory();
   } catch(e) {}

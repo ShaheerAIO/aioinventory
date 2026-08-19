@@ -4,6 +4,15 @@
  */
 var CHANGELOG = [
   {
+    version: 'v110',
+    date: '2026-08-19',
+    title: 'Warehouse Transfers Get Their Own Page',
+    changes: [
+      { type: 'improved', text: 'Warehouse transfers now have their own nav item under Stock Info, with a count of everything in flight on the button. The panel used to be tucked inside In Transit and only appeared once a transfer existed, so there was no way to find the feature before using it' },
+      { type: 'improved', text: 'In Transit now counts only supplier shipments, and Warehouse Transfers counts only stock moving between warehouses — the same units are no longer counted twice across two menu items' },
+    ],
+  },
+  {
     version: 'v109',
     date: '2026-08-18',
     title: 'Move Stock Between Warehouses',

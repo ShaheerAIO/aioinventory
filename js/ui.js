@@ -16,6 +16,7 @@ const UI = (() => {
 
   // ── Dashboard ─────────────────────────────────────────────────────────
   function renderDashboard() {
+    _syncTransferBadge();
     const stats    = Inventory.getStats();
     const lowItems = Inventory.getLowStockItems();
     const { movements } = DB.getData();
@@ -600,9 +601,7 @@ const UI = (() => {
     const { shipments } = DB.getData();
     const active = shipments.filter(s => s.status === 'in-transit').reverse();
     const badge = document.getElementById('transit-count-badge');
-    // Warehouse transfers are waiting to be received here too, so they count
-    const waiting = active.length + Inventory.getInFlightTransfers().length;
-    if (badge) badge.textContent = waiting > 0 ? `(${waiting})` : '';
+    if (badge) badge.textContent = active.length > 0 ? `(${active.length})` : '';
 
     const container = document.getElementById('transit-list');
     if (!container) return;
@@ -2927,19 +2926,30 @@ Items will remain in Stock Holding with no customer attached.`)) return;
     renderDashboard();
   }
 
-  // ── In-flight warehouse transfers (In Transit view) ────────────────────
+  // ── In-flight warehouse transfers (Warehouse Transfers view) ───────────
+  // Nav badge, kept in sync from the dashboard too so the count is visible
+  // before anyone opens the view.
+  function _syncTransferBadge() {
+    const badge = document.getElementById('transfer-count-badge');
+    if (!badge) return;
+    const n = Inventory.getInFlightTransfers().length;
+    badge.textContent = n > 0 ? `(${n})` : '';
+  }
+
   function renderTransferList() {
     const container = document.getElementById('transfer-list');
     if (!container) return;
     const canEdit = typeof Auth !== 'undefined' && Auth.canEdit();
     const active  = [...Inventory.getInFlightTransfers()].reverse();
 
-    const panel = document.getElementById('transfer-panel');
-    if (panel) panel.style.display = active.length ? '' : 'none';
+    _syncTransferBadge();
     const countEl = document.getElementById('transfer-count');
     if (countEl) countEl.textContent = active.length ? `(${active.length})` : '';
 
-    if (!active.length) { container.innerHTML = ''; return; }
+    if (!active.length) {
+      container.innerHTML = '<div class="empty">No warehouse transfers in flight — dispatch stock from Stock Holding</div>';
+      return;
+    }
 
     container.innerHTML = active.map(t => {
       const total    = (t.products || []).reduce((a, p) => a + p.serials.length, 0);

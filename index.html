@@ -228,6 +228,7 @@
           <button class="nav-dropdown-item" data-view="deployed">Stock Deployed</button>
           <button class="nav-dropdown-item" data-view="rmatldisp">Stock RMA / TL</button>
           <button class="nav-dropdown-item" data-view="stocktake">Stock Audit</button>
+          <button class="nav-dropdown-item" data-view="transfers">Warehouse Transfers <span id="transfer-count-badge"></span></button>
         </div>
       </div>
       <div class="nav-dropdown">
@@ -630,17 +631,23 @@
         <span>+</span> Add another product
       </button>
     </div>
-    <!-- Warehouse transfers in flight -->
-    <div class="panel" id="transfer-panel" style="margin-bottom:1rem;display:none;">
-      <div class="panel-title">⇄ Warehouse transfers in flight <span id="transfer-count" style="font-size:12px;color:var(--text-muted);font-weight:400;"></span></div>
-      <div style="font-size:12px;color:var(--text-muted);margin:-4px 0 10px;">Stock that has left one warehouse and not yet been received at the next. Receive it here when it lands.</div>
-      <div id="transfer-list"></div>
-    </div>
-
     <!-- Active shipments list -->
     <div class="panel">
       <div class="panel-title">Active shipments</div>
       <div id="transit-list"></div>
+    </div>
+  </section>
+
+  <!-- WAREHOUSE TRANSFERS -->
+  <section id="v-transfers" class="view" style="display:none;">
+    <div class="panel-toolbar">
+      <span class="toolbar-title">Warehouse Transfers</span>
+      <button class="btn btn-ghost btn-sm" data-goto-view="stock-list">⇄ Dispatch stock →</button>
+    </div>
+    <div class="panel" id="transfer-panel">
+      <div class="panel-title">⇄ Warehouse transfers in flight <span id="transfer-count" style="font-size:12px;color:var(--text-muted);font-weight:400;"></span></div>
+      <div style="font-size:12px;color:var(--text-muted);margin:-4px 0 10px;">Stock that has left one warehouse and not yet been received at the next. Receive it here when it lands.</div>
+      <div id="transfer-list"></div>
     </div>
   </section>
 
@@ -1222,14 +1229,14 @@
 <script src="js/auth.js?v=101"></script>
 <script src="js/auth-ui.js?v=103"></script>
 <script src="js/scanner.js?v=101"></script>
-<script src="js/db.js?v=109"></script>
+<script src="js/db.js?v=110"></script>
 <script src="js/inventory.js?v=109"></script>
 <script src="js/reports.js?v=101"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="js/ui.js?v=111"></script>
+<script src="js/ui.js?v=112"></script>
 <script src="js/audit.js?v=105"></script>
-<script src="js/changelog.js?v=109"></script>
-<script src="js/app.js?v=108"></script>
+<script src="js/changelog.js?v=110"></script>
+<script src="js/app.js?v=109"></script>
 </body>
 </html>
 

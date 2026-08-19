@@ -1344,7 +1344,7 @@
   }
 
   // ── Navigation ────────────────────────────────────────────────────────
-  const VIEWS = ['dashboard','products','suppliers','orders','transit','shipment-history','changelog','in','out','stock-list','deployed','servicing','rma','totalloss','rmatldisp','stocktake','reports','lookup','history'];
+  const VIEWS = ['dashboard','products','suppliers','orders','transit','transfers','shipment-history','changelog','in','out','stock-list','deployed','servicing','rma','totalloss','rmatldisp','stocktake','reports','lookup','history'];
 
   function showView(view) {
     VIEWS.forEach(v => { document.getElementById('v-' + v).style.display = v === view ? '' : 'none'; });
@@ -1360,7 +1360,8 @@
     if (view === 'products')   UI.renderProductList();
     if (view === 'suppliers')  UI.renderSupplierList();
     if (view === 'orders')     { UI.populateDataLists(); if (!ordRows.length) ordRows=[newOrdRow()]; renderOrdRows(); UI.renderOrderList(); }
-    if (view === 'transit')    { UI.populateDataLists(); if (!trRows.length) trRows=[newTrRow()]; renderTrRows(); UI.renderTransferList(); UI.renderTransitList(); }
+    if (view === 'transit')    { UI.populateDataLists(); if (!trRows.length) trRows=[newTrRow()]; renderTrRows(); UI.renderTransitList(); }
+    if (view === 'transfers')  UI.renderTransferList();
     if (view === 'stock-list') { UI.populateStockListFilters(); UI.renderStockBreakdown(); UI.renderStockList(); }
     if (view === 'deployed')   { UI.populateDeployedFilters(); UI.renderDeployed(); }
     if (view === 'servicing')  UI.renderServicing();
@@ -1379,6 +1380,9 @@
 
   // Nav buttons (top-level)
   document.querySelectorAll('.nav-btn:not(.nav-dropdown-toggle)').forEach(btn => btn.addEventListener('click', () => showViewTracked(btn.dataset.view)));
+
+  // In-page shortcuts to another view (e.g. Transfers → Stock Holding)
+  document.querySelectorAll('[data-goto-view]').forEach(btn => btn.addEventListener('click', () => showViewTracked(btn.dataset.gotoView)));
 
   // Dropdown toggle
   document.querySelectorAll('.nav-dropdown-toggle').forEach(toggle => {
