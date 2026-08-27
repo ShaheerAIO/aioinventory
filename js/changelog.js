@@ -4,6 +4,14 @@
  */
 var CHANGELOG = [
   {
+    version: 'v111',
+    date: '2026-08-27',
+    title: 'Every Warehouse Shows When Dispatching Stock',
+    changes: [
+      { type: 'improved', text: 'The Location list when dispatching stock now shows every warehouse, not only the ones holding the selected product. A warehouse with nothing in it reads "(0 in stock)" and cannot be picked, instead of vanishing from the list — so a missing warehouse no longer looks like the app forgot it exists, it reads as "no stock of this product recorded here"' },
+    ],
+  },
+  {
     version: 'v110',
     date: '2026-08-19',
     title: 'Warehouse Transfers Get Their Own Page',

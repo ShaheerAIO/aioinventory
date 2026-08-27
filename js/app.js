@@ -1045,13 +1045,20 @@
       `<option value="${esc(p)}"${row.product === p ? ' selected' : ''}>${esc(p)}</option>`
     ).join('');
 
-    // Location options for selected product
-    const locationsForProduct = row.product
+    // Location options: every known warehouse, not just the ones holding this
+    // product, so a warehouse with no stock of it reads as "(0 in stock)"
+    // instead of going missing from the list. Empty ones are disabled — there
+    // is nothing there to dispatch.
+    const stockedLocations = row.product
       ? Object.values(map).filter(v => v.product === row.product && v.inStock.size > 0).map(v => v.location)
       : [];
-    const locationOptions = locationsForProduct.map(l =>
-      `<option value="${esc(l)}"${row.location === l ? ' selected' : ''}>${esc(l)} (${map[row.product + '||' + l]?.inStock.size || 0} in stock)</option>`
-    ).join('');
+    const locationsForProduct = row.product
+      ? [...new Set([...Inventory.getLocations(), ...stockedLocations])].sort()
+      : [];
+    const locationOptions = locationsForProduct.map(l => {
+      const n = map[row.product + '||' + l]?.inStock.size || 0;
+      return `<option value="${esc(l)}"${row.location === l ? ' selected' : ''}${n === 0 ? ' disabled' : ''}>${esc(l)} (${n} in stock)</option>`;
+    }).join('');
 
     const availCount = row.product && row.location
       ? (map[row.product + '||' + row.location]?.inStock.size || 0)
