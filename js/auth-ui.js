@@ -451,8 +451,11 @@ const AuthUI = (() => {
 
     const rows = customers.map(c => `
       <div class="form-grid g2" style="margin-bottom:8px;align-items:center;">
-        <div style="font-size:13px;">${esc(c)} <span style="color:var(--text-hint);font-size:11px;">(${unitsByCustomer[c] || 0} deployed)</span></div>
-        <input class="fi hubspot-id-input" data-customer="${esc(c)}" placeholder="HubSpot Company ID" value="${esc(map[c] || '')}" />
+        <div style="font-size:13px;">${esc(c)} <span style="color:var(--text-hint);font-size:11px;">(${unitsByCustomer[c] || 0} deployed)${DB.isHubspotIgnored(c) ? ' · not a customer' : ''}</span></div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input class="fi hubspot-id-input" data-customer="${esc(c)}" placeholder="HubSpot Company ID" value="${esc(map[c] || '')}" />
+          <button class="btn btn-ghost btn-xs hubspot-find-btn" data-customer="${esc(c)}" title="Search HubSpot">Find</button>
+        </div>
       </div>`).join('');
 
     overlay.innerHTML = `
@@ -473,6 +476,14 @@ const AuthUI = (() => {
     document.body.appendChild(overlay);
     overlay.querySelector('#close-hubspot-map').addEventListener('click', () => overlay.remove());
     overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+
+    overlay.querySelectorAll('.hubspot-find-btn').forEach(btn => btn.addEventListener('click', () => {
+      const c = btn.dataset.customer;
+      HubspotPicker.open({ customer: c, onDone: () => {
+        const inp = overlay.querySelector(`.hubspot-id-input[data-customer="${CSS.escape(c)}"]`);
+        if (inp) inp.value = DB.getHubspotCompanyId(c) || '';
+      }});
+    }));
 
     overlay.querySelector('#btn-save-hubspot-map')?.addEventListener('click', () => {
       overlay.querySelectorAll('.hubspot-id-input').forEach(inp => {

@@ -32,18 +32,33 @@ async function runHubspotSync(hubspotToken) {
 
   const byCustomer = computeDeployedByCustomer(movements, serialCosts);
 
+  // Several inventory customer names can point at one HubSpot company — a
+  // renamed account, or a pair like "Sammy G's" and "Sammy G's Pizza". Roll the
+  // totals up per company BEFORE writing: a PATCH per customer name assigns
+  // rather than accumulates, so the last name written would win and every other
+  // name's hardware would silently vanish from the company record.
   const results = [];
+  const byCompany = new Map();
+
   for (const [customer, agg] of Object.entries(byCustomer)) {
     const companyId = hubspotCompanyMap[customer];
     if (!companyId) {
       results.push({ customer, skipped: 'unmapped' });
       continue;
     }
+    const roll = byCompany.get(companyId) || { units: 0, value: 0, customers: [] };
+    roll.units += agg.units;
+    roll.value += agg.value;
+    roll.customers.push(customer);
+    byCompany.set(companyId, roll);
+  }
+
+  for (const [companyId, roll] of byCompany) {
     await patchHubspotCompany(hubspotToken, companyId, {
-      [HUBSPOT_DEVICE_COUNT_PROP]: agg.units,
-      [HUBSPOT_DEPLOYED_VALUE_PROP]: agg.value,
+      [HUBSPOT_DEVICE_COUNT_PROP]: roll.units,
+      [HUBSPOT_DEPLOYED_VALUE_PROP]: roll.value,
     });
-    results.push({ customer, companyId, units: agg.units, value: agg.value });
+    results.push({ companyId, customers: roll.customers, units: roll.units, value: roll.value });
   }
   return results;
 }

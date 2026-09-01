@@ -95,3 +95,56 @@ exports.deployedByCompany = onRequest({ secrets: [METRICS_KEY], cors: false }, a
     res.status(500).json({ error: e.message });
   }
 });
+
+// ── Company lookup for the in-app HubSpot picker ─────────────────────────────
+// Called from the browser by a signed-in user, so this is gated on a Firebase
+// Auth ID token plus the caller's app role — a shared secret would have to ship
+// inside client JS, where it is public. Viewers are excluded: mapping is an
+// editing action, and this enumerates CRM company names.
+const { searchHubspotCompanies } = require('./hubspotCompanies');
+
+const PICKER_ORIGINS = [
+  'https://shaheeraio.github.io',
+  'http://localhost:8080',
+  'http://localhost:3000',
+  'http://127.0.0.1:8080',
+];
+
+exports.hubspotCompanySearch = onRequest(
+  { secrets: [HUBSPOT_TOKEN], cors: PICKER_ORIGINS },
+  async (req, res) => {
+    const bearer = /^Bearer (.+)$/.exec(req.get('Authorization') || '');
+    if (!bearer) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    let uid;
+    try {
+      uid = (await admin.auth().verifyIdToken(bearer[1])).uid;
+    } catch {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const profile = await admin.firestore().doc(`users/${uid}`).get();
+    const role = profile.exists ? profile.data().role : null;
+    if (role !== 'admin' && role !== 'edit') {
+      res.status(403).json({ error: 'Forbidden' });
+      return;
+    }
+
+    const q = String(req.query.q || '').trim().slice(0, 200);
+    if (q.length < 2) {
+      res.status(400).json({ error: 'q must be at least 2 characters' });
+      return;
+    }
+
+    try {
+      res.json({ results: await searchHubspotCompanies(HUBSPOT_TOKEN.value(), q) });
+    } catch (e) {
+      console.error('hubspotCompanySearch failed:', e.message);
+      res.status(502).json({ error: 'HubSpot lookup failed' });
+    }
+  }
+);

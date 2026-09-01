@@ -4,6 +4,17 @@
  */
 var CHANGELOG = [
   {
+    version: 'v112',
+    date: '2026-09-01',
+    title: 'Link a Customer to HubSpot as You Deploy',
+    changes: [
+      { type: 'new', text: 'Staging or dispatching stock to an account that has never been linked to HubSpot now opens a company picker straight away. Type to search the HubSpot portal, pick the right company — locations show their city and state, so the right branch of a chain is obvious — and the link is saved. Only linked accounts appear in the nightly HubSpot sync, so this is what gets deployed hardware onto the company record' },
+      { type: 'new', text: 'Names that are not customers at all — warehouses, staff vehicles, write-off buckets, test rows — can be marked "Not a customer" once, and the picker never asks about them again' },
+      { type: 'fixed', text: 'When two account names in inventory point at the same HubSpot company — a renamed account, or a pair like "Sammy G\'s" and "Sammy G\'s Pizza" — the nightly sync now adds their hardware together. Previously each name was written separately and the last one overwrote the rest, so the company record showed one name\'s units instead of the total' },
+      { type: 'improved', text: 'The admin HubSpot mapping panel has a "Find" button on every row, so existing accounts can be linked by searching instead of hunting for the Company ID in a HubSpot URL' },
+    ],
+  },
+  {
     version: 'v111',
     date: '2026-08-27',
     title: 'Every Warehouse Shows When Dispatching Stock',

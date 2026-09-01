@@ -1324,6 +1324,12 @@
         UI.renderDashboard();
         UI.showAlert(`${totalUnits} unit${totalUnits!==1?'s':''} dispatched to "${customer}"`, 'success');
       }
+      // First time we've seen this account name — get it linked to a HubSpot
+      // company now, while whoever typed it still knows which one it is. The
+      // stock movement is already saved at this point, so the picker repeats it
+      // back: the form behind it has been cleared and the toast is covered.
+      HubspotPicker.promptIfUnmapped(customer,
+        `${totalUnits} unit${totalUnits!==1?'s':''} ${isStage ? 'staged for deployment to' : 'dispatched to'} "${customer}" — saved.`);
     } catch(err) { UI.showAlert(err.message, 'error'); }
   }
 
