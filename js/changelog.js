@@ -4,6 +4,14 @@
  */
 var CHANGELOG = [
   {
+    version: 'v113',
+    date: '2026-09-02',
+    title: 'Rename a Location',
+    changes: [
+      { type: 'new', text: 'Stock Holding has a "✎ Rename location" button. Pick an existing location and give it a new name, and every movement, shipment and warehouse transfer that referenced it — past and present — is updated to match, so fixing a typo or renaming a warehouse no longer means it shows up under two different names. Renaming onto an existing location\'s name merges the two' },
+    ],
+  },
+  {
     version: 'v112',
     date: '2026-09-01',
     title: 'Link a Customer to HubSpot as You Deploy',

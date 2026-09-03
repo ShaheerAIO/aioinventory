@@ -574,6 +574,45 @@ const DB = (() => {
     }
     _persist([...SAVE_FIELDS, 'movements']);
   }
+
+  // Rename a location across movements, shipments, transfers, thresholds and
+  // the custom-location list. Renaming onto an existing location's name merges
+  // the two — any threshold already set on the target wins over the source's.
+  function renameLocation(oldLoc, newLoc) {
+    if (!oldLoc || !newLoc || oldLoc === newLoc) return;
+    _data.movements = _data.movements.map(mv => {
+      const upd = {};
+      if (mv.location === oldLoc)     upd.location = newLoc;
+      if (mv.transferFrom === oldLoc) upd.transferFrom = newLoc;
+      if (mv.transferTo === oldLoc)   upd.transferTo = newLoc;
+      return Object.keys(upd).length ? { ...mv, ...upd } : mv;
+    });
+    _data.shipments = (_data.shipments || []).map(s => {
+      const upd = {};
+      if (s.location === oldLoc)       upd.location = newLoc;
+      if (s.actualLocation === oldLoc) upd.actualLocation = newLoc;
+      return Object.keys(upd).length ? { ...s, ...upd } : s;
+    });
+    _data.transfers = (_data.transfers || []).map(t => {
+      const upd = {};
+      if (t.from === oldLoc) upd.from = newLoc;
+      if (t.to === oldLoc)   upd.to = newLoc;
+      if (t.receiptLog && t.receiptLog.some(r => r.location === oldLoc))
+        upd.receiptLog = t.receiptLog.map(r => r.location === oldLoc ? { ...r, location: newLoc } : r);
+      return Object.keys(upd).length ? { ...t, ...upd } : t;
+    });
+    // Thresholds are keyed "product||location"
+    const suffix = '||' + oldLoc;
+    Object.keys(_data.thresholds || {}).forEach(k => {
+      if (k.endsWith(suffix)) {
+        const newKey = k.slice(0, -suffix.length) + '||' + newLoc;
+        if (_data.thresholds[newKey] === undefined) _data.thresholds[newKey] = _data.thresholds[k];
+        delete _data.thresholds[k];
+      }
+    });
+    _data.customLocations = [...new Set((_data.customLocations || []).map(l => l === oldLoc ? newLoc : l))];
+    _persist([...SAVE_FIELDS, 'movements']);
+  }
   // Update condition flag on the IN movement for a serial (also records tester)
   // NOTE: the 'used' field is NEVER modified here — it is permanent from receipt
   function updateSerialCondition(serial, condition, testedBy, testedDate, notes) {
@@ -762,7 +801,7 @@ const DB = (() => {
   }
 
   init();
-  return { onReady, getData, save:_save, addMovement, addMovements, setThreshold, getThreshold, addShipment, updateShipment, removeShipment, addTransfer, updateTransfer, getTransfers, setSerialCost, getSerialCost, setProductCost, setHubspotCompanyId, getHubspotCompanyId, getHubspotCompanyMap, setHubspotIgnored, isHubspotIgnored, getHubspotIgnored, deleteSerial, deleteSerials, renameSerial, updateSerialCondition, getSerialCondition, savePO, getPO, getAllPOs, getPONumbers, getPOUnitCost, setSerialPO, getSerialPO, addCustomSupplier, addCustomLocation, getCustomSuppliers, getCustomLocations, addOrder, updateOrder, removeOrder, getOrders, addSupplier, updateSupplier, removeSupplier, getSupplierRecords, addProductRecord, updateProductRecord, removeProductRecord, getProductRecords, addAuditRecord, saveAuditRecord, deleteAuditRecord, splitStorage, getAuditRecords, setPendingUser, getPendingUser, removePendingUser, addPendingDeployment, getPendingDeployments, removePendingDeployment, updatePendingDeployment, savePausedAudit, getPausedAudit, getAllPausedAudits, clearPausedAudit, exportJSON, importJSON, uploadDocument, addDocumentToShipment, removeDocumentFromShipment, addDocumentToOrder };
+  return { onReady, getData, save:_save, addMovement, addMovements, setThreshold, getThreshold, addShipment, updateShipment, removeShipment, addTransfer, updateTransfer, getTransfers, setSerialCost, getSerialCost, setProductCost, setHubspotCompanyId, getHubspotCompanyId, getHubspotCompanyMap, setHubspotIgnored, isHubspotIgnored, getHubspotIgnored, deleteSerial, deleteSerials, renameSerial, renameLocation, updateSerialCondition, getSerialCondition, savePO, getPO, getAllPOs, getPONumbers, getPOUnitCost, setSerialPO, getSerialPO, addCustomSupplier, addCustomLocation, getCustomSuppliers, getCustomLocations, addOrder, updateOrder, removeOrder, getOrders, addSupplier, updateSupplier, removeSupplier, getSupplierRecords, addProductRecord, updateProductRecord, removeProductRecord, getProductRecords, addAuditRecord, saveAuditRecord, deleteAuditRecord, splitStorage, getAuditRecords, setPendingUser, getPendingUser, removePendingUser, addPendingDeployment, getPendingDeployments, removePendingDeployment, updatePendingDeployment, savePausedAudit, getPausedAudit, getAllPausedAudits, clearPausedAudit, exportJSON, importJSON, uploadDocument, addDocumentToShipment, removeDocumentFromShipment, addDocumentToOrder };
 })();
 
 let _currentView = 'dashboard';

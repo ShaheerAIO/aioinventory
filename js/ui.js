@@ -1896,6 +1896,7 @@ Items will remain in Stock Holding with no customer attached.`)) return;
     }
 
     _syncTransferBar(visibleInStock, locF, showSelect);
+    _syncRenameLocationButton(canEdit, locF);
 
     const footer = document.getElementById('inv-footer');
     footer.textContent = rows.length
@@ -2924,6 +2925,88 @@ Items will remain in Stock Holding with no customer attached.`)) return;
     renderTransferList();
     renderTransitList();
     renderDashboard();
+  }
+
+  // ── Rename a location ────────────────────────────────────────────────
+  // A location is just a string on movements/shipments/transfers — DB.renameLocation
+  // rewrites every occurrence so a typo or a warehouse renaming doesn't require
+  // touching each historical record by hand.
+  function _syncRenameLocationButton(canEdit, locF) {
+    const btn = document.getElementById('btn-rename-location');
+    if (!btn) return;
+    btn.style.display = canEdit && Inventory.getLocations().length ? '' : 'none';
+    btn.onclick = canEdit ? () => _showRenameLocationModal(locF) : null;
+  }
+
+  function _showRenameLocationModal(preselect) {
+    const existing = document.getElementById('rename-location-modal');
+    if (existing) existing.remove();
+
+    const locations = Inventory.getLocations();
+    if (!locations.length) return;
+
+    const modal = document.createElement('div');
+    modal.id = 'rename-location-modal';
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-box" style="width:420px;">
+        <div class="modal-title" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
+          <span>✎ Rename location</span>
+          <button class="btn-remove-row" id="rename-loc-close">×</button>
+        </div>
+        <div class="form-group" style="margin-bottom:1rem;">
+          <label class="form-label">Location *</label>
+          <select class="fi" id="rename-loc-select">
+            ${locations.map(l => `<option value="${esc(l)}"${l === preselect ? ' selected' : ''}>${esc(l)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group" style="margin-bottom:1.25rem;">
+          <label class="form-label">New name *</label>
+          <input class="fi" id="rename-loc-input" placeholder="e.g. Los Angeles" autocomplete="off" list="rename-loc-existing" />
+          <datalist id="rename-loc-existing">${locations.map(l => `<option value="${esc(l)}">`).join('')}</datalist>
+          <div class="hint">Applies to every movement, shipment and transfer at this location — past and present.</div>
+        </div>
+        <div id="rename-loc-error" style="display:none;color:var(--danger-text);font-size:12px;margin-bottom:10px;"></div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;">
+          <button class="btn btn-ghost" id="rename-loc-cancel">Cancel</button>
+          <button class="btn btn-primary" id="rename-loc-save">Save</button>
+        </div>
+      </div>`;
+
+    document.body.appendChild(modal);
+
+    const select = document.getElementById('rename-loc-select');
+    const input  = document.getElementById('rename-loc-input');
+    const errEl  = document.getElementById('rename-loc-error');
+    const close  = () => modal.remove();
+
+    document.getElementById('rename-loc-close').addEventListener('click', close);
+    document.getElementById('rename-loc-cancel').addEventListener('click', close);
+    modal.addEventListener('click', e => { if (e.target === modal) close(); });
+
+    setTimeout(() => input.focus(), 50);
+
+    document.getElementById('rename-loc-save').addEventListener('click', () => {
+      const oldLoc = select.value;
+      const newLoc = input.value.trim();
+      errEl.style.display = 'none';
+
+      if (!newLoc) { errEl.textContent = 'New name is required.'; errEl.style.display = 'block'; return; }
+      if (newLoc === oldLoc) { close(); return; }
+
+      const merging = locations.some(l => l === newLoc);
+      if (merging && !confirm(`"${newLoc}" already exists as a location. Merge "${oldLoc}" into it?\n\nEvery unit currently at "${oldLoc}" will show as being at "${newLoc}" instead.`)) return;
+
+      DB.renameLocation(oldLoc, newLoc);
+      close();
+      _refreshAfterTransfer();
+      showAlert(`Location renamed: ${oldLoc} → ${newLoc}`, 'success');
+    });
+
+    input.addEventListener('keydown', e => {
+      if (e.key === 'Enter') { e.preventDefault(); document.getElementById('rename-loc-save').click(); }
+      if (e.key === 'Escape') close();
+    });
   }
 
   // ── In-flight warehouse transfers (Warehouse Transfers view) ───────────
