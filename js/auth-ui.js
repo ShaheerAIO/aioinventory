@@ -22,9 +22,9 @@ const AuthUI = (() => {
             <label class="form-label">Password</label>
             <input class="fi" id="login-password" type="password" placeholder="••••••••" autocomplete="current-password" />
           </div>
-          <button class="btn btn-orange login-btn" id="login-btn">Sign in</button>
+          <button class="btn btn-primary login-btn" id="login-btn">Sign in</button>
           <div style="margin-top:12px;text-align:center;">
-            <button id="btn-forgot-password" style="background:none;border:none;color:var(--aio-purple,#6e3fc8);font-size:13px;cursor:pointer;text-decoration:underline;padding:0;">Forgot password?</button>
+            <button id="btn-forgot-password" style="background:none;border:none;color:var(--aio-purple,#53575D);font-size:13px;cursor:pointer;text-decoration:underline;padding:0;">Forgot password?</button>
           </div>
           <div class="login-footer">AIO App Inventory · Authorised users only</div>
         </div>
@@ -78,7 +78,7 @@ const AuthUI = (() => {
           await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
         await sendPasswordResetEmail(getAuth(), email);
         btn.textContent = '✓ Reset email sent — check your inbox';
-        btn.style.color = '#1a7a3c';
+        btn.style.color = '#4AA37B';
         // Clear any error
         const errEl = document.getElementById('login-error');
         if (errEl) errEl.style.display = 'none';
@@ -366,7 +366,7 @@ const AuthUI = (() => {
           <tbody>${activeRows}</tbody>
         </table>
         ${pendingList.length ? `
-          <div style="margin-top:14px;margin-bottom:6px;font-size:10px;font-weight:700;color:var(--aio-orange-dark, #c05000);text-transform:uppercase;letter-spacing:.06em;">Pending — awaiting first login</div>
+          <div style="margin-top:14px;margin-bottom:6px;font-size:10px;font-weight:700;color:var(--aio-orange-dark, #AC1B02);text-transform:uppercase;letter-spacing:.06em;">Pending — awaiting first login</div>
           <table style="width:100%;border-collapse:collapse;font-size:13px;table-layout:fixed;">
             ${cols}
             <tbody>${pendingRows}</tbody>

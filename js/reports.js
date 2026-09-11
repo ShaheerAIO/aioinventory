@@ -126,9 +126,9 @@ const Reports = (() => {
 
     // Detect dark mode
     const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const textCol  = isDark ? '#9b9b97' : '#6b6b68';
-    const gridCol  = isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)';
-    const bgCol    = isDark ? '#1c1c1a' : '#ffffff';
+    const textCol  = isDark ? '#7F8597' : '#888D95';
+    const gridCol  = isDark ? '#24334F' : '#E9E9F4';
+    const bgCol    = isDark ? '#0F1A2F' : '#ffffff';
 
     ctx.clearRect(0, 0, W, H);
     ctx.fillStyle = bgCol;
@@ -143,10 +143,10 @@ const Reports = (() => {
     for (let i = 0; i <= steps; i++) {
       const y = PAD.top + chartH - (i / steps) * chartH;
       ctx.strokeStyle = gridCol;
-      ctx.lineWidth = 0.5;
+      ctx.lineWidth = 1;
       ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + chartW, y); ctx.stroke();
       ctx.fillStyle = textCol;
-      ctx.font = '10px -apple-system, sans-serif';
+      ctx.font = '400 11px Poppins, sans-serif';
       ctx.textAlign = 'right';
       const val = (max * i / steps);
       ctx.fillText(val >= 1000 ? '$' + (val/1000).toFixed(1) + 'k' : '$' + val.toFixed(0), PAD.left - 6, y + 3);
@@ -159,13 +159,13 @@ const Reports = (() => {
       const y = PAD.top + chartH - barH;
       ctx.fillStyle = color;
       ctx.beginPath();
-      ctx.roundRect ? ctx.roundRect(x, y, barW, barH, [3, 3, 0, 0]) : ctx.rect(x, y, barW, barH);
+      ctx.roundRect ? ctx.roundRect(x, y, barW, barH, [8, 8, 0, 0]) : ctx.rect(x, y, barW, barH);
       ctx.fill();
 
       // Value label on bar
       if (values[i] > 0) {
-        ctx.fillStyle = isDark ? '#e8e8e4' : '#1a1a18';
-        ctx.font = 'bold 10px -apple-system, sans-serif';
+        ctx.fillStyle = isDark ? '#F3F5F9' : '#242528';
+        ctx.font = '500 11px Poppins, sans-serif';
         ctx.textAlign = 'center';
         const lbl = values[i] >= 1000 ? '$' + (values[i]/1000).toFixed(1)+'k' : '$'+values[i].toFixed(0);
         ctx.fillText(lbl, x + barW / 2, y - 4);
@@ -173,7 +173,7 @@ const Reports = (() => {
 
       // X axis label (truncate)
       ctx.fillStyle = textCol;
-      ctx.font = '10px -apple-system, sans-serif';
+      ctx.font = '400 11px Poppins, sans-serif';
       ctx.textAlign = 'center';
       const short = label.length > 12 ? label.slice(0, 11) + '…' : label;
       ctx.fillText(short, x + barW / 2, PAD.top + chartH + 16);
@@ -188,9 +188,9 @@ const Reports = (() => {
     const cx = W * 0.38, cy = H / 2;
     const R = Math.min(cx, cy) - 16;
     const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    const bgCol  = isDark ? '#1c1c1a' : '#ffffff';
-    const textCol= isDark ? '#e8e8e4' : '#1a1a18';
-    const mutCol = isDark ? '#9b9b97' : '#6b6b68';
+    const bgCol  = isDark ? '#0F1A2F' : '#ffffff';
+    const textCol= isDark ? '#F3F5F9' : '#242528';
+    const mutCol = isDark ? '#7F8597' : '#888D95';
 
     ctx.clearRect(0, 0, W, H);
     ctx.fillStyle = bgCol;
@@ -264,11 +264,11 @@ const Reports = (() => {
     const taxReport  = buildTaxReport(from, to);
 
     renderTaxSection(taxReport);
-    const AIO_PURPLE  = '#5F68BC';
-    const AIO_ORANGE  = '#F4733B';
-    const AIO_GREEN   = '#3b6d11';
-    const AIO_AMBER   = '#854f0b';
-    const DONUT_COLORS = [AIO_PURPLE, AIO_ORANGE, '#378add', AIO_GREEN, AIO_AMBER, '#a32d2d'];
+    const AIO_PURPLE  = '#FFD7CF';
+    const AIO_ORANGE  = '#D5D9FC';
+    const AIO_GREEN   = '#34C759';
+    const AIO_AMBER   = '#FFA500';
+    const DONUT_COLORS = [AIO_PURPLE, AIO_ORANGE, AIO_AMBER, AIO_GREEN, '#5F68BC', '#4D7CFF'];
 
     // ── Summary KPI cards ──────────────────────────────────────────────
     document.getElementById('rpt-summary').innerHTML = `
@@ -469,15 +469,15 @@ const Reports = (() => {
     }
     taxEl.innerHTML = `
       <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
-        <div class="svc-stat-card" style="background:#fff8e0;border-color:#f0d880;color:#7a5000;flex:1;min-width:120px;">
+        <div class="svc-stat-card" style="background:#FEF7EA;border-color:#FFA500;color:#8A5200;flex:1;min-width:120px;">
           <div class="svc-stat-count">${taxReport.orders.length}</div>
           <div class="svc-stat-label">POs with tax</div>
         </div>
-        <div class="svc-stat-card" style="background:#fff8e0;border-color:#f0d880;color:#7a5000;flex:1;min-width:120px;">
+        <div class="svc-stat-card" style="background:#FEF7EA;border-color:#FFA500;color:#8A5200;flex:1;min-width:120px;">
           <div class="svc-stat-count">${fmt$(taxReport.totalTax)}</div>
           <div class="svc-stat-label">Total tax paid</div>
         </div>
-        <div class="svc-stat-card" style="background:#eaf7ee;border-color:#b8e0c4;color:#1a6b38;flex:1;min-width:120px;">
+        <div class="svc-stat-card" style="background:#EDFEEA;border-color:#4AA37B;color:#4AA37B;flex:1;min-width:120px;">
           <div class="svc-stat-count">${fmt$(taxReport.totalPaid)}</div>
           <div class="svc-stat-label">Total inc. tax</div>
         </div>
@@ -494,14 +494,14 @@ const Reports = (() => {
             <td style="font-weight:500">${esc(s.supplier)}</td>
             <td>${s.orders}</td>
             <td>${fmt$(s.subtotal)}</td>
-            <td style="color:#9c6000;font-weight:600">${fmt$(s.taxAmount)}</td>
+            <td style="color:#8A5200;font-weight:600">${fmt$(s.taxAmount)}</td>
             <td style="color:var(--aio-purple);font-weight:600">${fmt$(s.total)}</td>
             <td style="color:var(--text-muted)">${s.subtotal > 0 ? (s.taxAmount/s.subtotal*100).toFixed(2)+'%' : '—'}</td>
           </tr>`).join('')}</tbody>
           <tfoot><tr style="border-top:2px solid var(--aio-purple-light);">
             <td colspan="2" style="font-weight:700;padding-top:8px;">Total</td>
             <td style="padding-top:8px;font-weight:700">${fmt$(taxReport.orders.reduce((a,o)=>a+(o.subtotal||0),0))}</td>
-            <td style="padding-top:8px;font-weight:700;color:#9c6000">${fmt$(taxReport.totalTax)}</td>
+            <td style="padding-top:8px;font-weight:700;color:#8A5200">${fmt$(taxReport.totalTax)}</td>
             <td style="padding-top:8px;font-weight:700;color:var(--aio-purple)">${fmt$(taxReport.totalPaid)}</td>
             <td></td>
           </tr></tfoot>
@@ -520,7 +520,7 @@ const Reports = (() => {
             <td><span class="po-lock-badge">🔒 ${esc(o.poNumber)}</span></td>
             <td style="font-weight:500">${esc(o.supplier)}</td>
             <td>${fmt$(o.subtotal)}</td>
-            <td style="color:#9c6000;font-weight:600">${fmt$(o.taxAmount)}</td>
+            <td style="color:#8A5200;font-weight:600">${fmt$(o.taxAmount)}</td>
             <td style="color:var(--text-muted)">${o.taxRate ? o.taxRate+'%' : '—'}</td>
             <td style="font-size:11px;color:var(--text-muted)">${esc(o.taxRef||'—')}</td>
             <td style="font-weight:700;color:var(--aio-purple)">${fmt$(o.totalWithTax)}</td>
@@ -590,15 +590,15 @@ const Reports = (() => {
 
     el.innerHTML = `
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;">
-        <div class="svc-stat-card" style="background:#fef0ea;border-color:#f5c6b0;color:#9c2a00;flex:1;min-width:120px;">
+        <div class="svc-stat-card" style="background:#FFDFD7;border-color:#FFC8BC;color:#AC1B02;flex:1;min-width:120px;">
           <div class="svc-stat-count">${totalUnits}</div>
           <div class="svc-stat-label">🗑 Total units written off</div>
         </div>
-        <div class="svc-stat-card" style="background:#fef0ea;border-color:#f5c6b0;color:#9c2a00;flex:1;min-width:120px;">
+        <div class="svc-stat-card" style="background:#FFDFD7;border-color:#FFC8BC;color:#AC1B02;flex:1;min-width:120px;">
           <div class="svc-stat-count">${fmtMoney(totalValue)}</div>
           <div class="svc-stat-label">💰 Total value written off</div>
         </div>
-        <div class="svc-stat-card" style="background:#f5f0ff;border-color:#c4b8f0;color:var(--aio-purple);flex:1;min-width:120px;">
+        <div class="svc-stat-card" style="background:#F6F6F6;border-color:#FFC8BC;color:var(--aio-purple);flex:1;min-width:120px;">
           <div class="svc-stat-count">${productRows.length}</div>
           <div class="svc-stat-label">📦 Products affected</div>
         </div>
@@ -609,7 +609,7 @@ const Reports = (() => {
         <div class="table-wrap"><table class="product-stock-table">
           <thead><tr><th>Product</th><th style="width:12%">Units</th><th style="width:18%">Value</th></tr></thead>
           <tbody>${productRows.map(([product, data]) =>
-            `<tr><td style="font-weight:500">${product}</td><td style="color:#9c2a00;font-weight:600">${data.count}</td><td style="color:#9c2a00;font-weight:600">${fmtMoney(data.value)}</td></tr>`
+            `<tr><td style="font-weight:500">${product}</td><td style="color:#AC1B02;font-weight:600">${data.count}</td><td style="color:#AC1B02;font-weight:600">${fmtMoney(data.value)}</td></tr>`
           ).join('')}</tbody>
         </table></div>
       </div>

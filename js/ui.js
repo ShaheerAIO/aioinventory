@@ -66,11 +66,11 @@ const UI = (() => {
             <th style="width:20%">Product</th>
             <th style="width:11%">Category</th>
             <th style="width:7%" title="Total units in stock">Total</th>
-            <th style="width:8%;color:#1a7a3c" title="Units ready to deploy">✅ Working</th>
-            <th style="width:8%;color:#1a5080" title="Units in needs-testing">🔬 Testing</th>
-            <th style="width:7%;color:#7a5000" title="Units flagged faulty">⚠ Faulty</th>
-            <th style="width:7%;color:#9c2a00" title="Units for return">⛔ RMA</th>
-            <th style="width:6%;color:#666" title="Written off">🗑 TL</th>
+            <th style="width:8%;color:var(--cond-working)" title="Units ready to deploy">✅ Working</th>
+            <th style="width:8%;color:var(--cond-testing)" title="Units in needs-testing">🔬 Testing</th>
+            <th style="width:7%;color:var(--cond-faulty)" title="Units flagged faulty">⚠ Faulty</th>
+            <th style="width:7%;color:var(--cond-rma)" title="Units for return">⛔ RMA</th>
+            <th style="width:6%;color:var(--cond-tl)" title="Written off">🗑 TL</th>
             <th style="width:7%">In transit</th>
             <th style="width:8%">Avg cost</th>
             <th style="width:11%">Total value</th>
@@ -94,20 +94,20 @@ const UI = (() => {
               <td>${c.tl      > 0 ? `<span class="cond-inline cond-inline-tl">${c.tl}</span>`           : '<span style="color:var(--text-hint)">—</span>'}</td>
               <td>${p.inTransit > 0 ? `<span class="transit-pill">✈ ${p.inTransit}</span>` : '<span style="color:var(--text-hint)">—</span>'}</td>
               <td style="font-size:12px">${fmt$(p.avgCost)}</td>
-              <td style="font-size:12px;font-weight:600;color:var(--aio-purple)">${fmt$(p.totalCost)}</td>
+              <td style="font-size:14px;font-weight:500;color:var(--text)">${fmt$(p.totalCost)}</td>
             </tr>`;}).join('')}
           </tbody>
           <tfoot>
-            <tr style="border-top:2px solid var(--aio-purple-light);">
+            <tr style="border-top:1px solid var(--border-md);">
               <td colspan="2" style="font-weight:700;font-size:12px;color:var(--text-muted);padding-top:10px;">Total</td>
               <td style="font-weight:700;font-size:13px;color:var(--success-text);padding-top:10px;">${grandTotalUnits}</td>
-              <td style="font-weight:700;font-size:13px;color:#1a7a3c;padding-top:10px;">${grandWorking}</td>
-              <td style="font-weight:700;font-size:13px;color:#1a5080;padding-top:10px;">${grandTesting > 0 ? grandTesting : '—'}</td>
-              <td style="font-weight:700;font-size:13px;color:#7a5000;padding-top:10px;">${grandFaulty  > 0 ? grandFaulty  : '—'}</td>
-              <td style="font-weight:700;font-size:13px;color:#9c2a00;padding-top:10px;">${grandRMA > 0 ? grandRMA : '—'}</td>
-              <td style="font-weight:700;font-size:13px;color:#666;padding-top:10px;">${grandTL  > 0 ? grandTL  : '—'}</td>
+              <td style="font-weight:700;font-size:13px;color:#4AA37B;padding-top:10px;">${grandWorking}</td>
+              <td style="font-weight:700;font-size:13px;color:#2B4FA8;padding-top:10px;">${grandTesting > 0 ? grandTesting : '—'}</td>
+              <td style="font-weight:700;font-size:13px;color:#8A5200;padding-top:10px;">${grandFaulty  > 0 ? grandFaulty  : '—'}</td>
+              <td style="font-weight:700;font-size:13px;color:#AC1B02;padding-top:10px;">${grandRMA > 0 ? grandRMA : '—'}</td>
+              <td style="font-weight:600;font-size:14px;color:var(--text);padding-top:10px;">${grandTL  > 0 ? grandTL  : '—'}</td>
               <td style="padding-top:10px;"></td>
-              <td style="font-weight:700;font-size:13px;color:var(--aio-purple);padding-top:10px;">$${grandTotalCost.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+              <td style="font-weight:600;font-size:14px;color:var(--text);padding-top:10px;">$${grandTotalCost.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
             </tr>
           </tfoot>
         </table>`
@@ -135,7 +135,7 @@ const UI = (() => {
               <td><span style="font-size:13px;font-weight:600;color:var(--aio-orange-dark)">${p.units}</span></td>
               <td style="font-size:12px">${fmt$(p.avgCost)}</td>
               <td style="font-size:12px;color:var(--text-muted)">${p.costedUnits > 0 ? p.costedUnits : '<span style="color:var(--text-hint)">—</span>'}</td>
-              <td style="font-size:12px;font-weight:600;color:var(--aio-orange-dark)">${fmt$(p.totalCost)}</td>
+              <td style="font-size:14px;font-weight:500;color:var(--text)">${fmt$(p.totalCost)}</td>
             </tr>`).join('')}
           </tbody>
           <tfoot>
@@ -464,7 +464,7 @@ const UI = (() => {
             <th style="text-align:right;padding:4px 8px;font-weight:600;color:var(--text-muted);font-size:11px;">Qty</th>
             <th style="text-align:right;padding:4px 8px;font-weight:600;color:var(--text-muted);font-size:11px;">Unit cost</th>
             <th style="text-align:right;padding:4px 8px;font-weight:600;color:var(--text-muted);font-size:11px;">Line total</th>
-            ${hasTax ? '<th style="text-align:right;padding:4px 8px;font-weight:600;color:#9c6000;font-size:11px;">Tax share</th><th style="text-align:right;padding:4px 8px;font-weight:600;color:#9c6000;font-size:11px;">Tax/unit</th><th style="text-align:right;padding:4px 8px;font-weight:600;color:var(--aio-purple);font-size:11px;">Landed/unit</th><th style="text-align:right;padding:4px 8px;font-weight:600;color:var(--aio-purple);font-size:11px;">Landed total</th>' : ''}
+            ${hasTax ? '<th style="text-align:right;padding:4px 8px;font-weight:600;color:#8A5200;font-size:11px;">Tax share</th><th style="text-align:right;padding:4px 8px;font-weight:600;color:#8A5200;font-size:11px;">Tax/unit</th><th style="text-align:right;padding:4px 8px;font-weight:600;color:var(--aio-purple);font-size:11px;">Landed/unit</th><th style="text-align:right;padding:4px 8px;font-weight:600;color:var(--aio-purple);font-size:11px;">Landed total</th>' : ''}
           </tr></thead>
           <tbody>
             ${o.products.map(p => {
@@ -476,18 +476,18 @@ const UI = (() => {
                 <td style="padding:6px 8px;text-align:right">${p.unitCost != null ? '$'+p.unitCost.toFixed(2) : '—'}</td>
                 <td style="padding:6px 8px;text-align:right">$${lineTotal.toFixed(2)}</td>
                 ${hasTax ? `
-                <td style="padding:6px 8px;text-align:right;color:#9c6000;">$${(p.taxShare||0).toFixed(2)}</td>
-                <td style="padding:6px 8px;text-align:right;color:#9c6000;">$${(p.taxPerUnit||0).toFixed(4)}</td>
+                <td style="padding:6px 8px;text-align:right;color:#8A5200;">$${(p.taxShare||0).toFixed(2)}</td>
+                <td style="padding:6px 8px;text-align:right;color:#8A5200;">$${(p.taxPerUnit||0).toFixed(4)}</td>
                 <td style="padding:6px 8px;text-align:right;font-weight:600;color:var(--aio-purple);">$${(p.landedUnitCost||p.unitCost||0).toFixed(2)}</td>
                 <td style="padding:6px 8px;text-align:right;font-weight:600;color:var(--aio-purple);">$${landedTotal.toFixed(2)}</td>` : ''}
               </tr>`;
             }).join('')}
           </tbody>
           <tfoot>
-            <tr style="border-top:2px solid var(--aio-purple-light);">
+            <tr style="border-top:1px solid var(--border-md);">
               <td colspan="3" style="padding:8px;font-weight:700;font-size:12px;color:var(--text-muted);">Subtotal</td>
               <td style="padding:8px;text-align:right;font-weight:700;">$${totalVal.toFixed(2)}</td>
-              ${hasTax ? `<td colspan="3" style="padding:8px;text-align:right;color:#9c6000;font-weight:700;">Tax ${fmt$(o.taxAmount)}${o.taxRate?' ('+o.taxRate+'%)':''}</td><td style="padding:8px;text-align:right;font-weight:700;color:var(--aio-purple);">$${(o.totalWithTax||totalVal).toFixed(2)}</td>` : ''}
+              ${hasTax ? `<td colspan="3" style="padding:8px;text-align:right;color:#8A5200;font-weight:700;">Tax ${fmt$(o.taxAmount)}${o.taxRate?' ('+o.taxRate+'%)':''}</td><td style="padding:8px;text-align:right;font-weight:700;color:var(--aio-purple);">$${(o.totalWithTax||totalVal).toFixed(2)}</td>` : ''}
             </tr>
             ${hasTax && o.taxRef ? `<tr><td colspan="8" style="padding:4px 8px;font-size:11px;color:var(--text-muted);">Tax ref: ${esc(o.taxRef)}</td></tr>` : ''}
           </tfoot>
@@ -500,10 +500,10 @@ const UI = (() => {
             <div class="shipment-card-title">
               ${esc(o.supplier)} <span class="po-lock-badge">🔒 ${esc(o.poNumber)}</span>
               <span class="badge ${statusClass[o.status] || 'b-low'}" style="margin-left:6px;font-size:10px;">${statusLabel[o.status] || o.status}</span>
-              ${hasTax ? '<span style="margin-left:8px;font-size:10px;background:#fff8e0;color:#9c6000;padding:2px 7px;border-radius:8px;border:1px solid #f0d880;font-weight:600;">💰 Tax</span>' : ''}
+              ${hasTax ? '<span style="margin-left:8px;font-size:10px;background:#FEF7EA;color:#8A5200;padding:2px 7px;border-radius:8px;border:1px solid #FFA500;font-weight:600;">💰 Tax</span>' : ''}
             </div>
             <div class="shipment-card-meta">
-              ${totalQty} unit${totalQty !== 1 ? 's' : ''} · ${o.products.length} product${o.products.length !== 1 ? 's' : ''} · Subtotal ${fmt$(totalVal)}${hasTax ? ` · <span style="color:#9c6000;">Tax ${fmt$(o.taxAmount)}${o.taxRate ? ' (' + o.taxRate + '%)' : ''}${o.taxRef ? ' — ' + esc(o.taxRef) : ''}</span> · <strong>Total ${fmt$(o.totalWithTax)}</strong>` : ''} · Ordered ${fmtDate(o.createdAt)}${o.expectedBy ? ' · Expected ' + new Date(o.expectedBy).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''} <span style="font-size:11px;color:var(--text-hint);">▼ click to expand</span>
+              ${totalQty} unit${totalQty !== 1 ? 's' : ''} · ${o.products.length} product${o.products.length !== 1 ? 's' : ''} · Subtotal ${fmt$(totalVal)}${hasTax ? ` · <span style="color:#8A5200;">Tax ${fmt$(o.taxAmount)}${o.taxRate ? ' (' + o.taxRate + '%)' : ''}${o.taxRef ? ' — ' + esc(o.taxRef) : ''}</span> · <strong>Total ${fmt$(o.totalWithTax)}</strong>` : ''} · Ordered ${fmtDate(o.createdAt)}${o.expectedBy ? ' · Expected ' + new Date(o.expectedBy).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''} <span style="font-size:11px;color:var(--text-hint);">▼ click to expand</span>
             </div>
           </div>
           <div class="shipment-actions" style="align-self:flex-start;">
@@ -616,7 +616,7 @@ const UI = (() => {
         : '';
       const docs = s.documents || [];
       const docsHtml = docs.length ? `<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);display:flex;flex-wrap:wrap;gap:6px;">
-        ${docs.map(d => `<a href="${d.url}" target="_blank" rel="noopener" style="font-size:11px;color:var(--aio-purple);background:var(--bg-2);border:1px solid var(--border);border-radius:6px;padding:3px 8px;text-decoration:none;" title="${esc(d.name)}">📎 ${esc(d.name.length>28?d.name.slice(0,25)+'…':d.name)}</a>`).join('')}
+        ${docs.map(d => `<a href="${d.url}" target="_blank" rel="noopener" style="font-size:11px;color:var(--aio-purple);background:var(--bg-2);border:1px solid var(--border);border-radius:8px;padding:3px 8px;text-decoration:none;" title="${esc(d.name)}">📎 ${esc(d.name.length>28?d.name.slice(0,25)+'…':d.name)}</a>`).join('')}
       </div>` : '';
       return `<div class="shipment-card">
         <div class="shipment-card-header">
@@ -856,7 +856,7 @@ const UI = (() => {
         <div class="modal-title">✂ Receive Part Shipment</div>
         <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px;">
           ${esc(shipment.supplier || order.supplier)} · PO ${esc(shipment.poNumber || order.poNumber)}
-          ${activeShipments.length > 1 ? `<span style="margin-left:8px;background:#fff3cd;color:#856404;padding:2px 7px;border-radius:8px;font-size:11px;font-weight:600;">Shipment 1 of ${activeShipments.length}</span>` : ''}
+          ${activeShipments.length > 1 ? `<span style="margin-left:8px;background:#FEF7EA;color:#8A5200;padding:2px 7px;border-radius:8px;font-size:11px;font-weight:600;">Shipment 1 of ${activeShipments.length}</span>` : ''}
         </div>
         <div style="font-size:11px;color:var(--text-hint);margin-bottom:12px;">Items not in this delivery — click "✕ Not in this delivery" to leave them in transit.</div>
         <div id="pr-products">${productRows()}</div>
@@ -992,7 +992,7 @@ const UI = (() => {
           ${docs.length ? `<span style="font-size:11px;color:var(--text-muted);">${docs.length} document${docs.length !== 1 ? 's' : ''}</span>` : ''}
         </div>
         ${docs.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;">
-          ${docs.map(d => `<a href="${d.url}" target="_blank" rel="noopener" style="font-size:11px;color:var(--aio-purple);background:var(--bg-2);border:1px solid var(--border);border-radius:6px;padding:3px 8px;text-decoration:none;" title="${esc(d.name)}">📎 ${esc(d.name.length > 30 ? d.name.slice(0, 27) + '…' : d.name)}</a>`).join('')}
+          ${docs.map(d => `<a href="${d.url}" target="_blank" rel="noopener" style="font-size:11px;color:var(--aio-purple);background:var(--bg-2);border:1px solid var(--border);border-radius:8px;padding:3px 8px;text-decoration:none;" title="${esc(d.name)}">📎 ${esc(d.name.length > 30 ? d.name.slice(0, 27) + '…' : d.name)}</a>`).join('')}
         </div>` : ''}
       </div>`;
 
@@ -1322,7 +1322,7 @@ Items will remain in Stock Holding with no customer attached.`)) return;
   function _pct(val, avg) {
     if (!avg) return '';
     const d = Math.round((val - avg) / avg * 100);
-    const color = d > 0 ? 'var(--success-text, #2e7d32)' : (d < 0 ? 'var(--danger-text)' : 'var(--text-muted)');
+    const color = d > 0 ? 'var(--success-text, #4AA37B)' : (d < 0 ? 'var(--danger-text)' : 'var(--text-muted)');
     const sign = d > 0 ? '+' : '';
     return `<span style="color:${color};font-weight:600;">${sign}${d}%</span> vs avg`;
   }
@@ -1519,7 +1519,7 @@ Items will remain in Stock Holding with no customer attached.`)) return;
           ${docs.length ? `<span style="font-size:11px;color:var(--text-muted);">${docs.length} document${docs.length !== 1 ? 's' : ''}</span>` : ''}
         </div>
         ${docs.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;">
-          ${docs.map(d => `<a href="${d.url}" target="_blank" rel="noopener" style="font-size:11px;color:var(--aio-purple);background:var(--bg-2);border:1px solid var(--border);border-radius:6px;padding:3px 8px;text-decoration:none;" title="${esc(d.name)}">📎 ${esc(d.name.length > 30 ? d.name.slice(0, 27) + '…' : d.name)}</a>`).join('')}
+          ${docs.map(d => `<a href="${d.url}" target="_blank" rel="noopener" style="font-size:11px;color:var(--aio-purple);background:var(--bg-2);border:1px solid var(--border);border-radius:8px;padding:3px 8px;text-decoration:none;" title="${esc(d.name)}">📎 ${esc(d.name.length > 30 ? d.name.slice(0, 27) + '…' : d.name)}</a>`).join('')}
         </div>` : ''}
       </div>`;
 
@@ -2260,7 +2260,7 @@ Items will remain in Stock Holding with no customer attached.`)) return;
             </tr>`).join('')}
           </tbody>
           <tfoot>
-            <tr style="border-top:2px solid var(--aio-purple-light);">
+            <tr style="border-top:1px solid var(--border-md);">
               <td colspan="2" style="font-weight:700;font-size:12px;color:var(--text-muted);padding-top:8px;">Total</td>
               <td style="padding-top:8px;font-weight:700">${condTotals['needs-testing'].count||'—'}</td>
               <td style="padding-top:8px;font-weight:700">${condTotals['faulty'].count||'—'}</td>
