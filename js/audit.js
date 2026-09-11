@@ -212,7 +212,7 @@ const Audit = (() => {
           serials.forEach(s => { const r = _submitSerialValue(s); if (r === 'added') added++; else skipped++; });
           input.value = '';
           const fb = document.getElementById('audit-scan-feedback');
-          if (fb) { fb.textContent = `Pasted ${serials.length} serials — ${added} added${skipped > 0 ? ', ' + skipped + ' skipped/unknown' : ''}`; fb.style.color = skipped > 0 ? 'var(--aio-orange-dark,#c05000)' : 'var(--success-text,#1a6b38)'; setTimeout(() => { fb.textContent = ''; fb.style.color = ''; }, 3000); }
+          if (fb) { fb.textContent = `Pasted ${serials.length} serials — ${added} added${skipped > 0 ? ', ' + skipped + ' skipped/unknown' : ''}`; fb.style.color = skipped > 0 ? 'var(--aio-orange-dark,#AC1B02)' : 'var(--success-text,#4AA37B)'; setTimeout(() => { fb.textContent = ''; fb.style.color = ''; }, 3000); }
         });
       }
       if (submit) submit.addEventListener('click', _submitSerial);
@@ -368,7 +368,7 @@ const Audit = (() => {
             <td>${item.location?`<span class="loc-badge">${_esc(item.location)}</span>`:'<span style="color:var(--text-hint)">All</span>'}</td>
             <td>${type}</td>
             <td style="font-weight:600;color:var(--success-text)">${item.systemCount}</td>
-            <td style="text-align:right"><button class="btn btn-ghost btn-xs audit-remove-item" data-idx="${idx}" style="color:#9c2a00;">✕ Remove</button></td>
+            <td style="text-align:right"><button class="btn btn-ghost btn-xs audit-remove-item" data-idx="${idx}" style="color:#AC1B02;">✕ Remove</button></td>
           </tr>`;
         }).join('')}
       </tbody>
@@ -411,12 +411,12 @@ const Audit = (() => {
             ${r.completedAt ? new Date(r.completedAt).toLocaleDateString('en-US',{month:'short',day:'numeric'}) : fmtDate(r.date)}<br>
             <span style="font-size:10px;">${r.completedAt ? new Date(r.completedAt).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) : ''}</span>
           </td>
-          <td style="font-size:12px">${_esc(r.scope)} ${r.locked ? '<span style="font-size:10px;font-weight:700;color:#1a7a3c;background:#eaf7ee;border:1px solid #b8e0c4;border-radius:3px;padding:1px 5px;margin-left:4px;">✅ LOCKED</span>' : ''}${r.cutoffDate ? `<div style="font-size:10px;color:var(--text-muted);margin-top:2px;white-space:nowrap;">📅 received ≤ ${fmtDate(r.cutoffDate + 'T00:00:00')}</div>` : ''}</td>
+          <td style="font-size:12px">${_esc(r.scope)} ${r.locked ? '<span style="font-size:10px;font-weight:700;color:#4AA37B;background:#EDFEEA;border:1px solid #4AA37B;border-radius:3px;padding:1px 5px;margin-left:4px;">✅ LOCKED</span>' : ''}${r.cutoffDate ? `<div style="font-size:10px;color:var(--text-muted);margin-top:2px;white-space:nowrap;">📅 received ≤ ${fmtDate(r.cutoffDate + 'T00:00:00')}</div>` : ''}</td>
           <td style="font-size:11px;color:var(--text-muted);">${_esc(r.completedBy || '—')}</td>
           <td>${r.expected}</td>
-          <td style="color:#1a7a3c;font-weight:600">${r.matched}</td>
-          <td style="color:${r.missing>0?'#9c6000':'var(--text-muted)'};font-weight:600">${r.missing}</td>
-          <td style="color:${writtenOff>0?'#9c2a00':'var(--text-muted)'};font-weight:600">${writtenOff}</td>
+          <td style="color:#4AA37B;font-weight:600">${r.matched}</td>
+          <td style="color:${r.missing>0?'#8A5200':'var(--text-muted)'};font-weight:600">${r.missing}</td>
+          <td style="color:${writtenOff>0?'#AC1B02':'var(--text-muted)'};font-weight:600">${writtenOff}</td>
           <td style="font-size:12px;font-weight:600;color:var(--aio-purple)">${fmt$(r.missingValue||0)}</td>
           <td style="text-align:right;white-space:nowrap;">
             <div style="display:flex;gap:4px;justify-content:flex-end;flex-wrap:wrap;">
@@ -424,7 +424,7 @@ const Audit = (() => {
               ${hasSnapshot && r.missing > 0 && !isLocked ? `<button class="btn btn-ghost btn-xs audit-history-resume" data-idx="${idx}" style="font-size:11px;color:var(--aio-purple);">▶ Resume</button>` : ''}
               ${isAdmin && !isLocked && (r.missing > 0 || (r.nsShortfalls||[]).some(ns => ns.short > (ns.writtenOff||0))) ? `<button class="btn btn-ghost btn-xs audit-history-review" data-idx="${idx}" style="font-size:11px;">${hasPendingMissing ? `⚠ ${pendingTotal} pending` : '✓ All resolved'}</button>` : ''}
               ${isAdmin ? `<button class="btn btn-ghost btn-xs audit-history-delete" data-idx="${idx}" style="font-size:11px;color:var(--danger-text);border-color:var(--danger-border);">🗑</button>` : ''}
-              ${isAdmin ? `<button class="btn btn-ghost btn-xs audit-history-lock" data-idx="${idx}" style="font-size:11px;${r.locked?'color:#1a7a3c;border-color:#b8e0c4;font-weight:600;':'color:var(--text-muted);'}" title="${r.locked?'Locked — click to unlock':'Lock this count as resolved'}">${r.locked ? '🔒' : '🔓'}</button>` : ''}
+              ${isAdmin ? `<button class="btn btn-ghost btn-xs audit-history-lock" data-idx="${idx}" style="font-size:11px;${r.locked?'color:#4AA37B;border-color:#4AA37B;font-weight:600;':'color:var(--text-muted);'}" title="${r.locked?'Locked — click to unlock':'Lock this count as resolved'}">${r.locked ? '🔒' : '🔓'}</button>` : ''}
             </div>
           </td>
         </tr>`;
@@ -577,13 +577,13 @@ const Audit = (() => {
           <span style="color:var(--text-muted);margin-left:8px;">${record.completedAt ? new Date(record.completedAt).toLocaleString('en-US',{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}) : fmtDate(record.date)}</span>
           ${record.completedBy ? `<span style="color:var(--text-muted);margin-left:8px;">by <strong>${_esc(record.completedBy)}</strong></span>` : ''}
           ${record.cutoffDate ? `<span style="color:var(--text-muted);margin-left:8px;">· 📅 received ≤ <strong>${fmtDate(record.cutoffDate + 'T00:00:00')}</strong></span>` : ''}
-          ${(record.writtenOffSerials||[]).length>0?`<span style="margin-left:8px;color:#9c2a00;">· ${(record.writtenOffSerials||[]).length} written off</span>`:''}
-          ${(record.foundSerials||[]).length>0?`<span style="margin-left:8px;color:#1a7a3c;">· ${(record.foundSerials||[]).length} found</span>`:''}
-          ${record.locked?`<span style="margin-left:10px;font-size:11px;font-weight:700;color:#1a7a3c;background:#eaf7ee;border:1px solid #b8e0c4;border-radius:4px;padding:2px 8px;">🔒 LOCKED${record.lockedBy?' · '+_esc(record.lockedBy):''}</span>`:''}
+          ${(record.writtenOffSerials||[]).length>0?`<span style="margin-left:8px;color:#AC1B02;">· ${(record.writtenOffSerials||[]).length} written off</span>`:''}
+          ${(record.foundSerials||[]).length>0?`<span style="margin-left:8px;color:#4AA37B;">· ${(record.foundSerials||[]).length} found</span>`:''}
+          ${record.locked?`<span style="margin-left:10px;font-size:11px;font-weight:700;color:#4AA37B;background:#EDFEEA;border:1px solid #4AA37B;border-radius:4px;padding:2px 8px;">🔒 LOCKED${record.lockedBy?' · '+_esc(record.lockedBy):''}</span>`:''}
         </div>
         <div style="display:flex;gap:8px;">
           ${record.missing > 0 && !record.locked ? `<button class="btn btn-orange btn-sm" id="btn-hist-resume-count">▶ Resume count</button>` : ''}
-          ${isAdmin && !record.locked ? `<button class="btn btn-ghost btn-sm" id="btn-hist-lock-count" style="color:#1a7a3c;border-color:#b8e0c4;">🔒 Lock & resolve</button>` : ''}
+          ${isAdmin && !record.locked ? `<button class="btn btn-ghost btn-sm" id="btn-hist-lock-count" style="color:#4AA37B;border-color:#4AA37B;">🔒 Lock & resolve</button>` : ''}
           ${isAdmin && record.locked ? `<button class="btn btn-ghost btn-sm" id="btn-hist-unlock-count" style="color:var(--text-muted);">🔓 Unlock</button>` : ''}
           <button class="btn btn-ghost btn-sm" id="btn-hist-back-to-history">← Back to history</button>
         </div>`;
@@ -819,21 +819,21 @@ const Audit = (() => {
     // NS shortfall section HTML
     const nsHtml = nsShortfalls.length ? nsShortfalls.map((ns, nsIdx) => {
       const remaining = Math.max(0, ns.short - (ns.writtenOff||0));
-      return `<div style="padding:10px;background:#fffbf0;border:1.5px solid #f0d860;border-radius:8px;margin-bottom:8px;">
+      return `<div style="padding:10px;background:#FEF9F0;border:1.5px solid #FFA500;border-radius:8px;margin-bottom:8px;">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
           <div>
             <span style="font-weight:600;font-size:13px;">${_esc(ns.product)}</span>
             ${ns.location ? `<span class="loc-badge" style="margin-left:6px;">${_esc(ns.location)}</span>` : ''}
             <div style="font-size:12px;color:var(--text-muted);margin-top:3px;">
-              System: ${ns.system} · Counted: ${ns.counted} · Short: <strong style="color:#9c6000;">${ns.short}</strong>
+              System: ${ns.system} · Counted: ${ns.counted} · Short: <strong style="color:#8A5200;">${ns.short}</strong>
               ${ns.writtenOff ? ` · Already written off: ${ns.writtenOff}` : ''}
-              ${remaining === 0 ? ' · <span style="color:#1a7a3c;">✅ Fully resolved</span>' : ''}
+              ${remaining === 0 ? ' · <span style="color:#4AA37B;">✅ Fully resolved</span>' : ''}
             </div>
           </div>
           ${remaining > 0 ? `<div style="display:flex;gap:6px;align-items:center;">
             <label style="font-size:12px;color:var(--text-muted);">Write off:</label>
             <input type="number" class="fi ns-writeoff-qty" data-ns-idx="${nsIdx}" min="1" max="${remaining}" value="${remaining}" style="width:60px;padding:4px 6px;font-size:12px;" />
-            <button class="btn btn-ghost btn-xs ns-writeoff-btn" data-ns-idx="${nsIdx}" style="color:#9c2a00;border-color:#f5c6b0;white-space:nowrap;">🗑 Write off</button>
+            <button class="btn btn-ghost btn-xs ns-writeoff-btn" data-ns-idx="${nsIdx}" style="color:#AC1B02;border-color:#FFC8BC;white-space:nowrap;">🗑 Write off</button>
           </div>` : ''}
         </div>
       </div>`;
@@ -849,31 +849,31 @@ const Audit = (() => {
         ${nsHtml ? `<div style="margin-bottom:12px;"><div style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">No-serial items (write off by quantity)</div>${nsHtml}</div>` : ''}
 
         ${pending.length > 0 ? `
-        <div style="margin-bottom:10px;padding:10px;background:#fffbf0;border:1.5px solid #f0d860;border-radius:8px;">
+        <div style="margin-bottom:10px;padding:10px;background:#FEF9F0;border:1.5px solid #FFA500;border-radius:8px;">
           <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
-            <div style="font-size:12px;font-weight:700;color:#7a5000;">⚠ ${pending.length} pending — not yet actioned</div>
+            <div style="font-size:12px;font-weight:700;color:#8A5200;">⚠ ${pending.length} pending — not yet actioned</div>
             <div style="display:flex;gap:6px;">
-              <button class="btn btn-ghost btn-xs" id="audit-review-mark-all-found" style="font-size:11px;color:#1a7a3c;border-color:#b8e0c4;">✓ Mark all as found</button>
-              <button class="btn btn-ghost btn-xs" id="audit-review-write-all" style="font-size:11px;color:#9c2a00;border-color:#f5c6b0;">🗑 Write off all ${pending.length}</button>
+              <button class="btn btn-ghost btn-xs" id="audit-review-mark-all-found" style="font-size:11px;color:#4AA37B;border-color:#4AA37B;">✓ Mark all as found</button>
+              <button class="btn btn-ghost btn-xs" id="audit-review-write-all" style="font-size:11px;color:#AC1B02;border-color:#FFC8BC;">🗑 Write off all ${pending.length}</button>
             </div>
           </div>
           <div style="display:flex;flex-wrap:wrap;gap:3px;max-height:150px;overflow-y:auto;" id="audit-review-pending-list">
             ${pending.map(s=>`<div style="display:flex;align-items:center;gap:4px;background:white;border:1px solid var(--border);border-radius:4px;padding:2px 6px;">
               <span style="font-family:var(--mono);font-size:11px;">${_esc(s)}</span>
-              <button class="btn-review-found" data-serial="${_esc(s)}" title="Mark as found" style="background:none;border:none;cursor:pointer;color:#1a7a3c;font-size:14px;padding:0 2px;">✓</button>
-              <button class="btn-review-writeoff" data-serial="${_esc(s)}" title="Write off as lost" style="background:none;border:none;cursor:pointer;color:#9c2a00;font-size:14px;padding:0 2px;">🗑</button>
+              <button class="btn-review-found" data-serial="${_esc(s)}" title="Mark as found" style="background:none;border:none;cursor:pointer;color:#4AA37B;font-size:14px;padding:0 2px;">✓</button>
+              <button class="btn-review-writeoff" data-serial="${_esc(s)}" title="Write off as lost" style="background:none;border:none;cursor:pointer;color:#AC1B02;font-size:14px;padding:0 2px;">🗑</button>
             </div>`).join('')}
           </div>
-        </div>` : `<div style="padding:10px;background:#eaf7ee;border:1.5px solid #b8e0c4;border-radius:8px;color:#1a6b38;font-size:13px;margin-bottom:10px;">✅ All missing serials have been actioned</div>`}
+        </div>` : `<div style="padding:10px;background:#EDFEEA;border:1.5px solid #4AA37B;border-radius:8px;color:#4AA37B;font-size:13px;margin-bottom:10px;">✅ All missing serials have been actioned</div>`}
 
         ${alreadyWrittenOff.length > 0 ? `
         <div style="margin-bottom:8px;font-size:12px;">
-          <span style="font-weight:600;color:#9c2a00;">🗑 Written off (${alreadyWrittenOff.length}):</span>
+          <span style="font-weight:600;color:#AC1B02;">🗑 Written off (${alreadyWrittenOff.length}):</span>
           <span style="color:var(--text-muted);margin-left:6px;font-family:var(--mono);font-size:11px;">${alreadyWrittenOff.join(' · ')}</span>
         </div>` : ''}
         ${alreadyFound.length > 0 ? `
         <div style="margin-bottom:8px;font-size:12px;">
-          <span style="font-weight:600;color:#1a7a3c;">✓ Marked as found (${alreadyFound.length}):</span>
+          <span style="font-weight:600;color:#4AA37B;">✓ Marked as found (${alreadyFound.length}):</span>
           <span style="color:var(--text-muted);margin-left:6px;font-family:var(--mono);font-size:11px;">${alreadyFound.join(' · ')}</span>
         </div>` : ''}
 
@@ -1072,7 +1072,7 @@ const Audit = (() => {
         const fb = document.getElementById('audit-scan-feedback');
         if (fb) {
           fb.textContent = `Pasted ${serials.length} serials — ${added} added${skipped > 0 ? ', ' + skipped + ' skipped/unknown' : ''}`;
-          fb.style.color = skipped > 0 ? 'var(--aio-orange-dark, #c05000)' : 'var(--success-text, #1a6b38)';
+          fb.style.color = skipped > 0 ? 'var(--aio-orange-dark, #AC1B02)' : 'var(--success-text, #4AA37B)';
           setTimeout(() => { fb.textContent = ''; fb.style.color = ''; }, 3000);
         }
       });
@@ -1191,7 +1191,7 @@ const Audit = (() => {
           if (phys === null || isNaN(phys)) { varEl.textContent = ''; return; }
           const diff = phys - system;
           varEl.textContent = (diff > 0 ? '+' : '') + diff;
-          varEl.style.color = diff === 0 ? '#1a7a3c' : diff > 0 ? '#1a5080' : '#9c6000';
+          varEl.style.color = diff === 0 ? '#4AA37B' : diff > 0 ? '#2B4FA8' : '#8A5200';
         }
         _updatePanelStatus(panelIdx);
       });
@@ -1250,7 +1250,7 @@ const Audit = (() => {
     // Render newest-first
     const reversed = [...all].reverse();
     logEl.innerHTML = reversed.map(({ serial, product }) =>
-      `<span title="${_esc(product)}" style="font-family:var(--mono);font-size:11px;background:var(--bg-hover,rgba(0,0,0,.04));border:1px solid var(--border);border-radius:4px;padding:2px 7px;color:var(--success-text,#1a6b38);white-space:nowrap;">${_esc(serial)}</span>`
+      `<span title="${_esc(product)}" style="font-family:var(--mono);font-size:11px;background:var(--bg-hover,rgba(0,0,0,.04));border:1px solid var(--border);border-radius:4px;padding:2px 7px;color:var(--success-text,#4AA37B);white-space:nowrap;">${_esc(serial)}</span>`
     ).join('');
   }
 
@@ -1302,7 +1302,7 @@ const Audit = (() => {
     const feedback = document.getElementById('audit-scan-feedback');
 
     if (raw.toUpperCase().startsWith('NS-')) {
-      feedback.style.color = '#9c6000';
+      feedback.style.color = '#8A5200';
       feedback.textContent = `⚠ No-serial item — enter the physical count in the panel below`;
       setTimeout(() => { feedback.textContent = ''; }, 3000);
       return;
@@ -1322,7 +1322,7 @@ const Audit = (() => {
       const k = _key(item);
       _scanned[k].matched.add(key);
       const idx = _countList.indexOf(item);
-      feedback.style.color = '#1a7a3c';
+      feedback.style.color = '#4AA37B';
       feedback.textContent = `✅ ${raw} — ${item.product}`;
       _updateSerialPanel(idx, item);
       _updatePanelStatus(idx);
@@ -1333,7 +1333,7 @@ const Audit = (() => {
       // Try to find which product panel it might belong to (best-effort: check all in-stock)
       const allRow = Inventory.getAllSerialRows().find(r => r.serial.toUpperCase() === key && r.status === 'in-stock');
       if (allRow) {
-        feedback.style.color = '#9c6000';
+        feedback.style.color = '#8A5200';
         feedback.textContent = `⚠ ${raw} — ${allRow.product} is in stock but not in your count list`;
       } else {
         // Truly unknown — assign to first serialised product as unexpected
@@ -1343,7 +1343,7 @@ const Audit = (() => {
           const idx = _countList.indexOf(firstSerial);
           _updateSerialPanel(idx, firstSerial);
         }
-        feedback.style.color = '#9c2a00';
+        feedback.style.color = '#AC1B02';
         feedback.textContent = `❓ ${raw} — not found in system`;
       }
     }
@@ -1362,9 +1362,9 @@ const Audit = (() => {
 
     el.innerHTML = `
       <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:6px;">
-        <span style="color:#1a7a3c;font-weight:600">✅ ${matchCount} scanned</span>
-        <span style="color:${missingCount>0?'#9c6000':'var(--text-muted)'};font-weight:600">⚠ ${missingCount} not yet scanned</span>
-        ${unexpCount>0?`<span style="color:#9c2a00;font-weight:600">❓ ${unexpCount} unexpected</span>`:''}
+        <span style="color:#4AA37B;font-weight:600">✅ ${matchCount} scanned</span>
+        <span style="color:${missingCount>0?'#8A5200':'var(--text-muted)'};font-weight:600">⚠ ${missingCount} not yet scanned</span>
+        ${unexpCount>0?`<span style="color:#AC1B02;font-weight:600">❓ ${unexpCount} unexpected</span>`:''}
       </div>`;
   }
 
@@ -1380,14 +1380,14 @@ const Audit = (() => {
       if (phys == null) { el.textContent = `System: ${item.systemCount}`; el.style.color = 'var(--text-muted)'; return; }
       const diff = phys - item.systemNsCount;
       el.textContent = `System: ${item.systemNsCount} · Counted: ${phys} · ${diff>=0?(diff===0?'✅ Match':'↑ +'+diff):'↓ '+diff}`;
-      el.style.color = diff === 0 ? '#1a7a3c' : '#9c6000';
+      el.style.color = diff === 0 ? '#4AA37B' : '#8A5200';
     } else {
       const matched  = st.matched.size;
       const total    = item.systemSerials.length;
       const missing  = total - matched;
       const unexp    = st.unexpected.length;
       el.textContent = `${matched}/${total} scanned${missing>0?' · ⚠ '+missing+' missing':''}${unexp>0?' · ❓ '+unexp+' unexpected':''}`;
-      el.style.color = matched === total && unexp === 0 ? '#1a7a3c' : '#9c6000';
+      el.style.color = matched === total && unexp === 0 ? '#4AA37B' : '#8A5200';
     }
   }
 
@@ -1529,28 +1529,28 @@ const Audit = (() => {
         📅 Count scope: stock received on or before <strong>${fmtDate(cutoff + 'T00:00:00')}</strong> — stock received after this date was excluded from the count
       </div>` : ''}
       <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;">
-        <div class="svc-stat-card" style="background:#eaf7ee;border-color:#b8e0c4;color:#1a6b38;flex:1;min-width:110px;">
+        <div class="svc-stat-card" style="background:#EDFEEA;border-color:#4AA37B;color:#4AA37B;flex:1;min-width:110px;">
           <div class="svc-stat-count">${totalMatched}<span style="font-size:14px;font-weight:400;margin-left:4px;">/ ${totalExpected}</span></div>
           <div class="svc-stat-label">✅ Serials matched</div>
           <div class="svc-stat-value">${totalExpected>0?Math.round(totalMatched/totalExpected*100):100}% found</div>
         </div>
-        <div class="svc-stat-card" style="background:#fffbf0;border-color:#f0d860;color:#9c6000;flex:1;min-width:110px;">
+        <div class="svc-stat-card" style="background:#FEF9F0;border-color:#FFA500;color:#8A5200;flex:1;min-width:110px;">
           <div class="svc-stat-count">${totalMissing}</div>
           <div class="svc-stat-label">⚠ Serials missing</div>
           <div class="svc-stat-value">${fmt$(missingValue)}</div>
         </div>
-        <div class="svc-stat-card" style="background:#fef0ea;border-color:#f5c6b0;color:#9c2a00;flex:1;min-width:110px;">
+        <div class="svc-stat-card" style="background:#FFDFD7;border-color:#FFC8BC;color:#AC1B02;flex:1;min-width:110px;">
           <div class="svc-stat-count">${totalUnexpected}</div>
           <div class="svc-stat-label">❓ Unexpected serials</div>
           <div class="svc-stat-value">Not in system</div>
         </div>
-        ${nsGroupsEntered > 0 ? `<div class="svc-stat-card" style="background:${totalNsVariance===0?'#eaf7ee':'#fffbf0'};border-color:${totalNsVariance===0?'#b8e0c4':'#f0d860'};color:${totalNsVariance===0?'#1a6b38':'#9c6000'};flex:1;min-width:110px;">
+        ${nsGroupsEntered > 0 ? `<div class="svc-stat-card" style="background:${totalNsVariance===0?'#EDFEEA':'#FEF9F0'};border-color:${totalNsVariance===0?'#4AA37B':'#FFA500'};color:${totalNsVariance===0?'#4AA37B':'#8A5200'};flex:1;min-width:110px;">
           <div class="svc-stat-count">${totalNsVariance>0?'+':''}${totalNsVariance}</div>
           <div class="svc-stat-label">📦 NS total variance</div>
           <div class="svc-stat-value">${nsGroupsEntered} group${nsGroupsEntered!==1?'s':''} counted</div>
         </div>` : ''}
       </div>
-      ${totalMissing > 0 ? `<div style="margin-bottom:12px;padding:10px 14px;background:#fffbf0;border:1.5px solid #f0d860;border-radius:8px;font-size:13px;color:#7a5000;">
+      ${totalMissing > 0 ? `<div style="margin-bottom:12px;padding:10px 14px;background:#FEF9F0;border:1.5px solid #FFA500;border-radius:8px;font-size:13px;color:#8A5200;">
         <strong>⚠ ${totalMissing} missing serial${totalMissing!==1?'s':''}</strong> detected — use <strong>Write off</strong> on items below to permanently remove them from inventory and record as lost stock.
       </div>` : ''}`;
 
@@ -1567,15 +1567,15 @@ const Audit = (() => {
           </tr></thead><tbody><tr class="${rc}">
             <td style="font-weight:600">${item.systemNsCount}</td>
             <td style="font-weight:600">${pr.phys != null ? pr.phys : '—'}</td>
-            <td style="font-weight:700;color:${pr.diff===null?'var(--text-hint)':pr.diff===0?'#1a7a3c':pr.diff>0?'#1a5080':'#9c2a00'}">${pr.diff!=null?(pr.diff>0?'+':'')+pr.diff:'—'}</td>
+            <td style="font-weight:700;color:${pr.diff===null?'var(--text-hint)':pr.diff===0?'#4AA37B':pr.diff>0?'#2B4FA8':'#AC1B02'}">${pr.diff!=null?(pr.diff>0?'+':'')+pr.diff:'—'}</td>
             <td style="font-size:12px">${pr.short>0?fmt$(pr.short):'—'}</td>
             <td><span class="audit-badge ${pr.diff===null?'audit-badge-missing':pr.diff===0?'audit-badge-match':'audit-badge-missing'}">${diffStr}</span></td>
           </tr></tbody></table>
-          ${pr.diff !== null && pr.diff < 0 ? `<div style="margin-top:10px;padding:10px;background:#fffbf0;border:1.5px solid #f0d860;border-radius:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-            <span style="font-size:13px;color:#7a5000;">Write off short stock:</span>
+          ${pr.diff !== null && pr.diff < 0 ? `<div style="margin-top:10px;padding:10px;background:#FEF9F0;border:1.5px solid #FFA500;border-radius:8px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+            <span style="font-size:13px;color:#8A5200;">Write off short stock:</span>
             <input type="number" class="fi audit-ns-writeoff-qty" data-product="${_esc(item.product)}" data-location="${_esc(item.location||'')}" min="1" max="${Math.abs(pr.diff)}" value="${Math.abs(pr.diff)}" style="width:70px;padding:4px 8px;font-size:13px;" />
             <span style="font-size:12px;color:var(--text-muted);">of ${Math.abs(pr.diff)} short</span>
-            <button class="btn btn-ghost btn-sm audit-ns-writeoff-btn" data-product="${_esc(item.product)}" data-location="${_esc(item.location||'')}" data-short="${Math.abs(pr.diff)}" style="color:#9c2a00;border-color:#f5c6b0;">🗑 Write off</button>
+            <button class="btn btn-ghost btn-sm audit-ns-writeoff-btn" data-product="${_esc(item.product)}" data-location="${_esc(item.location||'')}" data-short="${Math.abs(pr.diff)}" style="color:#AC1B02;border-color:#FFC8BC;">🗑 Write off</button>
           </div>` : ''}
         </div>`;
       }
@@ -1593,7 +1593,7 @@ const Audit = (() => {
                     : r.cat==='missing'    ? '<span class="audit-badge audit-badge-missing">⚠ Missing</span>'
                     : '<span class="audit-badge audit-badge-unexpected">❓ Unexpected</span>';
         const lostBtn = r.cat==='missing'
-          ? `<button class="btn btn-ghost btn-xs audit-mark-lost" data-serial="${_esc(r.serial)}" style="color:#9c2a00;border-color:#f5c6b0;white-space:nowrap;">Write off</button>` : '';
+          ? `<button class="btn btn-ghost btn-xs audit-mark-lost" data-serial="${_esc(r.serial)}" style="color:#AC1B02;border-color:#FFC8BC;white-space:nowrap;">Write off</button>` : '';
         const removeUnexpBtn = r.cat==='unexpected'
           ? `<button class="btn btn-ghost btn-xs audit-remove-unexpected" data-serial="${_esc(r.serial)}" style="color:var(--text-muted);white-space:nowrap;">✕ Remove</button>` : '';
         const rowId = `audit-row-${r.serial.replace(/[^a-z0-9]/gi,'_')}`;
@@ -1611,14 +1611,14 @@ const Audit = (() => {
           <div style="display:flex;gap:16px;font-size:13px;">
             <span>System: <strong>${item.systemNsCount}</strong></span>
             <span>Counted: <strong>${pr.phys!=null?pr.phys:'—'}</strong></span>
-            ${pr.nsDiff!=null?`<span style="font-weight:700;color:${pr.nsDiff===0?'#1a7a3c':pr.nsDiff>0?'#1a5080':'#9c6000'}">${pr.nsDiff>0?'+':''}${pr.nsDiff} variance</span>`:''}
+            ${pr.nsDiff!=null?`<span style="font-weight:700;color:${pr.nsDiff===0?'#4AA37B':pr.nsDiff>0?'#2B4FA8':'#8A5200'}">${pr.nsDiff>0?'+':''}${pr.nsDiff} variance</span>`:''}
           </div>
         </div>` : '';
 
       return `<div class="panel" style="margin-bottom:1rem;">
         <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
           <div style="font-weight:600;font-size:14px;">${_esc(item.product)}${item.location?` <span class="loc-badge">${_esc(item.location)}</span>`:''}</div>
-          <div style="font-size:12px;color:${pr.missing.length===0&&(pr.unexp||[]).length===0?'#1a7a3c':'#9c6000'};font-weight:600">
+          <div style="font-size:12px;color:${pr.missing.length===0&&(pr.unexp||[]).length===0?'#4AA37B':'#8A5200'};font-weight:600">
             ${pr.matched.length}/${item.systemSerials.length} matched
             ${pr.missing.length>0?' · ⚠ '+pr.missing.length+' missing':''}
             ${(pr.unexp||[]).length>0?' · ❓ '+(pr.unexp||[]).length+' unexpected':''}
@@ -1629,7 +1629,7 @@ const Audit = (() => {
           <tbody>${tableRows}</tbody>
         </table></div>` : '<div class="empty" style="padding:.5rem">Nothing to show</div>'}
         ${nsSection}
-        ${pr.missing.length > 1 ? `<div style="margin-top:8px;"><button class="btn btn-ghost btn-xs audit-write-off-product" data-idx="${idx}" style="color:#9c2a00;border-color:#f5c6b0;">Write off all ${pr.missing.length} missing</button></div>` : ''}
+        ${pr.missing.length > 1 ? `<div style="margin-top:8px;"><button class="btn btn-ghost btn-xs audit-write-off-product" data-idx="${idx}" style="color:#AC1B02;border-color:#FFC8BC;">Write off all ${pr.missing.length} missing</button></div>` : ''}
       </div>`;
     }).join('');
 
@@ -1798,7 +1798,7 @@ const Audit = (() => {
           if (liveRec) { liveRec.lost = (liveRec.lost||0) + qty; DB.saveAuditRecord(liveRec); }
           btn.textContent = `✓ ${qty} written off`;
           btn.disabled = true;
-          btn.style.color = '#888';
+          btn.style.color = '#888D95';
           if (qtyInput) qtyInput.disabled = true;
         }
       });
@@ -1826,9 +1826,9 @@ const Audit = (() => {
       });
       // Update UI
       if (singleBtn) {
-        singleBtn.textContent = '✓ Written off'; singleBtn.disabled = true; singleBtn.style.color = '#888';
+        singleBtn.textContent = '✓ Written off'; singleBtn.disabled = true; singleBtn.style.color = '#888D95';
         const rowEl = document.getElementById(`audit-row-${serial.replace(/[^a-z0-9]/gi,'_')}`);
-        if (rowEl) { rowEl.classList.remove('audit-row-missing'); const b=rowEl.querySelector('.audit-badge'); if(b){b.className='audit-badge';b.style.cssText='background:#f5d8d8;color:#9c2a00;';b.textContent='🗑 Written off';} }
+        if (rowEl) { rowEl.classList.remove('audit-row-missing'); const b=rowEl.querySelector('.audit-badge'); if(b){b.className='audit-badge';b.style.cssText='background:#FAE4E1;color:#AC1B02;';b.textContent='🗑 Written off';} }
       }
     });
     // Patch DB record — store writtenOffSerials and recalculate
@@ -1907,7 +1907,7 @@ const Audit = (() => {
         <div style="display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--border);padding-top:12px;">
           <button class="btn btn-ghost" id="pause-modal-cancel">Keep counting</button>
           ${missingSerials.length > 0 ? '<button class="btn btn-ghost" id="pause-modal-export">📥 Export CSV</button>' : ''}
-          <button class="btn btn-orange" id="pause-modal-confirm">Pause & save progress</button>
+          <button class="btn btn-primary" id="pause-modal-confirm">Pause & save progress</button>
         </div>
       </div>`;
     document.body.appendChild(overlay);

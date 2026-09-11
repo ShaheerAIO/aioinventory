@@ -629,7 +629,7 @@
         </div>
         <div class="modal-actions">
           <button class="btn btn-ghost" id="arrange-cancel-btn">Cancel</button>
-          <button class="btn btn-orange" id="arrange-confirm-btn">Register in transit</button>
+          <button class="btn btn-primary" id="arrange-confirm-btn">Register in transit</button>
         </div>
       </div>`;
     document.body.appendChild(overlay);
@@ -660,7 +660,7 @@
         return `<tr style="border-top:1px solid var(--border);">
           <td style="padding:5px 6px;font-weight:500;">${esc(p.product)}</td>
           <td style="padding:5px 6px;text-align:right;color:var(--text-muted);">${p.qty}</td>
-          <td style="padding:5px 6px;text-align:right;color:var(--text-muted);">${fmt$(p.unitCost || 0)}${(p.taxPerUnit||0)>0?`<span style='color:#9c6000;font-size:10px;'> +${fmt$(p.taxPerUnit)} tax</span>`:''}</td>
+          <td style="padding:5px 6px;text-align:right;color:var(--text-muted);">${fmt$(p.unitCost || 0)}${(p.taxPerUnit||0)>0?`<span style='color:#8A5200;font-size:10px;'> +${fmt$(p.taxPerUnit)} tax</span>`:''}</td>
           <td style="padding:5px 6px;text-align:right;color:var(--text-muted);">${fmt$(freightPerUnit)}</td>
           <td style="padding:5px 6px;text-align:right;font-weight:700;color:var(--aio-purple);">${fmt$(finalLanded)}</td>
         </tr>`;
@@ -846,7 +846,7 @@
         '<div id="split-error" style="display:none;color:var(--danger-text);font-size:12px;padding:8px 12px;background:var(--bg-2);border-radius:var(--r-md);margin-top:10px;"></div>' +
         '<div class="modal-actions">' +
           '<button class="btn btn-ghost" id="split-cancel-btn">Cancel</button>' +
-          '<button class="btn btn-orange" id="split-confirm-btn">Register part shipment in transit</button>' +
+          '<button class="btn btn-primary" id="split-confirm-btn">Register part shipment in transit</button>' +
         '</div>' +
       '</div>';
     document.body.appendChild(overlay);
@@ -1235,7 +1235,7 @@
 
     if (countEl) {
       countEl.textContent = row.serials.length + ' serial' + (row.serials.length!==1?'s':'') + (invalid ? ` — ${invalid} not in stock` : '') + mismatchMsg;
-      countEl.style.color = mismatchMsg ? '#c0392b' : '';
+      countEl.style.color = mismatchMsg ? '#D5381D' : '';
     }
 
     // Also highlight mismatched serial tags in red
@@ -1490,8 +1490,8 @@
             return `<tr>
               <td style="padding:3px 6px;font-weight:500">${r.product||'—'}</td>
               <td style="padding:3px 6px;text-align:right">$${lineVal.toFixed(2)}</td>
-              <td style="padding:3px 6px;text-align:right;color:#9c6000">$${taxShare.toFixed(2)}</td>
-              <td style="padding:3px 6px;text-align:right;color:#9c6000">$${taxPerUnit.toFixed(4)}</td>
+              <td style="padding:3px 6px;text-align:right;color:#8A5200">$${taxShare.toFixed(2)}</td>
+              <td style="padding:3px 6px;text-align:right;color:#8A5200">$${taxPerUnit.toFixed(4)}</td>
               <td style="padding:3px 6px;text-align:right;font-weight:700;color:var(--aio-purple)">$${landed.toFixed(2)}</td>
             </tr>`;
           }).join('')}</tbody>
@@ -1502,7 +1502,7 @@
       summary.style.display = '';
       summary.innerHTML = `
         <span style="margin-right:16px;">Subtotal: <strong>$${subtotal.toFixed(2)}</strong></span>
-        <span style="margin-right:16px;color:#9c6000;">Tax: <strong>$${resolvedTax.toFixed(2)}</strong>${taxRateV > 0 ? ` (${taxRateV}%)` : ''}</span>
+        <span style="margin-right:16px;color:#8A5200;">Tax: <strong>$${resolvedTax.toFixed(2)}</strong>${taxRateV > 0 ? ` (${taxRateV}%)` : ''}</span>
         <span style="color:var(--aio-purple);font-weight:700;">Total inc. tax: $${(subtotal + resolvedTax).toFixed(2)}</span>`;
     }
   }

@@ -4,6 +4,18 @@
  */
 var CHANGELOG = [
   {
+    version: 'v114',
+    date: '2026-09-11',
+    title: 'A New Look, Matching the AIO Dashboard',
+    changes: [
+      { type: 'improved', text: 'The whole app has been restyled to match the AIO product dashboard, so Inventory now looks like the rest of AIO rather than a separate tool. Poppins replaces the old typeface, coral replaces purple as the accent, and the dark blue header is now white with the AIO mark in coral. Nothing moved — every page, button, menu and column is exactly where it was, and every number means what it did before' },
+      { type: 'improved', text: 'Cards and panels are flat now: a thin border instead of a drop shadow, with grey tiles sitting inside white cards. Tables are calmer too — taller rows, lighter dividers, no more shouty uppercase column headings — which makes long stock and history lists easier to read down' },
+      { type: 'improved', text: 'Colour is used far more sparingly. Coral appears on the active tab, the main button on a page and links; everything else that used to be a solid block of colour — location tags, row buttons on Pending Deployment — is now a quiet tint, so the numbers stand out instead of the chrome' },
+      { type: 'fixed', text: 'Keyboard focus is visible again. Tabbing through a form now draws a clear coral ring around the field or button you are on, instead of the near-invisible outline it drew before' },
+      { type: 'fixed', text: 'The main buttons now visibly respond when you hover them, and the web font the app asks for actually loads — it was being ignored, so every screen had quietly been falling back to the system typeface' },
+    ],
+  },
+  {
     version: 'v113',
     date: '2026-09-02',
     title: 'Rename a Location',

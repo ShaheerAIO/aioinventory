@@ -429,7 +429,7 @@ const DB = (() => {
     if (!el) {
       el = document.createElement('div');
       el.id = 'db-save-error';
-      el.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:100000;background:#b00020;color:#fff;padding:12px 18px;font:14px/1.45 system-ui,-apple-system,sans-serif;box-shadow:0 -2px 12px rgba(0,0,0,.35);';
+      el.style.cssText = 'position:fixed;left:0;right:0;bottom:0;z-index:100000;background:#D5381D;color:#fff;padding:12px 18px;font:14px/1.45 system-ui,-apple-system,sans-serif;box-shadow:0 -2px 12px rgba(0,0,0,.35);';
       document.body.appendChild(el);
     }
     el.innerHTML = html;
@@ -449,7 +449,7 @@ const DB = (() => {
     if (!el) {
       el = document.createElement('div');
       el.id = 'db-size-warn';
-      el.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99999;background:#8a6d00;color:#fff;padding:8px 18px;font:13px/1.4 system-ui,-apple-system,sans-serif;text-align:center;';
+      el.style.cssText = 'position:fixed;left:0;right:0;top:0;z-index:99999;background:#8A5200;color:#fff;padding:8px 18px;font:13px/1.4 system-ui,-apple-system,sans-serif;text-align:center;';
       document.body.appendChild(el);
     }
     const fullySplit = _auditsSplit && _movementsSplit;
