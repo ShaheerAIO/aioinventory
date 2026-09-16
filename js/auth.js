@@ -168,6 +168,18 @@ const Auth = (() => {
   function getName()    { return _userProfile?.name || _currentUser?.email || ''; }
 
   // ── Microsoft Entra ID sign-in ──────────────────────────────────────────
+  // Safari never completes the popup handshake — the window opens, the account
+  // is picked, and the credential never reaches the opener, so the SDK reports
+  // auth/popup-closed-by-user. Send WebKit straight down the redirect path,
+  // which works because /__/auth is served from this origin (see vercel.json).
+  function prefersRedirect() {
+    const ua = navigator.userAgent;
+    const iOS    = /iP(hone|ad|od)/.test(ua) ||
+                   (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const safari = /safari/i.test(ua) && !/chrome|chromium|crios|fxios|edg|android/i.test(ua);
+    return iOS || safari;
+  }
+
   async function signInWithMicrosoft() {
     const { getAuth, OAuthProvider, signInWithPopup, signInWithRedirect } =
       await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
@@ -175,11 +187,18 @@ const Auth = (() => {
     const provider = new OAuthProvider('microsoft.com');
     provider.setCustomParameters({ tenant: ENTRA_TENANT_ID, prompt: 'select_account' });
 
+    if (prefersRedirect()) {
+      await signInWithRedirect(getAuth(), provider);
+      return;
+    }
+
     try {
       await signInWithPopup(getAuth(), provider);
     } catch(e) {
       // Managed browsers often block popups outright — fall back to a redirect
-      if (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment') {
+      if (e.code === 'auth/popup-blocked' ||
+          e.code === 'auth/popup-closed-by-user' ||
+          e.code === 'auth/operation-not-supported-in-this-environment') {
         await signInWithRedirect(getAuth(), provider);
         return;
       }
