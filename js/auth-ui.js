@@ -50,6 +50,30 @@ const AuthUI = (() => {
       if (el) { el.textContent = msg; el.style.display = 'block'; }
     }
 
+    // Always name the underlying code — without it every failure outside the
+    // handful we recognise looks identical and is impossible to diagnose.
+    function describe(e) {
+      const code = e && e.code ? e.code : 'unknown';
+      const known = {
+        'auth/popup-closed-by-user':
+          'The Microsoft window closed before sign-in finished. If you did not close it, your browser may be blocking it — try Chrome or Edge, and tell an administrator.',
+        'auth/cancelled-popup-request':
+          'Sign-in was interrupted. Please try again.',
+        'auth/account-exists-with-different-credential':
+          'An older account already uses this email address. Ask an administrator to finish moving it over.',
+        'auth/unauthorized-domain':
+          'This site is not an authorised sign-in domain for AIO. Contact an administrator.',
+        'auth/popup-blocked':
+          'Your browser blocked the Microsoft sign-in window. Allow pop-ups for this site and try again.',
+      };
+      const msg = known[code] || 'Sign in failed. Please try again, or contact an administrator if this continues.';
+      return `${msg} (${code})`;
+    }
+
+    // Surface a redirect that failed after we were bounced back to this page
+    const redirectErr = Auth.getRedirectError && Auth.getRedirectError();
+    if (redirectErr) showError(describe(redirectErr));
+
     document.getElementById('btn-ms-login').addEventListener('click', async () => {
       const btn = document.getElementById('btn-ms-login');
       const label = btn.querySelector('span');
@@ -62,13 +86,7 @@ const AuthUI = (() => {
       } catch (e) {
         label.textContent = 'Sign in with Microsoft';
         btn.disabled = false;
-        if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return;
-        showError(
-          e.code === 'auth/account-exists-with-different-credential'
-            ? 'An older account already uses this email address. Ask an administrator to finish moving it over.'
-            : e.code === 'auth/unauthorized-domain'
-            ? 'This site is not an authorised sign-in domain for AIO. Contact an administrator.'
-            : 'Sign in failed. Please try again, or contact an administrator if this continues.');
+        showError(describe(e));
       }
     });
 
