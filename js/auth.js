@@ -18,11 +18,10 @@ const Auth = (() => {
   let _userProfile  = null;  // Firestore user doc { name, email, role }
   let _onAuthReady  = [];
   let _authReady    = false;
-  let _redirectError = null;  // a failed redirect never reaches onAuthStateChanged
 
   const FB_CONFIG = {
     apiKey:            "AIzaSyCwlZg9YaGfQDKuVBDI4RAkEzKcDg7Cgdo",
-    authDomain:        "aioinventory.vercel.app",
+    authDomain:        "aio-inventory-b9b29.firebaseapp.com",
     projectId:         "aio-inventory-b9b29",
     storageBucket:     "aio-inventory-b9b29.firebasestorage.app",
     messagingSenderId: "146229036238",
@@ -31,7 +30,7 @@ const Auth = (() => {
 
   // ── Initialise ──────────────────────────────────────────────────────────
   async function init() {
-    const { getAuth, onAuthStateChanged, signOut: fbSignOut, getRedirectResult } =
+    const { getAuth, onAuthStateChanged, signOut: fbSignOut } =
       await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
     const fs = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
     const { initializeApp, getApps } =
@@ -40,10 +39,6 @@ const Auth = (() => {
     const app  = getApps().length ? getApps()[0] : initializeApp(FB_CONFIG);
     const auth = getAuth(app);
     const db   = fs.getFirestore(app);
-
-    // If we came back from the redirect fallback and it failed, this is the only
-    // place the error surfaces — onAuthStateChanged just reports "signed out".
-    try { await getRedirectResult(auth); } catch(e) { _redirectError = e; }
 
     onAuthStateChanged(auth, async (user) => {
       if (user) {
@@ -160,7 +155,6 @@ const Auth = (() => {
     if (_authReady) fn(!!_currentUser); else _onAuthReady.push(fn);
   }
 
-  function getRedirectError() { return _redirectError; }
   function getUser()    { return _currentUser; }
   function getProfile() { return _userProfile; }
   function isAdmin()    { return _userProfile?.role === 'admin'; }
@@ -201,7 +195,7 @@ const Auth = (() => {
     window.location.reload();
   }
 
-  return { init, onReady, getUser, getProfile, isAdmin, canEdit, getName, getRedirectError, signInWithMicrosoft, signIn, signOut };
+  return { init, onReady, getUser, getProfile, isAdmin, canEdit, getName, signInWithMicrosoft, signIn, signOut };
 })();
 
 // ── User Management (admin only) ──────────────────────────────────────────

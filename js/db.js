@@ -3,7 +3,7 @@
  */
 const DB_CONFIG = {
   apiKey:            "AIzaSyCwlZg9YaGfQDKuVBDI4RAkEzKcDg7Cgdo",
-  authDomain:        "aioinventory.vercel.app",
+  authDomain:        "aio-inventory-b9b29.firebaseapp.com",
   projectId:         "aio-inventory-b9b29",
   storageBucket:     "aio-inventory-b9b29.firebasestorage.app",
   messagingSenderId: "146229036238",

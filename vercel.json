@@ -1,8 +1,0 @@
-{
-  "rewrites": [
-    {
-      "source": "/__/auth/:path*",
-      "destination": "https://aio-inventory-b9b29.firebaseapp.com/__/auth/:path*"
-    }
-  ]
-}
