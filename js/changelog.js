@@ -4,6 +4,15 @@
  */
 var CHANGELOG = [
   {
+    version: 'v117',
+    date: '2026-09-15',
+    title: 'Safari Sign-In Fix',
+    changes: [
+      { type: 'fixed', text: 'Signing in with Microsoft now works in Safari. The Microsoft window would open and accept your account, then sit there loading until it gave up and dropped you back at the login screen with no explanation \u2014 Safari blocks the step where the Microsoft window hands your sign-in back to the app, because the two were on different addresses. They are now on the same address, so there is nothing left for Safari to block' },
+      { type: 'fixed', text: 'When sign-in does fail, the login screen now says why instead of quietly resetting the button, and includes a short code you can pass to an administrator' },
+    ],
+  },
+  {
     version: 'v116',
     date: '2026-09-15',
     title: 'Sign In With Your AIO Microsoft Account',
