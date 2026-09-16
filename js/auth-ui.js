@@ -394,9 +394,13 @@ const AuthUI = (() => {
     const unitsByCustomer = Object.fromEntries(Inventory.getDeployedByCustomer().map(b => [b.customer, b.units]));
     const map = DB.getHubspotCompanyMap();
 
+    // Recomputed after the picker closes, so marking "Not a customer" shows up
+    // on the row instead of looking like the button did nothing.
+    const metaText = c => `(${unitsByCustomer[c] || 0} deployed)${DB.isHubspotIgnored(c) ? ' · not a customer' : ''}`;
+
     const rows = customers.map(c => `
       <div class="form-grid g2" style="margin-bottom:8px;align-items:center;">
-        <div style="font-size:13px;">${esc(c)} <span style="color:var(--text-hint);font-size:11px;">(${unitsByCustomer[c] || 0} deployed)${DB.isHubspotIgnored(c) ? ' · not a customer' : ''}</span></div>
+        <div style="font-size:13px;">${esc(c)} <span class="hubspot-meta" data-customer="${esc(c)}" style="color:var(--text-hint);font-size:11px;">${metaText(c)}</span></div>
         <div style="display:flex;gap:6px;align-items:center;">
           <input class="fi hubspot-id-input" data-customer="${esc(c)}" placeholder="HubSpot Company ID" value="${esc(map[c] || '')}" />
           <button class="btn btn-ghost btn-xs hubspot-find-btn" data-customer="${esc(c)}" title="Search HubSpot">Find</button>
@@ -425,8 +429,11 @@ const AuthUI = (() => {
     overlay.querySelectorAll('.hubspot-find-btn').forEach(btn => btn.addEventListener('click', () => {
       const c = btn.dataset.customer;
       HubspotPicker.open({ customer: c, onDone: () => {
-        const inp = overlay.querySelector(`.hubspot-id-input[data-customer="${CSS.escape(c)}"]`);
+        const sel = `[data-customer="${CSS.escape(c)}"]`;
+        const inp = overlay.querySelector(`.hubspot-id-input${sel}`);
         if (inp) inp.value = DB.getHubspotCompanyId(c) || '';
+        const meta = overlay.querySelector(`.hubspot-meta${sel}`);
+        if (meta) meta.textContent = metaText(c);
       }});
     }));
 
