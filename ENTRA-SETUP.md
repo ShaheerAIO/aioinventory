@@ -67,9 +67,26 @@ working as one account with two sign-in methods.
 
 ## 4. Authorise the site domain
 
-Firebase console → **Authentication** → **Settings** → **Authorized domains** → add
-the GitHub Pages domain the app is served from. Without it, sign-in fails with
+Firebase console → **Authentication** → **Settings** → **Authorized domains** → add:
+
+```
+aioinventory.vercel.app
+```
+
+Host only — no scheme, no path. Without it every sign-in fails with
 `auth/unauthorized-domain`.
+
+> **The app is deployed on Vercel** (project `aioinventory` under the `aioapp1`
+> team), built automatically from pushes to `main`. A stale GitHub Pages site also
+> still builds from this repo at `shaheeraio.github.io/aioinventory`, and
+> `shaheeraio.github.io` is currently still in the authorised-domains list — so it
+> is a second, working front door to the same data. Turn Pages off in the repo
+> settings, or drop that domain from the list.
+
+Vercel preview deployments get their own hostnames
+(`aioinventory-<hash>-aioapp1.vercel.app`), and each one is a separate origin as far
+as Firebase is concerned. Sign-in will not work on a preview URL unless that exact
+host is added too. Test on the production URL.
 
 ## 5. Paste the tenant ID into the code
 

@@ -1,13 +1,11 @@
 # AIO Inventory System
 
 ## Overview
-A serial-number-level inventory management web app for AIO App, tracking hardware devices (POS terminals, printers, routers, kiosks, etc.) through their full lifecycle: purchase orders, in-transit shipments, stock holding, deployment to customers, servicing/RMA, total loss, and physical stock audits. It is a single-page app built with plain HTML/CSS/vanilla JavaScript (no build step, no framework, no npm dependencies). Data is stored in **Firebase Firestore** with real-time multi-user sync, gated behind **Firebase Auth** (email/password) with role-based access. It is designed to be served as static files (e.g. GitHub Pages).
-
-> Note: `README.md` is outdated — it describes a localStorage-only, no-auth version with far fewer features. The actual app uses Firebase and has many more modules/views. Trust the source files over the README.
+A serial-number-level inventory management web app for AIO App, tracking hardware devices (POS terminals, printers, routers, kiosks, etc.) through their full lifecycle: purchase orders, in-transit shipments, stock holding, deployment to customers, servicing/RMA, total loss, and physical stock audits. It is a single-page app built with plain HTML/CSS/vanilla JavaScript (no build step, no framework, no npm dependencies). Data is stored in **Firebase Firestore** with real-time multi-user sync, gated behind **Firebase Auth** using **Microsoft Entra ID SSO** with role-based access. It is deployed as static files on **Vercel** (project `aioinventory` under the `aioapp1` team, `https://aioinventory.vercel.app`, auto-built from pushes to `main`).
 
 ## Tech Stack
 - **Languages:** HTML, CSS, vanilla JavaScript (ES modules loaded dynamically via `import()`)
-- **Backend:** Firebase Firestore (database) + Firebase Auth (email/password) — Firebase SDK v10.12.0 imported from `gstatic.com` CDN at runtime
+- **Backend:** Firebase Firestore (database) + Firebase Auth via the `microsoft.com` OAuth provider (Microsoft Entra ID) — Firebase SDK v10.12.0 imported from `gstatic.com` CDN at runtime
 - **Third-party libraries (loaded from CDN, no npm):**
   - `xlsx` (SheetJS 0.20.3) — Excel/CSV export, loaded via `<script>` in `index.html`
   - `html5-qrcode` (2.3.8) — camera barcode scanning, lazy-loaded by `js/scanner.js`
@@ -18,7 +16,7 @@ The app is a collection of **IIFE module singletons** attached to `window` (e.g.
 
 Layered design:
 - **Storage layer (`db.js`)** — `DB` singleton. Reads/writes a single Firestore document `inventory/main` containing all app data (`movements`, `thresholds`, `shipments`, `serialCosts`, `serialConditions`, `orders`, `suppliers`, `productRecords`, `auditRecords`, `pendingUsers`, `pendingDeployments`, `pausedAudits`, etc.). Uses `onSnapshot` for real-time sync across users; falls back to `localStorage` key `aio_inventory_v2` if Firebase init fails.
-- **Auth layer (`auth.js`, `auth-ui.js`)** — `Auth` handles Firebase Auth + a Firestore `users/<uid>` profile doc (`{ name, email, role }`). `AuthUI` renders the login screen, the user header bar, and the admin Users panel. Roles: `admin`, `edit`, `viewer`. `Auth.isAdmin()` = admin only; `Auth.canEdit()` = admin or edit.
+- **Auth layer (`auth.js`, `auth-ui.js`)** — `Auth` handles Firebase Auth + a Firestore `users/<uid>` profile doc (`{ name, email, role }`). Sign-in is `Auth.signInWithMicrosoft()`, pinned to the AIO Entra tenant by `ENTRA_TENANT_ID` at the top of `auth.js`. `AuthUI` renders the login screen, the user header bar, and the admin Users panel. Roles: `admin`, `edit`, `view`. `Auth.isAdmin()` = admin only; `Auth.canEdit()` = admin or edit. See `ENTRA-SETUP.md` for the Entra/Firebase console configuration.
 - **Business logic (`inventory.js`)** — `Inventory` singleton: pure-ish functions over `DB` data. Defines the product catalog (`HARDCODED_PRODUCTS` / `PRODUCTS`) and `CATEGORIES`, and computes serial statuses (in-stock, in-transit, deployed, RMA, total-loss). Public API includes `stockIn`, `stockOut`, `createOrder`, `createShipment`, `receiveShipment`, `receivePartialShipment`, `confirmDeployment`, `getStats`, `getAllSerialRows`, `getLowStockItems`, etc.
 - **Rendering (`ui.js`)** — `UI` singleton: renders every view (dashboard, stock lists, deployed, transit, lookup, history, etc.) into the `<section class="view">` containers in `index.html`. Largest file.
 - **Reporting (`reports.js`)** — `Reports` singleton: KPI/summary builders and report exports (uses `xlsx`).
@@ -29,7 +27,7 @@ Layered design:
 Views are sections `#v-<name>` in `index.html`; navigation buttons carry `data-view="<name>"` and `app.js` toggles visibility.
 
 **Cloud Functions (`functions/`)** — Node 20, `firebase-functions` v2, deployed separately from the
-static frontend (`firebase deploy --only functions`; the frontend is GitHub Pages).
+static frontend (`firebase deploy --only functions`; the frontend is on Vercel).
 `hubspotNightlySync` (scheduled) and `hubspotSyncManual` (HTTP, shared-secret query param) push
 deployed-hardware rollups into HubSpot. `metrics` (HTTP, `X-Metrics-Key` header) is a read-only
 aggregate feed for the executive dashboard — stock/deployed/in-transit units and value, plus
@@ -55,13 +53,15 @@ without Firebase.
 - `js/reports.js` — reporting suite (`Reports`).
 - `js/ui.js` — all DOM rendering (`UI`).
 - `js/audit.js` — physical stock-count workflow (`Audit`).
-- `js/changelog.js` — `CHANGELOG` array powering the "What's New" view; currently at `v101`.
+- `js/changelog.js` — `CHANGELOG` array powering the "What's New" view; currently at `v116`.
 - `functions/index.js` — Cloud Function entry points (`hubspotNightlySync`, `hubspotSyncManual`, `metrics`).
 - `functions/inventoryStats.js` — shared server-side inventory aggregation (see above).
 - `functions/hubspotSync.js` — HubSpot company rollup logic.
 - `js/app.js` — boot, navigation, event wiring (IIFE, no exports).
 - `css/styles.v4.css` — the active stylesheet (referenced by `index.html`). `styles.css` and `styles.v2.css` are older/unused versions.
-- `logo.png` — app/login logo. `.nojekyll` — disables Jekyll for GitHub Pages.
+- `firestore.rules` — Firestore security rules (wired into `firebase.json`). **Gates role escalation** — see Conventions below.
+- `ENTRA-SETUP.md` — Entra app registration + Firebase console setup, and the break-glass admin login.
+- `logo.png` — app/login logo. `.nojekyll` — leftover from an earlier GitHub Pages setup; a stale Pages build still exists at `shaheeraio.github.io/aioinventory` but Vercel is what people use.
 
 ## Build / Run / Test
 There is **no build step** in this repo, and no test framework/runner — but there is one
@@ -85,7 +85,14 @@ python3 -m http.server 8080
 ```
 Then open the served URL (e.g. `http://localhost:8080`). Opening `index.html` via `file://` may fail because the JS uses dynamic ES-module imports and Firebase — use a local HTTP server.
 
-Deploy: push to GitHub and enable **Settings → Pages → Deploy from branch → main → / (root)** (per `README.md`). `.nojekyll` is present for this.
+Deploy: **push to `main`** — Vercel builds and serves it automatically at
+`https://aioinventory.vercel.app`. Firestore rules and Cloud Functions deploy separately:
+
+```bash
+firebase deploy --only firestore:rules --dry-run   # compile check, publishes nothing
+firebase deploy --only firestore:rules
+firebase deploy --only functions
+```
 
 Data backup/restore via browser console: `DB.exportJSON()` and `DB.importJSON('<json>')`.
 
@@ -96,6 +103,21 @@ Data backup/restore via browser console: `DB.exportJSON()` and `DB.importJSON('<
 - **Single shared Firestore document** (`inventory/main`) holds *all* inventory data and is fully read into memory and rewritten on save. Writes set a `_pendingWrite` flag so the app ignores its own `onSnapshot` echo. Keep this in mind for concurrency — last write generally wins on the whole document.
 - **Modules are IIFE singletons exposing a returned object** — to add functionality, add a method to the relevant module's returned object (see the `return { ... }` at the bottom of each `js/*.js`) and call it from `app.js`/`ui.js`. There is no import/export wiring.
 - **Roles gate the UI**: `AuthUI.applyRoleRestrictions()` (called on boot) hides/disables editing for non-editors. `Auth.canEdit()` and `Auth.isAdmin()` are the gates; respect them when adding write actions.
+- **Sign-in provisions accounts automatically.** Anyone in the AIO Entra tenant can sign in;
+  `Auth` resolves their role in this order: existing `users/<uid>` → a profile with the same email
+  under a different uid (the **lazy join** — adopts name + role, stamps `migratedTo` on the old
+  doc) → a role an admin pre-assigned by email in `pendingUsers` → otherwise a new `view` profile.
+  A profile flagged `deleted` is refused and signed straight back out.
+- **`firestore.rules` is what actually stops privilege escalation.** Clients write their own
+  `users/<uid>` on first sign-in, so the rules constrain that write to your own uid, your own
+  email, and role `view` unless the role came from `pendingUsers` or from an older profile
+  carrying the same email. Loosening the `users` create rule hands any tenant member an admin
+  account. The rules also make `pendingUsers` admin-only (granting a role is a privileged act),
+  with a carve-out so a new user can clear their own entry. **The rules live in the repo now —
+  edits are not live until `firebase deploy --only firestore:rules`.**
+- **Password sign-in is break-glass only** — one dedicated admin account, reachable at the
+  unlisted `?signin=fallback` URL. There is no password UI anywhere else, and no reset flow;
+  reset it from the Firebase console.
 - **A location ("warehouse") is not an entity** — it is a string on each movement, and stock is
   bucketed by `product||location`. A unit's location is the one on its latest `IN` movement.
 - **Warehouse-to-warehouse moves are a two-step protocol** in `js/inventory.js`:
