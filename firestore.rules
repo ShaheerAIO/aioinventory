@@ -1,0 +1,127 @@
+rules_version = '2';
+
+// AIO Inventory — Firestore security rules
+//
+// Collections in play:
+//   inventory/main       all app data except the movement ledger and audits
+//   inventory/movements  the movement ledger (split out in v107)
+//   audits/{auditId}     one doc per stock audit (split out in v107)
+//   users/{uid}          { name, email, role } — role is 'admin' | 'edit' | 'view'
+//
+// Cloud Functions use firebase-admin and bypass these rules entirely.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Who is asking ─────────────────────────────────────────────────
+    function signedIn() {
+      return request.auth != null;
+    }
+    function profile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    function hasProfile() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+    function isAdmin() {
+      return hasProfile() && profile().role == 'admin';
+    }
+    function canEdit() {
+      return hasProfile() && profile().role in ['admin', 'edit'];
+    }
+    function email() {
+      return request.auth.token.email.lower();
+    }
+
+    // ── Inventory data ────────────────────────────────────────────────
+    // Everyone signed in can read; only editors and admins can write.
+    match /inventory/{docId} {
+      allow read:   if signedIn();
+      allow create: if isAdmin();          // only the v107 storage split creates docs
+      allow update: if canEdit() && pendingUsersOk();
+      allow delete: if false;              // nothing in the app deletes these
+    }
+
+    // inventory/main also carries pendingUsers — the pre-assigned roles that
+    // decide what someone becomes on their first sign-in. Writing that map is
+    // effectively granting a role, so it is admin-only, with one exception: a
+    // new user clears their own entry as they consume it.
+    function pendingUsersOk() {
+      let before = resource.data.get('pendingUsers', {});
+      let after  = request.resource.data.get('pendingUsers', {});
+      let d      = before.diff(after);
+      return d.affectedKeys().size() == 0
+          || isAdmin()
+          || ( d.addedKeys().size() == 0
+            && d.changedKeys().size() == 0
+            && request.auth.token.email != null
+            && d.removedKeys().hasOnly([email()]) );
+    }
+
+    // ── Stock audits ──────────────────────────────────────────────────
+    match /audits/{auditId} {
+      allow read:                 if signedIn();
+      allow create, update, delete: if canEdit();
+    }
+
+    // ── User profiles and roles ───────────────────────────────────────
+    // Readable by anyone signed in: the servicing screen's "tested by"
+    // dropdown lists users, and first sign-in looks for a profile to join.
+    match /users/{uid} {
+      allow read: if signedIn();
+
+      // A user may create only their own profile, only carrying their own
+      // email, and only at 'view' — unless an admin pre-assigned a higher
+      // role, or they are inheriting one from their own older profile.
+      allow create: if signedIn()
+        && request.auth.uid == uid
+        && request.auth.token.email != null
+        && request.resource.data.email == request.auth.token.email
+        && ( request.resource.data.role == 'view'
+          || request.resource.data.role == pendingRole()
+          || joinedFromOwnProfile() );
+
+      // Role changes, removal and reactivation are admin-only. The one
+      // exception is stamping migratedTo on an old profile that carries the
+      // writer's own email, which is how first sign-in retires it.
+      allow update: if isAdmin() || retiringOwnOldProfile();
+
+      allow delete: if false;              // removal is a soft delete
+    }
+
+    // The role an admin pre-assigned to this email, or 'view' if none
+    function pendingRole() {
+      return get(/databases/$(database)/documents/inventory/main).data
+               .get('pendingUsers', {})
+               .get(email(), {})
+               .get('role', 'view');
+    }
+
+    // True when the role being claimed comes from an older, still-active
+    // profile that carries this same user's email address
+    function joinedFromOwnProfile() {
+      let src = request.resource.data.get('joinedFrom', '');
+      return src != ''
+        && exists(/databases/$(database)/documents/users/$(src))
+        && srcData(src).email.lower() == email()
+        && srcData(src).role == request.resource.data.role
+        && srcData(src).get('deleted', false) == false;
+    }
+    function srcData(src) {
+      return get(/databases/$(database)/documents/users/$(src)).data;
+    }
+
+    // First sign-in retires the old profile by stamping migratedTo on it.
+    // Only allowed on a profile holding the writer's own email, and only if
+    // nothing else about it changes.
+    function retiringOwnOldProfile() {
+      return signedIn()
+        && request.auth.token.email != null
+        && resource.data.email.lower() == email()
+        && request.resource.data.diff(resource.data)
+             .affectedKeys().hasOnly(['migratedTo', 'migratedAt'])
+        && request.resource.data.migratedTo == request.auth.uid;
+    }
+  }
+}

@@ -4,6 +4,18 @@
  */
 var CHANGELOG = [
   {
+    version: 'v116',
+    date: '2026-09-15',
+    title: 'Sign In With Your AIO Microsoft Account',
+    changes: [
+      { type: 'new', text: 'The inventory app now signs you in with your AIO Microsoft account \u2014 the same one you use for Outlook and Teams. There is one button on the login screen and no password to remember, reset or share. If you are already signed in to Microsoft on that machine, you will usually go straight through' },
+      { type: 'new', text: 'Your existing account comes with you. The first time you sign in with Microsoft, the app finds the account you already had and joins the two together, so your name, your role and everything you have recorded stay exactly as they were. There is nothing to migrate and nothing to re-enter' },
+      { type: 'new', text: 'Anyone at AIO can now sign in and see the inventory without waiting for an account to be created for them. They arrive as View only \u2014 able to look at stock, deployments and history, but not change anything \u2014 and an admin grants Editor or Admin access from Manage users when they need it' },
+      { type: 'improved', text: 'Manage users is simpler as a result. Instead of creating an account with a temporary password, admins can pre-assign a role to someone\u2019s work email, and that person lands as an Editor or Admin the first time they sign in rather than as View only' },
+      { type: 'improved', text: 'Passwords are gone from the app entirely \u2014 no password box, no "forgot password", no reset emails. Removing someone from Manage users still takes their access away, and they cannot get back in by signing in with Microsoft afterwards' },
+    ],
+  },
+  {
     version: 'v114',
     date: '2026-09-11',
     title: 'A New Look, Matching the AIO Dashboard',
