@@ -104,6 +104,7 @@ exports.deployedByCompany = onRequest({ secrets: [METRICS_KEY], cors: false }, a
 const { searchHubspotCompanies } = require('./hubspotCompanies');
 
 const PICKER_ORIGINS = [
+  'https://aioinventory.vercel.app',
   'https://shaheeraio.github.io',
   'http://localhost:8080',
   'http://localhost:3000',
