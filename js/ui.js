@@ -1089,7 +1089,7 @@ const UI = (() => {
 
   // ── Stock Deployed ────────────────────────────────────────────────────
   function renderDeployed() {
-    const search  = (document.getElementById('dep-search').value || '').toLowerCase();
+    const search  = (document.getElementById('dep-search').value || '').trim().toLowerCase();
     const catF    = document.getElementById('dep-cat-filter').value;
     const custF   = document.getElementById('dep-customer-filter').value;
 
@@ -1352,7 +1352,7 @@ Items will remain in Stock Holding with no customer attached.`)) return;
         : '';
     }
 
-    const search = (document.getElementById('dep-bucket-search')?.value || '').toLowerCase();
+    const search = (document.getElementById('dep-bucket-search')?.value || '').trim().toLowerCase();
     const filtered = buckets.filter(b => !search || b.customer.toLowerCase().includes(search));
 
     const grid = document.getElementById('dep-buckets');
@@ -1714,7 +1714,7 @@ Items will remain in Stock Holding with no customer attached.`)) return;
   }
 
   function renderStockList() {
-    const search  = (document.getElementById('inv-search').value || '').toLowerCase();
+    const search  = (document.getElementById('inv-search').value || '').trim().toLowerCase();
     const catF    = document.getElementById('inv-cat-filter').value;
     const locF    = document.getElementById('inv-loc-filter').value;
     const statusF = document.getElementById('inv-status-filter').value;
@@ -1928,7 +1928,7 @@ Items will remain in Stock Holding with no customer attached.`)) return;
 
   // ── History ───────────────────────────────────────────────────────────
   function renderHistory() {
-    const search   = (document.getElementById('hist-search').value || '').toLowerCase();
+    const search   = (document.getElementById('hist-search').value || '').trim().toLowerCase();
     const typeF    = document.getElementById('hist-type-filter').value;
     const catF     = document.getElementById('hist-cat-filter').value;
     const dateFrom = document.getElementById('hist-date-from').value;
@@ -1994,14 +1994,21 @@ Items will remain in Stock Holding with no customer attached.`)) return;
   function renderLookup(raw) {
     const res = document.getElementById('lookup-result');
     if (!raw || !raw.trim()) { res.innerHTML = '<div class="empty">Enter a serial number above</div>'; return; }
-    const info = Inventory.getSerialInfo(raw);
+    let info = Inventory.getSerialInfo(raw);
+    if (info.history.length === 0 && info.status === 'unknown') {
+      // Not an exact serial — treat it as a fragment (e.g. the last 4 digits).
+      const matches = Inventory.searchSerials(raw);
+      if (!matches.length) {
+        res.innerHTML = `<div class="lookup-not-found">No serial matching <code>${esc(info.serial)}</code> found in any record.</div>`;
+        return;
+      }
+      if (matches.length > 1) { _renderLookupMatches(res, info.serial, matches); return; }
+      raw  = matches[0];
+      info = Inventory.getSerialInfo(raw);
+    }
     const cost = DB.getSerialCost(raw);
     const costStr = cost != null ? `$${cost.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}` : '—';
-    if (info.history.length === 0 && info.status === 'unknown') {
-      res.innerHTML = `<div class="lookup-not-found">Serial <code>${esc(info.serial)}</code> not found in any record.</div>`;
-      return;
-    }
-    const statusBadge = info.status==='in-stock' ? '<span class="badge b-ok">In stock</span>' : info.status==='in-transit' ? '<span class="badge b-transit">In transit</span>' : '<span class="badge b-out">Dispatched</span>';
+    const statusBadge = _lookupStatusBadge(info.status);
     const pendingBadge = info.pendingDeployment ? '<span class="badge-pending-deploy">📋 Pending Deploy</span>' : '';
     const condBadge = info.condition ? `<span class="badge b-condition b-cond-${info.condition}">${_conditionLabel(info.condition)}</span>` : '';
     const usedBadge = info.used ? '<span class="badge b-used">USED</span>' : '';
@@ -2027,6 +2034,28 @@ Items will remain in Stock Holding with no customer attached.`)) return;
         <table><thead><tr><th style="width:18%">Date</th><th style="width:10%">Type</th><th style="width:22%">Product</th><th style="width:18%">Location</th><th style="width:18%">Party</th><th style="width:14%">Ref</th></tr></thead>
         <tbody>${info.history.map(m=>`<tr><td style="color:var(--text-hint)">${fmtDateFull(m.date)}</td><td><span class="badge ${m.type==='IN'?'b-in':'b-out'}">${m.type}</span>${m.isTransfer?'<span class="badge b-transfer" style="margin-left:4px;">⇄ TRF</span>':''}</td><td>${esc(m.product)}</td><td><span class="loc-badge">${esc(m.location||'—')}</span></td><td>${esc(m.isTransfer ? (m.type==='IN' ? 'from ' + (m.transferFrom||'?') : 'to ' + (m.transferTo||'?')) : (m.type==='IN'?(m.supplier||'—'):(m.customer||'—')))}</td><td style="color:var(--text-hint)">${esc(m.ref||'—')}</td></tr>`).join('')}</tbody></table>
       </div>` : ''}`;
+  }
+
+  function _lookupStatusBadge(status) {
+    return status==='in-stock' ? '<span class="badge b-ok">In stock</span>' : status==='in-transit' ? '<span class="badge b-transit">In transit</span>' : '<span class="badge b-out">Dispatched</span>';
+  }
+
+  // Several serials contain the typed fragment — list them; clicking one opens it.
+  function _renderLookupMatches(res, q, matches) {
+    const LIMIT = 100;
+    const rows = matches.slice(0, LIMIT).map(sn => {
+      const i = Inventory.getSerialInfo(sn);
+      return `<tr class="lookup-match" data-serial="${esc(sn)}" style="cursor:pointer"><td style="font-family:var(--mono)">${esc(sn)}</td><td>${esc(i.currentProduct||'—')}</td><td>${_lookupStatusBadge(i.status)}</td><td>${esc(i.status==='dispatched' ? (i.deployedTo||'—') : (i.currentLocation||'—'))}</td></tr>`;
+    }).join('');
+    res.innerHTML = `<div class="panel" style="margin-bottom:0">
+        <div class="panel-title">${matches.length} serials match <code>${esc(q)}</code>${matches.length > LIMIT ? ` — showing first ${LIMIT}, type more digits to narrow` : ''}</div>
+        <table><thead><tr><th style="width:28%">Serial</th><th style="width:30%">Product</th><th style="width:14%">Status</th><th style="width:28%">Location / Customer</th></tr></thead>
+        <tbody>${rows}</tbody></table>
+      </div>`;
+    res.querySelectorAll('.lookup-match').forEach(tr => tr.addEventListener('click', () => {
+      document.getElementById('lookup-input').value = tr.dataset.serial;
+      renderLookup(tr.dataset.serial);
+    }));
   }
 
   // ── Datalists ─────────────────────────────────────────────────────────
@@ -2176,7 +2205,7 @@ Items will remain in Stock Holding with no customer attached.`)) return;
 
   // ── Servicing view ─────────────────────────────────────────────────────
   function renderServicing() {
-    const search  = (document.getElementById('svc-search')?.value || '').toLowerCase();
+    const search  = (document.getElementById('svc-search')?.value || '').trim().toLowerCase();
     const flagF   = document.getElementById('svc-flag-filter')?.value || '';
     const isAdmin = typeof Auth !== 'undefined' && Auth.isAdmin();
     const canEdit = typeof Auth !== 'undefined' && Auth.canEdit();
@@ -2432,7 +2461,7 @@ Items will remain in Stock Holding with no customer attached.`)) return;
 
   // ── RMA view ───────────────────────────────────────────────────────────
   function renderRMA() {
-    const search  = (document.getElementById('rma-search')?.value || '').toLowerCase();
+    const search  = (document.getElementById('rma-search')?.value || '').trim().toLowerCase();
     const statusF = document.getElementById('rma-status-filter')?.value || '';
 
     // Build full RMA list — serials that were ever flagged as RMA
@@ -2528,7 +2557,7 @@ Items will remain in Stock Holding with no customer attached.`)) return;
 
   // ── Total Loss view ────────────────────────────────────────────────────
   function renderTotalLoss() {
-    const search  = (document.getElementById('tl-search')?.value || '').toLowerCase();
+    const search  = (document.getElementById('tl-search')?.value || '').trim().toLowerCase();
     const statusF = document.getElementById('tl-status-filter')?.value || '';
 
     const { movements } = DB.getData();
@@ -2616,7 +2645,7 @@ Items will remain in Stock Holding with no customer attached.`)) return;
 
   // ── Stock RMA/TL Dispatched view ────────────────────────────────────────
   function renderRmaTlDispatched() {
-    const search = (document.getElementById('rmatldisp-search')?.value || '').toLowerCase();
+    const search = (document.getElementById('rmatldisp-search')?.value || '').trim().toLowerCase();
     const typeF  = document.getElementById('rmatldisp-type-filter')?.value || '';
 
     let rows = Inventory.getRmaTlDispatchedRows();

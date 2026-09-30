@@ -4,6 +4,15 @@
  */
 var CHANGELOG = [
   {
+    version: 'v118',
+    date: '2026-09-30',
+    title: 'Partial Serial Search',
+    changes: [
+      { type: 'improved', text: 'Serial Lookup no longer needs the whole serial number. Type the last few digits (or any part of it) and every matching serial is listed with its product, status and location \u2014 click one to open it. If only one serial matches, it opens straight away' },
+      { type: 'fixed', text: 'Search boxes on the stock, deployed, servicing, RMA, total loss and history views now ignore stray spaces before or after what you type, so a pasted or scanned value no longer comes back with no results' },
+    ],
+  },
+  {
     version: 'v117',
     date: '2026-09-15',
     title: 'Safari Sign-In Fix',

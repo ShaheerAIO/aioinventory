@@ -301,6 +301,18 @@ const Inventory = (() => {
     });
   }
 
+  // Every serial on record (movements + shipments) containing `fragment`,
+  // so a lookup can be done from the last few digits.
+  function searchSerials(fragment) {
+    const q = String(fragment || '').trim().toUpperCase();
+    if (!q) return [];
+    const found = new Set();
+    const add = sn => { const u = sn.toUpperCase(); if (u.includes(q)) found.add(u); };
+    DB.getData().movements.forEach(mv => mv.serials.forEach(add));
+    DB.getData().shipments.forEach(sh => sh.products.forEach(p => p.serials.forEach(add)));
+    return [...found].sort();
+  }
+
   function getSerialInfo(serial) {
     const s = serial.trim().toUpperCase();
     const history = [];
@@ -1363,7 +1375,7 @@ const Inventory = (() => {
   }
 
     DB.onReady(() => refreshProducts());
-    return { getInventoryMap, getStockByProduct, getDeployedByProduct, getDeployedByCustomer, getCustomerDetail, getAllSerialRows, getDeployedSerialRows, getRmaTlDispatchedRows, getTotalLossRows, getAvailableSerials, getLowStockItems, getSerialInfo, getSerialKnownProduct, stockIn, getPlaceholderConflicts, createShipment, receiveShipment, receivePartialShipment, closeShipmentWithoutStock, stockOut, stockOutByProduct, dispatchTransfer, receiveTransfer, cancelTransfer, getInFlightTransfers, getTransferInFlightSerials, stagePendingDeployment, confirmDeployment, confirmDeployments, getPendingDeploymentSerials, getLocations, getSuppliers, getProducts, isSerialEditable, getCustomers, getStats, recallToServicing, createOrder, refreshProducts, CATEGORIES, PRODUCTS };
+    return { getInventoryMap, getStockByProduct, getDeployedByProduct, getDeployedByCustomer, getCustomerDetail, getAllSerialRows, getDeployedSerialRows, getRmaTlDispatchedRows, getTotalLossRows, getAvailableSerials, getLowStockItems, getSerialInfo, searchSerials, getSerialKnownProduct, stockIn, getPlaceholderConflicts, createShipment, receiveShipment, receivePartialShipment, closeShipmentWithoutStock, stockOut, stockOutByProduct, dispatchTransfer, receiveTransfer, cancelTransfer, getInFlightTransfers, getTransferInFlightSerials, stagePendingDeployment, confirmDeployment, confirmDeployments, getPendingDeploymentSerials, getLocations, getSuppliers, getProducts, isSerialEditable, getCustomers, getStats, recallToServicing, createOrder, refreshProducts, CATEGORIES, PRODUCTS };
 
   function createOrder(opts) {
     const { supplier, poNumber, expectedBy, products, taxRate, taxAmount, taxRef } = opts;
