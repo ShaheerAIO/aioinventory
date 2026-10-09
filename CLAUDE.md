@@ -49,6 +49,7 @@ without Firebase.
 - `js/auth-ui.js` — login screen, user bar, admin Users panel (`AuthUI`).
 - `js/scanner.js` — camera barcode scanner (`Scanner`).
 - `js/db.js` — Firestore storage layer + localStorage fallback (`DB`). **Contains the Firebase config (apiKey, projectId `aio-inventory-b9b29`, etc.).**
+- `js/activity.js` — permanent activity log (`Activity`). Wraps the mutating `DB.*` methods (and `UserManager`, sign-in/out) at load time and writes one append-only doc per user action to the `activityLog` collection, stamped with the signed-in uid/email. **A new write method on `DB` is not logged until you add it to `OPS` in this file.** Admin-only viewer at Records → Activity Log.
 - `js/inventory.js` — core business logic + product catalog & categories (`Inventory`).
 - `js/reports.js` — reporting suite (`Reports`).
 - `js/ui.js` — all DOM rendering (`UI`).
@@ -97,7 +98,7 @@ firebase deploy --only functions
 Data backup/restore via browser console: `DB.exportJSON()` and `DB.importJSON('<json>')`.
 
 ## Conventions & Gotchas
-- **Script load order is load-bearing** (see bottom of `index.html`): `auth.js → auth-ui.js → scanner.js → db.js → inventory.js → reports.js → xlsx → ui.js → audit.js → changelog.js → app.js`. Each module assumes its dependencies are already defined as globals.
+- **Script load order is load-bearing** (see bottom of `index.html`): `auth.js → auth-ui.js → scanner.js → db.js → activity.js → inventory.js → reports.js → xlsx → ui.js → audit.js → changelog.js → app.js`. Each module assumes its dependencies are already defined as globals.
 - **Cache-busting query strings** (`?v=101`, `?v=108`, ...) are appended to each `<script src>` in `index.html`. When you change a JS file, **bump its version number** in `index.html` so browsers reload it.
 - **Firebase config is committed in source** (`db.js` and `auth.js` both inline the same `FB_CONFIG` for project `aio-inventory-b9b29`). This is a client-side Firebase web key (normal for Firebase), but be aware it is in the repo; security relies on Firestore/Auth rules, not on hiding the key.
 - **Single shared Firestore document** (`inventory/main`) holds *all* inventory data and is fully read into memory and rewritten on save. Writes set a `_pendingWrite` flag so the app ignores its own `onSnapshot` echo. Keep this in mind for concurrency — last write generally wins on the whole document.

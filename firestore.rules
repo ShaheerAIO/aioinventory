@@ -7,6 +7,7 @@ rules_version = '2';
 //   inventory/movements  the movement ledger (split out in v107)
 //   audits/{auditId}     one doc per stock audit (split out in v107)
 //   users/{uid}          { name, email, role } — role is 'admin' | 'edit' | 'view'
+//   activityLog/{id}     permanent who-did-what log, written by js/activity.js
 //
 // Cloud Functions use firebase-admin and bypass these rules entirely.
 
@@ -63,6 +64,23 @@ service cloud.firestore {
     match /audits/{auditId} {
       allow read:                 if signedIn();
       allow create, update, delete: if canEdit();
+    }
+
+    // ── Activity log ──────────────────────────────────────────────────
+    // Append-only and permanent. Anyone signed in writes entries as they act,
+    // but only as themselves (uid + email come from their sign-in token) and
+    // stamped with the server's clock. Nobody — admins included — can edit or
+    // delete an entry from the app; only admins can read the log.
+    match /activityLog/{entryId} {
+      allow read:   if isAdmin();
+      allow create: if signedIn()
+        && request.auth.token.email != null
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.at == request.time
+        && request.resource.data.keys().hasOnly(
+             ['at', 'clientAt', 'uid', 'email', 'name', 'role', 'summary', 'actions', 'serials', 'detail']);
+      allow update, delete: if false;
     }
 
     // ── User profiles and roles ───────────────────────────────────────

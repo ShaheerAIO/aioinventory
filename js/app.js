@@ -1357,7 +1357,7 @@
   }
 
   // ── Navigation ────────────────────────────────────────────────────────
-  const VIEWS = ['dashboard','products','suppliers','orders','transit','transfers','shipment-history','changelog','in','out','stock-list','deployed','servicing','rma','totalloss','rmatldisp','stocktake','reports','lookup','history'];
+  const VIEWS = ['dashboard','products','suppliers','orders','transit','transfers','shipment-history','changelog','in','out','stock-list','deployed','servicing','rma','totalloss','rmatldisp','stocktake','reports','lookup','history','activity'];
 
   function showView(view) {
     VIEWS.forEach(v => { document.getElementById('v-' + v).style.display = v === view ? '' : 'none'; });
@@ -1384,6 +1384,7 @@
     if (view === 'reports')    { Reports.render(); Reports.renderWrittenOff(); }
     if (view === 'stocktake')  Audit.init();
     if (view === 'history')    { UI.populateCategoryFilters(); UI.renderHistory(); }
+    if (view === 'activity')   Activity.render();
     if (view === 'shipment-history') UI.renderShipmentHistory();
     if (view === 'changelog')        renderChangelog();
     if (view === 'in')         { UI.populateDataLists(); if (!inRows.length) inRows=[newInRow()]; renderInRows(); }
@@ -1626,6 +1627,7 @@
     DB.onReady(() => {
       // Apply view-only restrictions if not editor/admin
       AuthUI.applyRoleRestrictions();
+      if (Auth.isAdmin()) document.getElementById('nav-activity').style.display = '';
       UI.initSmartSelects();
       showViewTracked('dashboard');
     });

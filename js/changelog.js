@@ -4,6 +4,15 @@
  */
 var CHANGELOG = [
   {
+    version: 'v119',
+    date: '2026-09-30',
+    title: 'Activity Log',
+    changes: [
+      { type: 'new', text: 'Every change made in the app is now recorded in a permanent activity log \u2014 stock in and out, deployments, transfers, purchase orders, shipments, costs, condition changes, audits, deleted or renamed serials, user role changes, and sign-ins. Each entry is stamped with the Microsoft account that made it and the time, so it no longer depends on what someone typed in a "by" box' },
+      { type: 'new', text: 'Entries can\u2019t be edited or deleted by anyone, administrators included. Administrators can view the log under Records \u2192 Activity Log, filter it by person, date or serial number, and export it to Excel' },
+    ],
+  },
+  {
     version: 'v118',
     date: '2026-09-30',
     title: 'Partial Serial Search',

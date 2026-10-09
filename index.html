@@ -252,6 +252,7 @@
           <button class="nav-dropdown-item" data-view="reports">Reports</button>
           <button class="nav-dropdown-item" data-view="lookup">Serial Lookup</button>
           <button class="nav-dropdown-item" data-view="history">History</button>
+          <button class="nav-dropdown-item" data-view="activity" id="nav-activity" style="display:none;">Activity Log</button>
         </div>
       </div>
       <button class="nav-btn" data-view="changelog">What's New</button>
@@ -1229,19 +1230,54 @@
     </div>
   </section>
 
+  <!-- ══════════════════ ACTIVITY LOG (admin only) ══════════════════ -->
+  <section id="v-activity" class="view" style="display:none;">
+    <div class="panel">
+      <div class="panel-title">
+        Activity log
+        <span>
+          <button class="btn btn-ghost btn-sm" id="act-refresh">Refresh</button>
+          <button class="btn btn-ghost btn-sm" id="act-export">Export Excel</button>
+        </span>
+      </div>
+      <p style="font-size:13px;color:var(--text-muted);margin:0 0 12px;">Every change made in the app, recorded automatically against the Microsoft account that made it. Entries can't be edited or deleted.</p>
+      <div class="search-bar">
+        <input class="fi" id="act-search" placeholder="Search action, serial, customer, PO..." />
+        <select class="fi" id="act-user" style="width:200px;"><option value="">All users</option></select>
+        <input class="fi" id="act-date-from" type="date" style="width:145px;" title="From date" />
+        <input class="fi" id="act-date-to"   type="date" style="width:145px;" title="To date" />
+      </div>
+      <div class="hist-summary" id="act-summary"></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:16%">When</th>
+              <th style="width:20%">Who</th>
+              <th>What</th>
+            </tr>
+          </thead>
+          <tbody id="act-body"></tbody>
+        </table>
+      </div>
+      <div style="text-align:center;margin-top:12px;"><button class="btn btn-ghost btn-sm" id="act-more">Load more</button></div>
+    </div>
+  </section>
+
 </div>
 <script src="js/auth.js?v=118"></script>
 <script src="js/auth-ui.js?v=118"></script>
 <script src="js/scanner.js?v=101"></script>
 <script src="js/db.js?v=117"></script>
+<script src="js/activity.js?v=119"></script>
 <script src="js/hubspot-picker.js?v=113"></script>
 <script src="js/inventory.js?v=111"></script>
 <script src="js/reports.js?v=115"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="js/ui.js?v=116"></script>
 <script src="js/audit.js?v=115"></script>
-<script src="js/changelog.js?v=118"></script>
-<script src="js/app.js?v=115"></script>
+<script src="js/changelog.js?v=119"></script>
+<script src="js/app.js?v=119"></script>
 </body>
 </html>
 
