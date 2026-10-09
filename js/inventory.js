@@ -35,7 +35,7 @@ const HARDCODED_PRODUCTS = [
   { name: 'Sunmi D3 Pro Data Processing Machine',  category: 'POS Terminal' },
   { name: 'Sunmi D2s KDS',                         category: 'Kitchen Display System' },
   { name: 'Sunmi 80mm Kitchen Cloud Printer',      category: 'Kitchen Printer' },
-  { name: 'Epson TM-L90 Label Printer',            category: 'Receipt/Label Printer' },
+  { name: 'Epson TM-L90 Label Printer',            category: 'Receipt/Label Printer', serialEditable: true },
   { name: 'Wearson Adjustable LCD TV Stand',       category: 'Monitor Stand' },
   { name: 'MOUNTUP Single Monitor Mount',          category: 'Monitor Mount' },
   { name: 'WALI TV Ceiling Mount',                 category: 'Ceiling Mount' },
