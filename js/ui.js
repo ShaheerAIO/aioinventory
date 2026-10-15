@@ -2057,18 +2057,24 @@ Items will remain in Stock Holding with no customer attached.`)) return;
     const conds = [['', 'Working (no flag)'], ['needs-testing', 'Needs testing'], ['faulty', 'Faulty'], ['rma', 'RMA'], ['fail-tl', 'Total loss']];
     const txt  = (id, v, extra = '') => `<input class="fi" id="se-${id}" value="${esc(v ?? '')}" ${extra} />`;
     const day  = (id, v) => `<input class="fi" type="date" id="se-${id}" value="${toDay(v)}" />`;
+    // Dropdown of known values; the unit's current value is always offered even if
+    // nothing else uses it. `none` adds a blank choice for optional fields.
+    const sel  = (id, v, items, none) => {
+      const opts = [...new Set([...(v ? [v] : []), ...items])].sort((a, b) => a.localeCompare(b));
+      return `<select class="fi" id="se-${id}">${none ? `<option value=""${v ? '' : ' selected'}>${none}</option>` : ''}${opts.map(o => `<option value="${esc(o)}"${o === v ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
+    };
     const val  = id => document.getElementById('se-' + id).value.trim();
     const F = {
       serial:       ['Serial number', txt('serial', cur.serial, 'style="font-family:var(--mono)"'), () => val('serial').toUpperCase()],
       product:      ['Product', `<select class="fi" id="se-product">${products.map(p => `<option${p === cur.product ? ' selected' : ''}>${esc(p)}</option>`).join('')}</select>`, () => val('product')],
-      location:     [deployed ? 'Location (dispatched from)' : 'Location', txt('location', cur.location, 'list="loc-list"'), () => val('location')],
+      location:     [deployed ? 'Location (dispatched from)' : 'Location', sel('location', cur.location, Inventory.getLocations()), () => val('location')],
       receivedDate: ['Received date', day('receivedDate', cur.receivedDate), () => fromDay(val('receivedDate'))],
-      supplier:     ['Supplier', txt('supplier', cur.supplier), () => val('supplier')],
-      poNumber:     ['PO number', txt('poNumber', cur.poNumber, 'list="po-list"'), () => val('poNumber')],
+      supplier:     ['Supplier', sel('supplier', cur.supplier, Inventory.getSuppliers(), '— None —'), () => val('supplier')],
+      poNumber:     ['PO number', sel('poNumber', cur.poNumber, DB.getPONumbers(), '— None —'), () => val('poNumber')],
       cost:         ['Unit cost ($)', txt('cost', cur.cost, 'type="number" min="0" step="0.01"'), () => val('cost') === '' ? null : parseFloat(val('cost'))],
       used:         ['Used', `<label style="display:flex;gap:6px;align-items:center;padding:6px 0;"><input type="checkbox" id="se-used"${cur.used ? ' checked' : ''} /> Marked as used</label>`, () => document.getElementById('se-used').checked],
       ...(deployed ? {
-        customer:     ['Customer', txt('customer', cur.customer, 'list="customer-list"'), () => val('customer')],
+        customer:     ['Customer', sel('customer', cur.customer, Inventory.getCustomers()), () => val('customer')],
         deployedDate: ['Dispatched date', day('deployedDate', cur.deployedDate), () => fromDay(val('deployedDate'))],
         ref:          ['Dispatch ref', txt('ref', cur.ref), () => val('ref')],
         by:           ['Dispatched by', txt('by', cur.by), () => val('by')],
