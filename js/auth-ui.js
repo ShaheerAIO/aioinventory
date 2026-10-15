@@ -129,8 +129,8 @@ const AuthUI = (() => {
     const profile = Auth.getProfile();
     const name    = Auth.getName();
     const role    = profile?.role || 'view';
-    const roleLabel = { admin: 'Admin', edit: 'Editor', view: 'View only' }[role] || role;
-    const roleColour = { admin: 'var(--aio-purple)', edit: 'var(--success-text)', view: 'var(--text-hint)' }[role];
+    const roleLabel = { superadmin: 'Super admin', admin: 'Admin', edit: 'Editor', view: 'View only' }[role] || role;
+    const roleColour = { superadmin: 'var(--danger-text)', admin: 'var(--aio-purple)', edit: 'var(--success-text)', view: 'var(--text-hint)' }[role];
 
     const bar = document.createElement('div');
     bar.className = 'user-bar';
@@ -271,8 +271,11 @@ const AuthUI = (() => {
       const active     = allUsers.filter(u => !u.deleted);
       const removed    = allUsers.filter(u =>  u.deleted);
       const currentUid = Auth.getUser()?.uid;
-      const roleLabel  = { admin: 'Admin', edit: 'Editor', view: 'View only' };
-      const roleColour = { admin: 'var(--aio-purple)', edit: 'var(--success-text)', view: 'var(--text-hint)' };
+      const roleLabel  = { superadmin: 'Super admin', admin: 'Admin', edit: 'Editor', view: 'View only' };
+      const roleColour = { superadmin: 'var(--danger-text)', admin: 'var(--aio-purple)', edit: 'var(--success-text)', view: 'var(--text-hint)' };
+      // Only a super admin can grant, change or revoke super admin (firestore.rules enforces it too)
+      const isSuper    = Auth.isSuperAdmin();
+      const roles      = isSuper ? ['view','edit','admin','superadmin'] : ['view','edit','admin'];
 
       const th = (t) => `<th style="text-align:left;padding:6px 8px;font-size:10px;font-weight:700;color:var(--text-hint);text-transform:uppercase;border-bottom:1px solid var(--border);">${t}</th>`;
       const cols = `<colgroup><col style="width:130px;"><col style="width:220px;"><col style="width:110px;"><col></colgroup>`;
@@ -281,15 +284,15 @@ const AuthUI = (() => {
         <td style="padding:9px 8px;border-bottom:1px solid var(--border);font-weight:500;">${esc(u.name || '—')}</td>
         <td style="padding:9px 8px;border-bottom:1px solid var(--border);color:var(--text-muted);font-size:12px;overflow-wrap:anywhere;">${esc(u.email)}</td>
         <td style="padding:9px 8px;border-bottom:1px solid var(--border);">
-          ${u.id === currentUid
-            ? `<span style="font-size:11px;color:${roleColour[u.role]};font-weight:600;">${roleLabel[u.role] || u.role} (you)</span>`
+          ${u.id === currentUid || (u.role === 'superadmin' && !isSuper)
+            ? `<span style="font-size:11px;color:${roleColour[u.role]};font-weight:600;">${roleLabel[u.role] || u.role}${u.id === currentUid ? ' (you)' : ''}</span>`
             : `<select class="fi" data-uid="${esc(u.id)}" style="width:100%;padding:4px 6px;font-size:12px;box-sizing:border-box;">
-                ${['view','edit','admin'].map(r => `<option value="${r}"${u.role===r?' selected':''}>${roleLabel[r]}</option>`).join('')}
+                ${roles.map(r => `<option value="${r}"${u.role===r?' selected':''}>${roleLabel[r]}</option>`).join('')}
               </select>`}
         </td>
         <td style="padding:9px 8px;border-bottom:1px solid var(--border);text-align:right;">
           <div style="display:flex;gap:6px;justify-content:flex-end;white-space:nowrap;">
-            ${u.id !== currentUid
+            ${u.id !== currentUid && (u.role !== 'superadmin' || isSuper)
               ? `<button class="btn btn-ghost btn-xs" data-delete="${esc(u.id)}" data-name="${esc(u.name||u.email)}" style="color:var(--danger-text);border-color:var(--danger-border);">Remove</button>`
               : ''}
           </div>
@@ -356,8 +359,9 @@ const AuthUI = (() => {
       // Wire reactivate buttons
       container.querySelectorAll('button[data-reactivate]').forEach(btn => {
         btn.addEventListener('click', async () => {
-          const role = prompt(`Reactivate ${btn.dataset.name} (${btn.dataset.email})\nEnter their role: admin / edit / view`, 'edit');
-          if (!role || !['admin','edit','view'].includes(role)) return;
+          const allowed = Auth.isSuperAdmin() ? ['superadmin','admin','edit','view'] : ['admin','edit','view'];
+          const role = prompt(`Reactivate ${btn.dataset.name} (${btn.dataset.email})\nEnter their role: ${allowed.join(' / ')}`, 'edit');
+          if (!role || !allowed.includes(role)) return;
           if (!confirm(`Reactivate ${btn.dataset.name} as ${role}?\n\nThey get access back the next time they sign in with Microsoft.`)) return;
           btn.textContent = 'Reactivating...'; btn.disabled = true;
           try {

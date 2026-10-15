@@ -130,7 +130,7 @@ exports.hubspotCompanySearch = onRequest(
 
     const profile = await admin.firestore().doc(`users/${uid}`).get();
     const role = profile.exists ? profile.data().role : null;
-    if (role !== 'admin' && role !== 'edit') {
+    if (!['superadmin', 'admin', 'edit'].includes(role)) {
       res.status(403).json({ error: 'Forbidden' });
       return;
     }

@@ -1207,6 +1207,65 @@ const Inventory = (() => {
     return [...new Set([...fromData, ...fromRecords, ...DB.getCustomSuppliers()])].sort();
   }
   function getProducts()  { return [...new Set(DB.getData().movements.map(m => m.product))].sort(); }
+  // ── Super admin: every editable property of one unit ─────────────────
+  // Only units on the movement ledger (in stock or dispatched) — a unit on a
+  // supplier shipment or a warehouse transfer isn't stock yet. null otherwise.
+  function getEditableProperties(serial) {
+    const info = getSerialInfo(serial);
+    if (!['in-stock', 'dispatched'].includes(info.status) || info.transferInFlight) return null;
+    const s    = info.serial;
+    const mine = info.history;
+    const inMv = mine.filter(m => m.type === 'IN').pop() || {};
+    const out  = info.status === 'dispatched' ? (mine.filter(m => m.type === 'OUT').pop() || {}) : null;
+    const sc   = DB.getSerialCondition(s);
+    const props = {
+      status:       info.status,
+      serial:       (mine[0]?.serials.find(x => x.toUpperCase() === s)) || s,
+      product:      inMv.product || out?.product || '',
+      location:     inMv.location || '',
+      receivedDate: inMv.receivedDate || inMv.date || '',
+      supplier:     inMv.supplier || '',
+      poNumber:     inMv.poNumber || DB.getSerialPO(s) || '',
+      cost:         DB.getSerialCost(s),
+      used:         inMv.used === true || inMv.condition === 'used',
+      condition:    sc ? (sc.condition || '') : (inMv.condition === 'used' ? '' : (inMv.condition || '')),
+      testedBy:     sc ? (sc.testedBy  || '') : (inMv.testedBy  || ''),
+      testedAt:     sc ? (sc.testedAt  || '') : (inMv.testedAt  || ''),
+      testNotes:    sc ? (sc.testNotes || '') : (inMv.testNotes || ''),
+    };
+    if (out) Object.assign(props, { customer: out.customer || '', deployedDate: out.date || '', ref: out.ref || '', by: out.by || '' });
+    return props;
+  }
+
+  // Validates a super-admin edit and applies it. `changes` holds only the
+  // fields that differ from getEditableProperties(). Throws on bad input.
+  function superEditSerial(serial, changes, reason) {
+    if (typeof Auth === 'undefined' || !Auth.isSuperAdmin()) throw new Error('Only a super admin can do this.');
+    if (!(reason || '').trim()) throw new Error('Give a reason for the change — it goes in the activity log.');
+    const cur = getEditableProperties(serial);
+    if (!cur) throw new Error('Only units in stock or dispatched can be edited here. Receive in-transit units first.');
+    const ch = { ...changes };
+    if (!Object.keys(ch).length) throw new Error('Nothing has changed.');
+
+    if ('serial' in ch) {
+      ch.serial = (ch.serial || '').trim().toUpperCase();
+      if (!ch.serial) throw new Error('Serial number is required.');
+      if (ch.serial !== cur.serial.toUpperCase() && getSerialInfo(ch.serial).status !== 'unknown')
+        throw new Error(`Serial "${ch.serial}" is already in use. Every serial must be unique.`);
+    }
+    if ('product' in ch) {
+      const p = PRODUCTS.find(x => x.name === ch.product);
+      if (!p) throw new Error(`"${ch.product}" is not a product in the catalog.`);
+      ch.category = p.category;
+    }
+    if ('location' in ch && !(ch.location || '').trim()) throw new Error('Location is required.');
+    if ('customer' in ch && !(ch.customer || '').trim()) throw new Error('Customer is required for a dispatched unit.');
+    if ('cost' in ch && ch.cost != null && !(Number.isFinite(ch.cost) && ch.cost >= 0)) throw new Error('Cost must be a number of 0 or more.');
+    if (cur.status !== 'dispatched') ['customer', 'deployedDate', 'ref', 'by'].forEach(k => delete ch[k]);
+
+    return DB.editSerialProperties(cur.serial, ch, reason.trim());
+  }
+
   function isSerialEditable(productName) {
     const p = PRODUCTS.find(x => x.name === productName);
     return !!(p && p.serialEditable);
@@ -1375,7 +1434,7 @@ const Inventory = (() => {
   }
 
     DB.onReady(() => refreshProducts());
-    return { getInventoryMap, getStockByProduct, getDeployedByProduct, getDeployedByCustomer, getCustomerDetail, getAllSerialRows, getDeployedSerialRows, getRmaTlDispatchedRows, getTotalLossRows, getAvailableSerials, getLowStockItems, getSerialInfo, searchSerials, getSerialKnownProduct, stockIn, getPlaceholderConflicts, createShipment, receiveShipment, receivePartialShipment, closeShipmentWithoutStock, stockOut, stockOutByProduct, dispatchTransfer, receiveTransfer, cancelTransfer, getInFlightTransfers, getTransferInFlightSerials, stagePendingDeployment, confirmDeployment, confirmDeployments, getPendingDeploymentSerials, getLocations, getSuppliers, getProducts, isSerialEditable, getCustomers, getStats, recallToServicing, createOrder, refreshProducts, CATEGORIES, PRODUCTS };
+    return { getInventoryMap, getStockByProduct, getDeployedByProduct, getDeployedByCustomer, getCustomerDetail, getAllSerialRows, getDeployedSerialRows, getRmaTlDispatchedRows, getTotalLossRows, getAvailableSerials, getLowStockItems, getSerialInfo, searchSerials, getSerialKnownProduct, stockIn, getPlaceholderConflicts, createShipment, receiveShipment, receivePartialShipment, closeShipmentWithoutStock, stockOut, stockOutByProduct, dispatchTransfer, receiveTransfer, cancelTransfer, getInFlightTransfers, getTransferInFlightSerials, stagePendingDeployment, confirmDeployment, confirmDeployments, getPendingDeploymentSerials, getLocations, getSuppliers, getProducts, isSerialEditable, getEditableProperties, superEditSerial, getCustomers, getStats, recallToServicing, createOrder, refreshProducts, CATEGORIES, PRODUCTS };
 
   function createOrder(opts) {
     const { supplier, poNumber, expectedBy, products, taxRate, taxAmount, taxRef } = opts;

@@ -4,6 +4,16 @@
  */
 var CHANGELOG = [
   {
+    version: 'v120',
+    date: '2026-10-13',
+    title: 'Super Admin Role',
+    changes: [
+      { type: 'new', text: 'New Super admin role. A super admin can change any property of any unit in stock or dispatched \u2014 serial number, product, location, received date, supplier, PO, cost, used flag, condition and testing details, and for dispatched units the customer, dispatch date, ref and who dispatched it. Open the unit in Serial Lookup and click \u201cEdit all properties\u201d' },
+      { type: 'new', text: 'Every super admin edit needs a reason and is written to the Activity Log with the old and new value of each field, the reason, and the unit\u2019s movement history as it was before the change. Super admin entries are flagged in the log' },
+      { type: 'new', text: 'Only a super admin can make someone a super admin, or change or remove one. Admins keep everything they could do before' },
+    ],
+  },
+  {
     version: 'v119',
     date: '2026-09-30',
     title: 'Activity Log',

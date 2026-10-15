@@ -2018,6 +2018,7 @@ Items will remain in Stock Holding with no customer attached.`)) return;
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
           <span style="font-family:var(--mono);font-size:15px;font-weight:600">${esc(info.serial)}</span>${statusBadge}${pendingBadge}${condBadge}${usedBadge}
           ${cost != null ? `<span style="font-size:12px;color:var(--text-muted)">Cost: <strong>${costStr}</strong></span>` : ''}
+          ${Auth.isSuperAdmin() && Inventory.getEditableProperties(info.serial) ? `<button class="btn btn-ghost btn-xs" id="btn-super-edit" style="margin-left:auto;color:var(--danger-text);border-color:var(--danger-border);" title="Super admin: change any property of this unit (logged)">✎ Edit all properties</button>` : ''}
         </div>
         <div class="lookup-meta">
           <div><div class="lookup-meta-label">Product</div>${esc(info.currentProduct||'—')}</div>
@@ -2034,6 +2035,107 @@ Items will remain in Stock Holding with no customer attached.`)) return;
         <table><thead><tr><th style="width:18%">Date</th><th style="width:10%">Type</th><th style="width:22%">Product</th><th style="width:18%">Location</th><th style="width:18%">Party</th><th style="width:14%">Ref</th></tr></thead>
         <tbody>${info.history.map(m=>`<tr><td style="color:var(--text-hint)">${fmtDateFull(m.date)}</td><td><span class="badge ${m.type==='IN'?'b-in':'b-out'}">${m.type}</span>${m.isTransfer?'<span class="badge b-transfer" style="margin-left:4px;">⇄ TRF</span>':''}</td><td>${esc(m.product)}</td><td><span class="loc-badge">${esc(m.location||'—')}</span></td><td>${esc(m.isTransfer ? (m.type==='IN' ? 'from ' + (m.transferFrom||'?') : 'to ' + (m.transferTo||'?')) : (m.type==='IN'?(m.supplier||'—'):(m.customer||'—')))}</td><td style="color:var(--text-hint)">${esc(m.ref||'—')}</td></tr>`).join('')}</tbody></table>
       </div>` : ''}`;
+    const superBtn = document.getElementById('btn-super-edit');
+    if (superBtn) superBtn.addEventListener('click', () => _showSuperEditModal(info.serial));
+  }
+
+  // ── Super admin: edit every property of one unit ──────────────────────
+  // Everything saved here is written to the activity log with before → after
+  // values and the reason (see editSerialProperties in activity.js).
+  function _showSuperEditModal(serial) {
+    const cur = Inventory.getEditableProperties(serial);
+    if (!cur) return;
+    document.getElementById('super-edit-modal')?.remove();
+    const deployed = cur.status === 'dispatched';
+    const p2 = n => String(n).padStart(2, '0');
+    const toDay = iso => { if (!iso) return ''; const d = new Date(iso); return isNaN(d) ? '' : `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`; };
+    const fromDay = d => d ? d + 'T12:00:00.000Z' : '';  // noon UTC: the same calendar day across US time zones
+
+    // field → [label, input html, read value]
+    const products = Inventory.PRODUCTS.map(p => p.name);
+    if (cur.product && !products.includes(cur.product)) products.unshift(cur.product);
+    const conds = [['', 'Working (no flag)'], ['needs-testing', 'Needs testing'], ['faulty', 'Faulty'], ['rma', 'RMA'], ['fail-tl', 'Total loss']];
+    const txt  = (id, v, extra = '') => `<input class="fi" id="se-${id}" value="${esc(v ?? '')}" ${extra} />`;
+    const day  = (id, v) => `<input class="fi" type="date" id="se-${id}" value="${toDay(v)}" />`;
+    const val  = id => document.getElementById('se-' + id).value.trim();
+    const F = {
+      serial:       ['Serial number', txt('serial', cur.serial, 'style="font-family:var(--mono)"'), () => val('serial').toUpperCase()],
+      product:      ['Product', `<select class="fi" id="se-product">${products.map(p => `<option${p === cur.product ? ' selected' : ''}>${esc(p)}</option>`).join('')}</select>`, () => val('product')],
+      location:     [deployed ? 'Location (dispatched from)' : 'Location', txt('location', cur.location, 'list="loc-list"'), () => val('location')],
+      receivedDate: ['Received date', day('receivedDate', cur.receivedDate), () => fromDay(val('receivedDate'))],
+      supplier:     ['Supplier', txt('supplier', cur.supplier), () => val('supplier')],
+      poNumber:     ['PO number', txt('poNumber', cur.poNumber, 'list="po-list"'), () => val('poNumber')],
+      cost:         ['Unit cost ($)', txt('cost', cur.cost, 'type="number" min="0" step="0.01"'), () => val('cost') === '' ? null : parseFloat(val('cost'))],
+      used:         ['Used', `<label style="display:flex;gap:6px;align-items:center;padding:6px 0;"><input type="checkbox" id="se-used"${cur.used ? ' checked' : ''} /> Marked as used</label>`, () => document.getElementById('se-used').checked],
+      ...(deployed ? {
+        customer:     ['Customer', txt('customer', cur.customer, 'list="customer-list"'), () => val('customer')],
+        deployedDate: ['Dispatched date', day('deployedDate', cur.deployedDate), () => fromDay(val('deployedDate'))],
+        ref:          ['Dispatch ref', txt('ref', cur.ref), () => val('ref')],
+        by:           ['Dispatched by', txt('by', cur.by), () => val('by')],
+      } : {
+        condition:    ['Condition', `<select class="fi" id="se-condition">${conds.map(([v, l]) => `<option value="${v}"${v === cur.condition ? ' selected' : ''}>${l}</option>`).join('')}</select>`, () => val('condition')],
+        testedBy:     ['Tested by', txt('testedBy', cur.testedBy), () => val('testedBy')],
+        testedAt:     ['Tested date', day('testedAt', cur.testedAt), () => fromDay(val('testedAt'))],
+        testNotes:    ['Test notes', txt('testNotes', cur.testNotes), () => val('testNotes')],
+      }),
+    };
+
+    const modal = document.createElement('div');
+    modal.id = 'super-edit-modal';
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-box" style="width:640px;max-width:calc(100vw - 32px);max-height:90vh;overflow:auto;">
+        <div class="modal-title" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.5rem;">
+          <span>Edit unit — <span style="font-family:var(--mono)">${esc(cur.serial)}</span></span>
+          <button class="btn-remove-row" id="se-close">×</button>
+        </div>
+        <div style="font-size:12px;color:var(--danger-text);margin-bottom:1rem;">Super admin edit. Every change is recorded in the activity log with its old and new value, your account and your reason.</div>
+        <div class="form-grid g2">
+          ${Object.entries(F).map(([k, [label, html]]) => `<div class="form-group"><label class="form-label">${label}</label>${html}</div>`).join('')}
+        </div>
+        <div class="form-group" style="margin:6px 0 1rem;">
+          <label class="form-label">Reason for the change *</label>
+          <textarea class="fi" id="se-reason" rows="2" placeholder="e.g. Received under the wrong product on PO 1234"></textarea>
+        </div>
+        <div id="se-error" style="display:none;color:var(--danger-text);font-size:12px;margin-bottom:10px;"></div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;">
+          <button class="btn btn-ghost" id="se-cancel">Cancel</button>
+          <button class="btn btn-primary" id="se-save">Save changes</button>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+
+    // Compare against what the form showed, not the raw values, so an untouched
+    // date (shown as a day, stored with a time) doesn't count as a change
+    const initial = {};
+    Object.entries(F).forEach(([k, [, , read]]) => { initial[k] = read(); });
+
+    const close = () => modal.remove();
+    document.getElementById('se-close').addEventListener('click', close);
+    document.getElementById('se-cancel').addEventListener('click', close);
+    modal.addEventListener('click', e => { if (e.target === modal) close(); });
+
+    document.getElementById('se-save').addEventListener('click', async () => {
+      const errEl = document.getElementById('se-error');
+      errEl.style.display = 'none';
+      const changes = {};
+      Object.entries(F).forEach(([k, [, , read]]) => { const v = read(); if (v !== initial[k]) changes[k] = v; });
+      const reason = document.getElementById('se-reason').value.trim();
+      const lines = Object.keys(changes).map(k => `• ${F[k][0]}: ${initial[k] === '' || initial[k] == null ? '—' : initial[k]} → ${changes[k] === '' || changes[k] == null ? '—' : changes[k]}`);
+      if (lines.length && reason && !confirm(`Apply these changes to ${cur.serial}?\n\n${lines.join('\n')}\n\nReason: ${reason}`)) return;
+      try {
+        await Inventory.superEditSerial(cur.serial, changes, reason);
+      } catch (e) {
+        errEl.textContent = e.message || String(e);
+        errEl.style.display = 'block';
+        return;
+      }
+      close();
+      const now = changes.serial || cur.serial;
+      document.getElementById('lookup-input').value = now;
+      renderLookup(now);
+      showAlert(`${now} updated — ${lines.length} change${lines.length === 1 ? '' : 's'} logged`, 'success');
+    });
   }
 
   function _lookupStatusBadge(status) {

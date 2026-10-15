@@ -16,7 +16,7 @@ The app is a collection of **IIFE module singletons** attached to `window` (e.g.
 
 Layered design:
 - **Storage layer (`db.js`)** — `DB` singleton. Reads/writes a single Firestore document `inventory/main` containing all app data (`movements`, `thresholds`, `shipments`, `serialCosts`, `serialConditions`, `orders`, `suppliers`, `productRecords`, `auditRecords`, `pendingUsers`, `pendingDeployments`, `pausedAudits`, etc.). Uses `onSnapshot` for real-time sync across users; falls back to `localStorage` key `aio_inventory_v2` if Firebase init fails.
-- **Auth layer (`auth.js`, `auth-ui.js`)** — `Auth` handles Firebase Auth + a Firestore `users/<uid>` profile doc (`{ name, email, role }`). Sign-in is `Auth.signInWithMicrosoft()`, pinned to the AIO Entra tenant by `ENTRA_TENANT_ID` at the top of `auth.js`. `AuthUI` renders the login screen, the user header bar, and the admin Users panel. Roles: `admin`, `edit`, `view`. `Auth.isAdmin()` = admin only; `Auth.canEdit()` = admin or edit. See `ENTRA-SETUP.md` for the Entra/Firebase console configuration.
+- **Auth layer (`auth.js`, `auth-ui.js`)** — `Auth` handles Firebase Auth + a Firestore `users/<uid>` profile doc (`{ name, email, role }`). Sign-in is `Auth.signInWithMicrosoft()`, pinned to the AIO Entra tenant by `ENTRA_TENANT_ID` at the top of `auth.js`. `AuthUI` renders the login screen, the user header bar, and the admin Users panel. Roles: `superadmin`, `admin`, `edit`, `view`. `Auth.isAdmin()` = admin or superadmin; `Auth.canEdit()` = any of those or edit; `Auth.isSuperAdmin()` = superadmin only — it unlocks the Serial Lookup "Edit all properties" editor (`Inventory.superEditSerial` → `DB.editSerialProperties`, logged with before/after values). Only a superadmin can grant, change or revoke superadmin (enforced in `firestore.rules`), and it can never come from a `pendingUsers` pre-assignment. See `ENTRA-SETUP.md` for the Entra/Firebase console configuration.
 - **Business logic (`inventory.js`)** — `Inventory` singleton: pure-ish functions over `DB` data. Defines the product catalog (`HARDCODED_PRODUCTS` / `PRODUCTS`) and `CATEGORIES`, and computes serial statuses (in-stock, in-transit, deployed, RMA, total-loss). Public API includes `stockIn`, `stockOut`, `createOrder`, `createShipment`, `receiveShipment`, `receivePartialShipment`, `confirmDeployment`, `getStats`, `getAllSerialRows`, `getLowStockItems`, etc.
 - **Rendering (`ui.js`)** — `UI` singleton: renders every view (dashboard, stock lists, deployed, transit, lookup, history, etc.) into the `<section class="view">` containers in `index.html`. Largest file.
 - **Reporting (`reports.js`)** — `Reports` singleton: KPI/summary builders and report exports (uses `xlsx`).
@@ -54,7 +54,7 @@ without Firebase.
 - `js/reports.js` — reporting suite (`Reports`).
 - `js/ui.js` — all DOM rendering (`UI`).
 - `js/audit.js` — physical stock-count workflow (`Audit`).
-- `js/changelog.js` — `CHANGELOG` array powering the "What's New" view; currently at `v116`.
+- `js/changelog.js` — `CHANGELOG` array powering the "What's New" view; currently at `v120`.
 - `functions/index.js` — Cloud Function entry points (`hubspotNightlySync`, `hubspotSyncManual`, `metrics`).
 - `functions/inventoryStats.js` — shared server-side inventory aggregation (see above).
 - `functions/hubspotSync.js` — HubSpot company rollup logic.
@@ -70,12 +70,13 @@ dependency-free test file, run directly with node:
 
 ```bash
 node test/transfer-protocol.test.js    # warehouse transfers: dispatch → receive → cancel
+node test/super-edit.test.js           # super admin unit editor (movement splitting)
 ```
 
 It loads `js/inventory.js` as text and evaluates it with a fake `DB` injected (the module is a
 browser IIFE, so it cannot be `require`d), then asserts against both it and
 `functions/inventoryStats.js` — so it catches the two copies of the aggregation rules drifting
-apart. Exits non-zero on failure. Nothing else is covered by tests.
+apart. Exits non-zero on failure. `test/super-edit.test.js` lifts `editSerialProperties` out of `js/db.js` the same way. Nothing else is covered by tests.
 
 Run locally as static files (commands from `README.md`):
 ```bash

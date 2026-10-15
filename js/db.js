@@ -575,6 +575,91 @@ const DB = (() => {
     _persist([...SAVE_FIELDS, 'movements']);
   }
 
+  // Super-admin edit of one unit. `ch` holds only the fields being changed (see
+  // Inventory.superEditSerial, which validates them); `reason` is only for the
+  // activity log. A unit's properties live on the movements it shares with the
+  // rest of its batch, so the unit is split out of each movement it needs to
+  // change — in place, never appended, because the ledger order decides what is
+  // in stock (an IN moved after its OUT would put a deployed unit back in stock).
+  function editSerialProperties(serial, ch, reason) {
+    const s   = serial.toUpperCase();
+    const has = k => Object.prototype.hasOwnProperty.call(ch, k);
+    const mvs = _data.movements;
+    const idx = [];
+    mvs.forEach((mv, i) => { if (mv.serials.some(x => x.toUpperCase() === s)) idx.push(i); });
+    const lastIn  = [...idx].reverse().find(i => mvs[i].type === 'IN');
+    const lastOut = [...idx].reverse().find(i => mvs[i].type === 'OUT');
+    const deployed = lastOut != null && (lastIn == null || lastOut > lastIn);
+
+    const patches = {};
+    const add = (i, p) => { if (i != null && Object.keys(p).length) patches[i] = { ...(patches[i] || {}), ...p }; };
+
+    // Product: every movement, or the IN/OUT pairs stop netting off (stock is bucketed by product||location)
+    if (has('product')) idx.forEach(i => add(i, { product: ch.product, category: ch.category }));
+    // Location: the latest IN and any OUT after it, for the same reason
+    if (has('location')) idx.filter(i => i >= lastIn).forEach(i => add(i, { location: ch.location }));
+
+    const inP = {};
+    if (has('receivedDate')) inP.receivedDate = ch.receivedDate;
+    if (has('supplier'))     inP.supplier = ch.supplier;
+    if (has('poNumber'))     inP.poNumber = ch.poNumber;
+    if (has('used')) {
+      inP.used = ch.used;
+      if (!ch.used && mvs[lastIn]?.condition === 'used') inP.condition = '';  // legacy way of flagging used
+    }
+    add(lastIn, inP);
+
+    if (deployed) {
+      const outP = {};
+      if (has('customer'))     outP.customer = ch.customer;
+      if (has('deployedDate')) outP.date = ch.deployedDate;
+      if (has('ref'))          outP.ref = ch.ref;
+      if (has('by'))           outP.by = ch.by;
+      add(lastOut, outP);
+    }
+
+    // Highest index first so earlier indexes stay valid as the ledger grows
+    Object.keys(patches).map(Number).sort((a, b) => b - a).forEach(i => {
+      const mv   = mvs[i];
+      const mine = mv.serials.filter(x => x.toUpperCase() === s);
+      if (mine.length === mv.serials.length) { mvs[i] = { ...mv, ...patches[i] }; return; }
+      mvs.splice(i, 1,
+        { ...mv, serials: mv.serials.filter(x => x.toUpperCase() !== s) },
+        { ...mv, ...patches[i], id: Date.now() + Math.random(), splitFrom: mv.id, serials: mine });
+    });
+
+    if (has('cost')) { if (ch.cost == null) delete _data.serialCosts[s]; else _data.serialCosts[s] = ch.cost; }
+    if (has('poNumber')) {
+      if (!_data.serialPOs) _data.serialPOs = {};
+      if (ch.poNumber) _data.serialPOs[s] = ch.poNumber; else delete _data.serialPOs[s];
+    }
+    const COND = ['condition', 'testedBy', 'testedAt', 'testNotes'];
+    if (COND.some(has)) {
+      if (!_data.serialConditions) _data.serialConditions = {};
+      const inMv = mvs.filter(mv => mv.type === 'IN' && mv.serials.some(x => x.toUpperCase() === s)).pop() || {};
+      const cur  = _data.serialConditions[s] || {
+        condition: inMv.condition === 'used' ? '' : (inMv.condition || ''),
+        testedBy: inMv.testedBy || '', testedAt: inMv.testedAt || '', testNotes: inMv.testNotes || '',
+      };
+      const next = { ...cur };
+      COND.forEach(k => { if (has(k)) next[k] = ch[k]; });
+      _data.serialConditions[s] = next;
+    }
+
+    // Serial number last — everything above is keyed by the old one
+    if (has('serial')) {
+      const n = ch.serial.toUpperCase();
+      _data.movements = _data.movements.map(mv =>
+        mv.serials.some(x => x.toUpperCase() === s)
+          ? { ...mv, serials: mv.serials.map(x => x.toUpperCase() === s ? n : x) } : mv);
+      ['serialCosts', 'serialPOs', 'serialConditions'].forEach(f => {
+        const m = _data[f];
+        if (m && m[s] !== undefined) { m[n] = m[s]; delete m[s]; }
+      });
+    }
+    return _persist([...SAVE_FIELDS, 'movements']);
+  }
+
   // Rename a location across movements, shipments, transfers, thresholds and
   // the custom-location list. Renaming onto an existing location's name merges
   // the two — any threshold already set on the target wins over the source's.
@@ -801,7 +886,7 @@ const DB = (() => {
   }
 
   init();
-  return { onReady, getData, save:_save, addMovement, addMovements, setThreshold, getThreshold, addShipment, updateShipment, removeShipment, addTransfer, updateTransfer, getTransfers, setSerialCost, getSerialCost, setProductCost, setHubspotCompanyId, getHubspotCompanyId, getHubspotCompanyMap, setHubspotIgnored, isHubspotIgnored, getHubspotIgnored, deleteSerial, deleteSerials, renameSerial, renameLocation, updateSerialCondition, getSerialCondition, savePO, getPO, getAllPOs, getPONumbers, getPOUnitCost, setSerialPO, getSerialPO, addCustomSupplier, addCustomLocation, getCustomSuppliers, getCustomLocations, addOrder, updateOrder, removeOrder, getOrders, addSupplier, updateSupplier, removeSupplier, getSupplierRecords, addProductRecord, updateProductRecord, removeProductRecord, getProductRecords, addAuditRecord, saveAuditRecord, deleteAuditRecord, splitStorage, getAuditRecords, setPendingUser, getPendingUser, removePendingUser, addPendingDeployment, getPendingDeployments, removePendingDeployment, updatePendingDeployment, savePausedAudit, getPausedAudit, getAllPausedAudits, clearPausedAudit, exportJSON, importJSON, uploadDocument, addDocumentToShipment, removeDocumentFromShipment, addDocumentToOrder };
+  return { onReady, getData, save:_save, addMovement, addMovements, setThreshold, getThreshold, addShipment, updateShipment, removeShipment, addTransfer, updateTransfer, getTransfers, setSerialCost, getSerialCost, setProductCost, setHubspotCompanyId, getHubspotCompanyId, getHubspotCompanyMap, setHubspotIgnored, isHubspotIgnored, getHubspotIgnored, deleteSerial, deleteSerials, renameSerial, editSerialProperties, renameLocation, updateSerialCondition, getSerialCondition, savePO, getPO, getAllPOs, getPONumbers, getPOUnitCost, setSerialPO, getSerialPO, addCustomSupplier, addCustomLocation, getCustomSuppliers, getCustomLocations, addOrder, updateOrder, removeOrder, getOrders, addSupplier, updateSupplier, removeSupplier, getSupplierRecords, addProductRecord, updateProductRecord, removeProductRecord, getProductRecords, addAuditRecord, saveAuditRecord, deleteAuditRecord, splitStorage, getAuditRecords, setPendingUser, getPendingUser, removePendingUser, addPendingDeployment, getPendingDeployments, removePendingDeployment, updatePendingDeployment, savePausedAudit, getPausedAudit, getAllPausedAudits, clearPausedAudit, exportJSON, importJSON, uploadDocument, addDocumentToShipment, removeDocumentFromShipment, addDocumentToOrder };
 })();
 
 let _currentView = 'dashboard';

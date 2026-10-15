@@ -6,7 +6,8 @@ rules_version = '2';
 //   inventory/main       all app data except the movement ledger and audits
 //   inventory/movements  the movement ledger (split out in v107)
 //   audits/{auditId}     one doc per stock audit (split out in v107)
-//   users/{uid}          { name, email, role } — role is 'admin' | 'edit' | 'view'
+//   users/{uid}          { name, email, role } — role is 'superadmin' | 'admin' | 'edit' | 'view'
+//                        (superadmin = admin + may rewrite any unit's properties in the app)
 //   activityLog/{id}     permanent who-did-what log, written by js/activity.js
 //
 // Cloud Functions use firebase-admin and bypass these rules entirely.
@@ -25,11 +26,14 @@ service cloud.firestore {
       return signedIn()
         && exists(/databases/$(database)/documents/users/$(request.auth.uid));
     }
+    function isSuperAdmin() {
+      return hasProfile() && profile().role == 'superadmin';
+    }
     function isAdmin() {
-      return hasProfile() && profile().role == 'admin';
+      return hasProfile() && profile().role in ['superadmin', 'admin'];
     }
     function canEdit() {
-      return hasProfile() && profile().role in ['admin', 'edit'];
+      return hasProfile() && profile().role in ['superadmin', 'admin', 'edit'];
     }
     function email() {
       return request.auth.token.email.lower();
@@ -92,18 +96,27 @@ service cloud.firestore {
       // A user may create only their own profile, only carrying their own
       // email, and only at 'view' — unless an admin pre-assigned a higher
       // role, or they are inheriting one from their own older profile.
+      // superadmin can never come from a pre-assignment: an admin can write
+      // pendingUsers, so allowing it would let an admin mint a super admin.
       allow create: if signedIn()
         && request.auth.uid == uid
         && request.auth.token.email != null
         && request.resource.data.email == request.auth.token.email
         && ( request.resource.data.role == 'view'
-          || request.resource.data.role == pendingRole()
+          || (request.resource.data.role == pendingRole()
+              && request.resource.data.role != 'superadmin')
           || joinedFromOwnProfile() );
 
-      // Role changes, removal and reactivation are admin-only. The one
+      // Role changes, removal and reactivation are admin-only, and anything
+      // that touches a super admin — granting it, or changing, removing or
+      // reactivating someone who has it — is super-admin-only. The one
       // exception is stamping migratedTo on an old profile that carries the
       // writer's own email, which is how first sign-in retires it.
-      allow update: if isAdmin() || retiringOwnOldProfile();
+      allow update: if isSuperAdmin()
+        || (isAdmin()
+            && resource.data.get('role', '') != 'superadmin'
+            && request.resource.data.get('role', '') != 'superadmin')
+        || retiringOwnOldProfile();
 
       allow delete: if false;              // removal is a soft delete
     }

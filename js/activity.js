@@ -77,6 +77,22 @@ const Activity = (() => {
     deleteSerials: ss => ({ text: `${n(ss)} serial(s) deleted`, serials: ss }),
     renameSerial:  (a, b) => ({ text: `Serial renamed: ${a} → ${b}`, serials: [a, b] }),
     renameLocation:(a, b) => ({ text: `Location renamed: ${a} → ${b}` }),
+    // Super admin rewrite of a unit: every field before → after, the reason, and
+    // the unit's movements as they were (batch serial lists dropped for size) so
+    // the edit can be reconstructed or undone by hand
+    editSerialProperties: (s, ch, reason) => {
+      const before = Inventory.getEditableProperties(s) || {};
+      const show = v => v == null || v === '' ? '—' : String(v);
+      const changes = {};
+      Object.keys(ch).filter(k => k !== 'category').forEach(k => { changes[k] = [before[k] ?? null, ch[k] ?? null]; });
+      const parts = Object.entries(changes).map(([k, [a, b]]) => `${k}: ${short(show(a))} → ${short(show(b))}`);
+      const movementsBefore = Inventory.getSerialInfo(s).history.map(({ serials, ...m }) => ({ ...m, batchSize: n(serials) }));
+      return {
+        text: `SUPER ADMIN edit of ${s} — ${parts.join('; ')} — reason: ${reason}`,
+        detail: { serial: s, reason, changes, before, movementsBefore },
+        serials: [s, ch.serial].filter(Boolean),
+      };
+    },
     updateSerialCondition: (s, cond, testedBy, testedDate, notes) =>
       ({ text: `Condition of ${s} set to ${cond || '(cleared)'}`, detail: { testedBy, testedDate, notes }, serials: [s] }),
     savePO:        (po, d) => ({ text: `Purchase order saved: ${po}`, detail: d }),
@@ -291,7 +307,7 @@ const Activity = (() => {
       const more = ops.some(o => o.detail) || (r.serials || []).length;
       return `<tr>
         <td>${esc(when(r).toLocaleString())}</td>
-        <td><strong>${esc(r.name)}</strong><div class="serial-mono">${esc(r.email)}</div></td>
+        <td><strong>${esc(r.name)}</strong>${r.role === 'superadmin' ? ' <span class="badge b-condition b-cond-faulty">SUPER ADMIN</span>' : ''}<div class="serial-mono">${esc(r.email)}</div></td>
         <td>${ops.length ? ops.map(o => `<div>${esc(o.text)}</div>`).join('') : esc(r.summary)}
           ${more ? `<details style="margin-top:6px;"><summary style="cursor:pointer;font-size:12px;color:var(--text-muted);">Details</summary>
             ${(r.serials || []).length ? `<div class="serial-mono" style="margin:6px 0;">${esc(r.serials.join(', '))}</div>` : ''}

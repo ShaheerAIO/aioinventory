@@ -163,8 +163,10 @@ const Auth = (() => {
   function getRedirectError() { return _redirectError; }
   function getUser()    { return _currentUser; }
   function getProfile() { return _userProfile; }
-  function isAdmin()    { return _userProfile?.role === 'admin'; }
-  function canEdit()    { return _userProfile?.role === 'admin' || _userProfile?.role === 'edit'; }
+  // superadmin = admin + may rewrite any property of any unit (see UI super-edit)
+  function isSuperAdmin() { return _userProfile?.role === 'superadmin'; }
+  function isAdmin()    { return _userProfile?.role === 'admin' || isSuperAdmin(); }
+  function canEdit()    { return isAdmin() || _userProfile?.role === 'edit'; }
   function getName()    { return _userProfile?.name || _currentUser?.email || ''; }
 
   // ── Microsoft Entra ID sign-in ──────────────────────────────────────────
@@ -220,7 +222,7 @@ const Auth = (() => {
     window.location.reload();
   }
 
-  return { init, onReady, getUser, getProfile, isAdmin, canEdit, getName, getRedirectError, signInWithMicrosoft, signIn, signOut };
+  return { init, onReady, getUser, getProfile, isSuperAdmin, isAdmin, canEdit, getName, getRedirectError, signInWithMicrosoft, signIn, signOut };
 })();
 
 // ── User Management (admin only) ──────────────────────────────────────────
