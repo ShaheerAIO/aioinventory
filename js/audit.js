@@ -1364,8 +1364,82 @@ const Audit = (() => {
       <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:6px;">
         <span style="color:#4AA37B;font-weight:600">✅ ${matchCount} scanned</span>
         <span style="color:${missingCount>0?'#8A5200':'var(--text-muted)'};font-weight:600">⚠ ${missingCount} not yet scanned</span>
-        ${unexpCount>0?`<span style="color:#AC1B02;font-weight:600">❓ ${unexpCount} unexpected</span>`:''}
+        ${unexpCount>0?`<span class="audit-show-unexpected" style="color:#AC1B02;font-weight:600;cursor:pointer;text-decoration:underline;" title="View unexpected serials">❓ ${unexpCount} unexpected</span>`:''}
       </div>`;
+    const unexpEl = el.querySelector('.audit-show-unexpected');
+    if (unexpEl) unexpEl.addEventListener('click', () =>
+      _showUnexpectedModal(Object.values(_scanned).flatMap(s => s.unexpected)));
+  }
+
+  // Popup listing unexpected serials with what the system knows about each one
+  function _showUnexpectedModal(serials) {
+    const rows = serials.map(serial => {
+      const info = Inventory.getSerialInfo(serial);
+      let status, detail = '';
+      if (info.status === 'unknown') {
+        status = 'Not in system';
+        detail = 'Never received';
+      } else if (info.status === 'in-stock') {
+        status = 'In stock';
+        detail = 'Not in this count list';
+        if (info.pendingDeployment) detail += ` · staged for ${info.pendingDeployment.customer}`;
+      } else if (info.status === 'in-transit') {
+        status = 'In transit';
+        detail = info.transferInFlight ? `Transfer ${info.transferInFlight.from} → ${info.transferInFlight.to}` : 'Inbound shipment';
+      } else {
+        status = info.rmaTlType === 'fail-tl' ? 'Total loss' : info.rmaTlType ? 'RMA' : 'Deployed';
+        detail = [info.deployedTo, info.deployedDate ? fmtDate(info.deployedDate) : '', info.deployedRef].filter(Boolean).join(' · ');
+      }
+      return { serial, product: info.currentProduct || '', location: info.currentLocation || '', status, detail };
+    });
+
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal-box" style="max-width:760px;max-height:80vh;display:flex;flex-direction:column;">
+        <div class="modal-title" style="display:flex;align-items:center;justify-content:space-between;">
+          <span>❓ Unexpected serials (${rows.length})</span>
+          <button class="btn-remove-row" id="unexp-modal-close">×</button>
+        </div>
+        <div style="font-size:13px;color:var(--text-muted);margin-bottom:12px;">Scanned during the count but not on the count list.</div>
+        <div class="table-wrap" style="flex:1;overflow-y:auto;margin-bottom:14px;">
+          ${rows.length ? `<table>
+            <thead><tr><th>Serial</th><th>Product</th><th>Location</th><th>System status</th><th>Details</th></tr></thead>
+            <tbody>${rows.map(r => `<tr>
+              <td style="font-family:var(--mono);font-size:12px;font-weight:500">${_esc(r.serial)}</td>
+              <td>${_esc(r.product || '—')}</td>
+              <td>${_esc(r.location || '—')}</td>
+              <td style="font-weight:600">${_esc(r.status)}</td>
+              <td style="font-size:12px;color:var(--text-muted)">${_esc(r.detail || '—')}</td>
+            </tr>`).join('')}</tbody>
+          </table>` : '<div class="empty" style="padding:.5rem">No unexpected serials</div>'}
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;align-items:center;border-top:1px solid var(--border);padding-top:12px;">
+          <span id="unexp-modal-copied" style="font-size:12px;color:var(--success-text);margin-right:auto;"></span>
+          ${rows.length ? `<button class="btn btn-ghost" id="unexp-copy-serials">📋 Copy serials</button>
+          <button class="btn btn-ghost" id="unexp-copy-details">📋 Copy with details</button>` : ''}
+          <button class="btn btn-primary" id="unexp-modal-done">Close</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    const close = () => overlay.remove();
+    overlay.querySelector('#unexp-modal-close').addEventListener('click', close);
+    overlay.querySelector('#unexp-modal-done').addEventListener('click', close);
+    overlay.addEventListener('click', e => { if (e.target === overlay) close(); });
+
+    const copy = (text, label) => {
+      const msg = overlay.querySelector('#unexp-modal-copied');
+      navigator.clipboard.writeText(text)
+        .then(() => { msg.textContent = `✓ ${label} copied`; })
+        .catch(() => { msg.style.color = '#AC1B02'; msg.textContent = 'Copy failed — select the table and copy manually'; });
+    };
+    overlay.querySelector('#unexp-copy-serials')?.addEventListener('click', () =>
+      copy(rows.map(r => r.serial).join('\n'), `${rows.length} serial${rows.length !== 1 ? 's' : ''}`));
+    // Tab-separated so it pastes straight into Excel columns
+    overlay.querySelector('#unexp-copy-details')?.addEventListener('click', () =>
+      copy([['Serial', 'Product', 'Location', 'System status', 'Details'], ...rows.map(r => [r.serial, r.product, r.location, r.status, r.detail])]
+        .map(r => r.join('\t')).join('\n'), 'Serials and details'));
   }
 
   function _updatePanelStatus(idx) {
@@ -1539,10 +1613,10 @@ const Audit = (() => {
           <div class="svc-stat-label">⚠ Serials missing</div>
           <div class="svc-stat-value">${fmt$(missingValue)}</div>
         </div>
-        <div class="svc-stat-card" style="background:#FFDFD7;border-color:#FFC8BC;color:#AC1B02;flex:1;min-width:110px;">
+        <div class="svc-stat-card" id="audit-unexpected-card" style="background:#FFDFD7;border-color:#FFC8BC;color:#AC1B02;flex:1;min-width:110px;${totalUnexpected>0?'cursor:pointer;':''}" ${totalUnexpected>0?'title="View unexpected serials"':''}>
           <div class="svc-stat-count">${totalUnexpected}</div>
           <div class="svc-stat-label">❓ Unexpected serials</div>
-          <div class="svc-stat-value">Not in system</div>
+          <div class="svc-stat-value">${totalUnexpected>0?'Click to view':'Not in count list'}</div>
         </div>
         ${nsGroupsEntered > 0 ? `<div class="svc-stat-card" style="background:${totalNsVariance===0?'#EDFEEA':'#FEF9F0'};border-color:${totalNsVariance===0?'#4AA37B':'#FFA500'};color:${totalNsVariance===0?'#4AA37B':'#8A5200'};flex:1;min-width:110px;">
           <div class="svc-stat-count">${totalNsVariance>0?'+':''}${totalNsVariance}</div>
@@ -1553,6 +1627,8 @@ const Audit = (() => {
       ${totalMissing > 0 ? `<div style="margin-bottom:12px;padding:10px 14px;background:#FEF9F0;border:1.5px solid #FFA500;border-radius:8px;font-size:13px;color:#8A5200;">
         <strong>⚠ ${totalMissing} missing serial${totalMissing!==1?'s':''}</strong> detected — use <strong>Write off</strong> on items below to permanently remove them from inventory and record as lost stock.
       </div>` : ''}`;
+    if (totalUnexpected > 0) document.getElementById('audit-unexpected-card').addEventListener('click', () =>
+      _showUnexpectedModal(_report.allUnexpectedSerials.map(r => r.serial)));
 
     // Per-product report panels
     const reportsHtml = productReports.map((pr, idx) => {
@@ -1710,6 +1786,7 @@ const Audit = (() => {
         // Live report — remove from DOM and update last record
         const rowEl = document.getElementById(`audit-row-${serial.replace(/[^a-z0-9]/gi,'_')}`);
         if (rowEl) rowEl.remove();
+        _report.allUnexpectedSerials = _report.allUnexpectedSerials.filter(r => r.serial.toUpperCase() !== serial.toUpperCase());
         Object.values(_scanned||{}).forEach(st => {
           st.unexpected = (st.unexpected||[]).filter(s => s.toUpperCase() !== serial.toUpperCase());
         });

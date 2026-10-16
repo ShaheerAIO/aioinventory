@@ -4,6 +4,15 @@
  */
 var CHANGELOG = [
   {
+    version: 'v121',
+    date: '2026-10-16',
+    title: 'See Unexpected Serials in a Stock Count',
+    changes: [
+      { type: 'improved', text: 'In a stock count, click the “unexpected” count (while counting, or on the Unexpected serials card in the report) to see every unexpected serial. Each one shows its product, location and what the system knows about it — never received, deployed (with customer and date), RMA, total loss, in transit, or in stock but not on the count list' },
+      { type: 'improved', text: 'Copy the serials on their own, or copy them with their details to paste straight into Excel' },
+    ],
+  },
+  {
     version: 'v120',
     date: '2026-10-13',
     title: 'Super Admin Role',
