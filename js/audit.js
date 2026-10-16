@@ -133,18 +133,21 @@ const Audit = (() => {
     banner.style.display = '';
     if (summary) summary.textContent = `${paused.countList?.length || 0} products · ${scannedCount} scanned · ${missingCount} missing — paused ${new Date(paused.pausedAt).toLocaleString('en-US', { month:'short', day:'numeric', hour:'2-digit', minute:'2-digit' })}`;
 
-    // Wire buttons
+    // Wire buttons — once per page load, so read the paused count at click time;
+    // capturing `paused` here would replay whichever snapshot was current when the
+    // banner was first shown, not the one the user most recently paused.
+    const _current = () => { const e = Auth.getUser()?.email; return e ? DB.getPausedAudit(e) : null; };
     const exportBtn  = document.getElementById('btn-export-paused-missing');
     const resumeBtn  = document.getElementById('btn-resume-audit');
     const discardBtn = document.getElementById('btn-discard-paused');
 
     if (exportBtn && !exportBtn._wired) {
       exportBtn._wired = true;
-      exportBtn.addEventListener('click', () => _exportPausedMissing(paused));
+      exportBtn.addEventListener('click', () => { const p = _current(); if (p) _exportPausedMissing(p); });
     }
     if (resumeBtn && !resumeBtn._wired) {
       resumeBtn._wired = true;
-      resumeBtn.addEventListener('click', () => _resumeAudit(paused));
+      resumeBtn.addEventListener('click', () => { const p = _current(); if (p) _resumeAudit(p); });
     }
     if (discardBtn && !discardBtn._wired) {
       discardBtn._wired = true;

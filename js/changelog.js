@@ -4,6 +4,14 @@
  */
 var CHANGELOG = [
   {
+    version: 'v122',
+    date: '2026-10-16',
+    title: 'Paused Stock Counts Resume Correctly',
+    changes: [
+      { type: 'fixed', text: 'Resuming a paused stock count could bring back an older save instead of the one you just paused — losing the serials scanned since. Resume (and Export missing) now always use your latest paused count' },
+    ],
+  },
+  {
     version: 'v121',
     date: '2026-10-16',
     title: 'See Unexpected Serials in a Stock Count',
