@@ -278,7 +278,23 @@ const DeviceMap = (() => {
       ubq.filter(u => !seen[macKey(u.serial)]).forEach(u =>
         items.push({ source: 'UniFi', kind: 'u-missing', serial: u.serial, product: u.product, inv: { ...u, customer: c }, at: null, owners: [] }));
     });
-    return { items, perCustomer, siteCustomer };
+    return { items, perCustomer, siteCustomer, seen, inv };
+  }
+
+  /* One customer's UniFi picture: its own Ubiquiti units and where UniFi sees
+     them, plus anything else live at its site(s) that inventory files elsewhere. */
+  function unifiForCustomer(customer, byCustomer, devices) {
+    const u = buildUnifi(byCustomer, devices);
+    const own = (byCustomer[customer] || [])
+      .filter(x => (x.state === 'deployed' || x.state === 'staged') && UBIQUITI_CATEGORIES.includes(x.category))
+      .map(x => ({ ...x, device: u.seen[macKey(x.serial)] || null }));
+    const sites = new Set(own.filter(o => o.device).map(o => o.device.site));
+    Object.entries(u.siteCustomer).forEach(([site, c]) => { if (c === customer) sites.add(site); });
+    const ownKeys = new Set(own.map(o => macKey(o.serial)));
+    const extra = Object.values(u.seen)
+      .filter(dv => sites.has(dv.site) && !IGNORED_SITE_RE.test(dv.site) && !ownKeys.has(macKey(dv.mac)))
+      .map(dv => ({ device: dv, inv: u.inv[macKey(dv.mac)] || null }));
+    return { own, extra, sites: [...sites] };
   }
 
   // ── Server calls ───────────────────────────────────────────────────────────
@@ -344,10 +360,11 @@ const DeviceMap = (() => {
   const unifiView = byCustomer => _unifi?.devices ? buildUnifi(byCustomer, _unifi.devices) : null;
 
   // ── List: one row per inventory customer ──────────────────────────────────
-  function listRows() {
+  // hidden = the names marked "Not a customer" (people, warehouses, test buckets)
+  function listRows(hidden = false) {
     const byCustomer = customerUnits();
     return Object.entries(byCustomer)
-      .filter(([c]) => !DB.isHubspotIgnored(c))
+      .filter(([c]) => DB.isHubspotIgnored(c) === hidden)
       .map(([c, units]) => {
         const sug = suggestLocation(c, units, _ov.locations, _serialMap);
         const devices = units.filter(u => !isTerminal(u) && deviceTypeFor(u));
@@ -366,7 +383,10 @@ const DeviceMap = (() => {
   const FILTERS = { all: 'All', tomap: 'To map', unlinked: 'Not linked', elsewhere: 'Elsewhere', unifi: 'UniFi issue' };
 
   function renderList() {
+    const isSuperUser = Auth.isSuperAdmin();
+    const showHidden = isSuperUser && _view.filter === 'hidden';
     const rows = listRows();
+    const hiddenRows = isSuperUser ? listRows(true) : [];
     const byCustomer = customerUnits();
     const uni = unifiView(byCustomer);
     const isSuper = Auth.isSuperAdmin();
@@ -377,9 +397,9 @@ const DeviceMap = (() => {
       elsewhere: r => r.elsewhere > 0, unifi: r => uniIssue(r.customer),
     };
     const counts = Object.fromEntries(Object.keys(FILTERS).map(k => [k, rows.filter(match[k]).length]));
-    const f = match[_view.filter] ? _view.filter : 'all';
+    const f = showHidden ? 'hidden' : match[_view.filter] ? _view.filter : 'all';
     const q = _view.search.trim().toLowerCase();
-    const shown = rows.filter(match[f]).filter(r => !q || r.customer.toLowerCase().includes(q) || (r.sug && locLabel(r.sug.loc).toLowerCase().includes(q)));
+    const shown = (showHidden ? hiddenRows : rows.filter(match[f])).filter(r => !q || r.customer.toLowerCase().includes(q) || (r.sug && locLabel(r.sug.loc).toLowerCase().includes(q)));
 
     const chip = (n, label, cls, title) => n ? `<span class="badge ${cls}"${title ? ` title="${esc(title)}"` : ''}>${n} ${label}</span>` : '';
     const uniChip = c => {
@@ -402,6 +422,9 @@ const DeviceMap = (() => {
           ${chip(r.staged, 'staged', 'b-low')}
           ${uniChip(r.customer)}
         </div>
+        ${isSuperUser ? `<div style="display:flex;justify-content:flex-end;margin-top:8px;">${showHidden
+          ? `<button class="btn btn-ghost btn-xs dm-notcust" data-customer="${esc(r.customer)}" data-hide="0">Restore as customer</button>`
+          : `<button class="btn btn-ghost btn-xs dm-notcust" data-customer="${esc(r.customer)}" data-hide="1" title="People, warehouses, test or write-off buckets — hides it here and from HubSpot mapping">Not a customer</button>`}</div>` : ''}
       </div>`;
 
     const tabs = isSuper ? `
@@ -421,6 +444,7 @@ const DeviceMap = (() => {
       <div class="search-bar"><input class="fi" id="dm-search" placeholder="Search customer or restaurant…" value="${esc(_view.search)}" /></div>
       <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
         ${Object.entries(FILTERS).map(([k, label]) => `<button class="btn btn-xs ${f === k ? 'btn-orange' : 'btn-ghost'} dm-filter" data-filter="${k}">${label} · ${counts[k]}</button>`).join('')}
+        ${isSuperUser ? `<button class="btn btn-xs ${f === 'hidden' ? 'btn-orange' : 'btn-ghost'} dm-filter" data-filter="hidden" title="Names marked Not a customer">Not customers · ${hiddenRows.length}</button>` : ''}
       </div>
       <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px;">
         ${rows.length} customer${rows.length !== 1 ? 's' : ''} with dashboard devices · ${rows.reduce((a, r) => a + r.toMap, 0)} devices to map${uni ? '' : ` · UniFi unavailable${_unifi?.error ? ` (${esc(_unifi.error)})` : ''}`}
@@ -442,6 +466,21 @@ const DeviceMap = (() => {
     });
     root().querySelectorAll('.dm-filter').forEach(b => b.addEventListener('click', () => { _view.filter = b.dataset.filter; renderList(); }));
     root().querySelectorAll('.dm-card').forEach(c => c.addEventListener('click', () => openCustomer(c.dataset.customer)));
+    root().querySelectorAll('.dm-notcust').forEach(b => b.addEventListener('click', e => {
+      e.stopPropagation();   // the card behind it opens the customer
+      setNotCustomer(b.dataset.customer, b.dataset.hide === '1');
+    }));
+  }
+
+  // Super admin: "Not a customer" is the same list HubSpot mapping uses, so one
+  // mark hides a name from both
+  function setNotCustomer(customer, hide) {
+    if (!Auth.isSuperAdmin()) return;
+    if (hide && !confirm(`Mark "${customer}" as not a customer?\n\nIt disappears from Map Devices, the discrepancy report and HubSpot mapping. Its units stay exactly as they are in inventory. You can restore it under "Not customers".`)) return;
+    DB.setHubspotIgnored(customer, hide);
+    UI.showAlert(hide ? `"${customer}" marked as not a customer` : `"${customer}" restored as a customer`, 'success');
+    if (_view.customer) { _view.customer = null; _detail = null; }
+    renderList();
   }
 
   function wireTabs() {
@@ -467,6 +506,41 @@ const DeviceMap = (() => {
     renderDetail(_detail.customer);
   }
 
+  function unifiSection(customer) {
+    if (!_unifi?.devices) return _unifi?.error ? `<div style="font-size:12px;color:var(--text-hint);margin-top:16px;">UniFi unavailable — ${esc(_unifi.error)}</div>` : '';
+    const { own, extra, sites } = unifiForCustomer(customer, customerUnits(), _unifi.devices);
+    if (!own.length && !extra.length) return '';
+    const status = dv => dv ? `<span class="badge ${dv.status === 'online' ? 'b-ok' : 'b-zero'}">${esc(dv.status || '?')}</span>` : '<span class="badge b-zero">Not in UniFi</span>';
+    const invText = i => !i ? '<span class="badge b-zero">Not in inventory</span>'
+      : i.state === 'deployed' || i.state === 'staged' ? `${i.state === 'staged' ? 'Staged for' : 'Deployed to'} ${esc(i.customer)}`
+      : `${i.state === 'in-transit' ? 'In transit to' : 'In stock at'} ${esc(i.location || '—')}`;
+    const canFix = Auth.isSuperAdmin();
+    return `
+      <div class="panel-title" style="margin-top:20px;">UniFi <span style="font-size:12px;color:var(--text-hint);font-weight:400;">${sites.length ? esc(sites.join(' · ')) : 'no site found'} · read only</span></div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>MAC / serial</th><th>Product</th><th>UniFi site</th><th>Name in UniFi</th><th>Status</th><th>Inventory</th></tr></thead>
+        <tbody>
+          ${own.map(o => `<tr>
+            <td style="font-family:var(--mono);font-size:12px;">${esc(o.serial)}${o.state === 'staged' ? ' <span class="badge b-low">staged</span>' : ''}</td>
+            <td>${esc(o.product)}</td>
+            <td>${o.device ? esc(o.device.site) : '—'}</td>
+            <td>${o.device ? esc(o.device.name || '—') : '—'}</td>
+            <td>${status(o.device)}</td>
+            <td>${o.device && !sites.includes(o.device.site) ? '<span class="badge b-zero">At another site</span>' : 'This customer'}</td>
+          </tr>`).join('')}
+          ${extra.map(x => `<tr>
+            <td style="font-family:var(--mono);font-size:12px;">${esc(x.device.mac)}</td>
+            <td>${esc(x.inv?.product || x.device.model)}</td>
+            <td>${esc(x.device.site)}</td>
+            <td>${esc(x.device.name || '—')}</td>
+            <td>${status(x.device)}</td>
+            <td>${invText(x.inv)}${canFix && x.inv?.state === 'in-stock'
+              ? ` <button class="btn btn-ghost btn-xs dm-uni-dispatch" data-serial="${esc(x.inv.serial)}" data-site="${esc(x.device.site)}">Record as dispatched here</button>` : ''}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table></div>`;
+  }
+
   function renderDetail(customer) {
     if (!_detail || _detail.customer !== customer) { openCustomer(customer); return; }
     const d = _detail;
@@ -476,7 +550,8 @@ const DeviceMap = (() => {
     const header = `
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
         <button class="btn btn-ghost btn-sm" id="dm-back">← All customers</button>
-        <h3 style="margin:0;font-size:18px;">${esc(customer)}</h3>
+        <h3 style="margin:0;font-size:18px;flex:1;">${esc(customer)}</h3>
+        ${canWrite ? `<button class="btn btn-ghost btn-xs" id="dm-notcust" title="People, warehouses, test or write-off buckets">Not a customer</button>` : ''}
       </div>`;
 
     const locBox = d.loc ? `
@@ -497,12 +572,12 @@ const DeviceMap = (() => {
       </div>`;
 
     if (!d.loc || (!d.existing && !d.error)) {
-      root().innerHTML = header + locBox + (d.loc ? `<div class="empty">Reading this restaurant's devices…</div>` : '');
+      root().innerHTML = header + locBox + (d.loc ? `<div class="empty">Reading this restaurant's devices…</div>` : '') + unifiSection(customer);
       wireDetail();
       return;
     }
     if (d.error) {
-      root().innerHTML = header + locBox + `<div class="empty">Couldn't read this restaurant's devices — ${esc(d.error)}</div>`;
+      root().innerHTML = header + locBox + `<div class="empty">Couldn't read this restaurant's devices — ${esc(d.error)}</div>` + unifiSection(customer);
       wireDetail();
       return;
     }
@@ -557,7 +632,8 @@ const DeviceMap = (() => {
           Map ${pending.length} device${pending.length !== 1 ? 's' : ''} to ${esc(d.loc.name)}
         </button>` : ''}
       ${!canWrite && pending.length ? `<div style="font-size:13px;color:var(--text-muted);">${pending.length} device${pending.length !== 1 ? 's' : ''} to map — a super admin can map them.</div>` : ''}
-      ${!pending.length && plan.rows.length ? `<div style="font-size:13px;color:var(--success-text);">Every device for this customer is registered in the dashboard.</div>` : ''}`;
+      ${!pending.length && plan.rows.length ? `<div style="font-size:13px;color:var(--success-text);">Every device for this customer is registered in the dashboard.</div>` : ''}
+      ${unifiSection(customer)}`;
 
     wireDetail(plan, pending);
   }
@@ -565,6 +641,9 @@ const DeviceMap = (() => {
   function wireDetail(plan, pending) {
     const d = _detail;
     document.getElementById('dm-back')?.addEventListener('click', () => { _view.customer = null; _detail = null; renderList(); });
+    document.getElementById('dm-notcust')?.addEventListener('click', () => setNotCustomer(d.customer, true));
+    root().querySelectorAll('.dm-uni-dispatch').forEach(b => b.addEventListener('click', () =>
+      runFix({ fix: 'dispatch', customer: d.customer }, { serial: b.dataset.serial, at: { name: b.dataset.site }, source: 'UniFi' })));
     document.getElementById('dm-change')?.addEventListener('click', () =>
       pickLocation({ title: `AIO dashboard restaurant for ${d.customer}`, seed: d.customer.replace(/\s*\([^()]*\)\s*$/, '') }, loc => {
         DB.setDeviceLocation(d.customer, loc);
@@ -806,7 +885,7 @@ const DeviceMap = (() => {
         await loadOverview(true);
       }
     } catch (e) { UI.showAlert(e.message, 'error'); }
-    renderList();
+    if (_view.customer && _detail) renderDetail(_view.customer); else renderList();
   }
 
   // ── After a stage or dispatch: offer to go straight to the customer ───────
@@ -846,5 +925,5 @@ const DeviceMap = (() => {
 
   return { render, refresh, open, nudge,
            // exposed for tests
-           _rules: { key, terminalSerial, isTerminal, deviceTypeFor, initials, customerUnits, suggestLocation, buildPlan, buildDiscrepancies, buildUnifi } };
+           _rules: { key, terminalSerial, isTerminal, deviceTypeFor, initials, customerUnits, suggestLocation, buildPlan, buildDiscrepancies, buildUnifi, unifiForCustomer } };
 })();

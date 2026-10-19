@@ -128,6 +128,13 @@ eq('never-received device', uni.items.filter(i => i.kind === 'u-unknown').map(i 
 eq('ghost MAC on several sites ignored', uni.items.some(i => i.serial === '1C0B8B52310E'), false);
 eq('deployed but not in UniFi (incl. the earlier RTR-A)', uni.items.filter(i => i.kind === 'u-missing').map(i => i.serial).sort(), ['9041B27430B1', 'RTR-A']);
 eq('per-customer online count', uni.perCustomer[C], { total: 3, seen: 1, online: 1 });
+const page = R.unifiForCustomer(C, R.customerUnits(), [
+  { site: 'Pac Heights Deli', mac: '1C0B8BE4327C', model: 'UDR7', status: 'online' },
+  { site: 'Pac Heights Deli', mac: '942A6FD4150F', model: 'U7 Lite', status: 'online' },
+]);
+eq('customer page lists its own Ubiquiti units', page.own.map(o => o.serial).sort(), ['1C0B8BE4327C', '9041B27430B1', 'RTR-A']);
+eq('…with UniFi status where seen', page.own.find(o => o.serial === '1C0B8BE4327C').device.status, 'online');
+eq('…and other devices at its site', page.extra.map(x => x.device.mac), ['942A6FD4150F']);
 
 console.log('\nBackend client');
 eq('valid POS with terminal', validateDevice({ type: 'pos', serial: 'DP02256GJ0540', name: 'POS 1', paymentDeviceSerial: 'AMS1-000168254080966' }), null);

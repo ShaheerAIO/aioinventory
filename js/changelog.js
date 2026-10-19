@@ -4,6 +4,16 @@
  */
 var CHANGELOG = [
   {
+    version: 'v124',
+    date: '2026-10-19',
+    title: 'UniFi on Each Restaurant, and Hiding Non-Customers',
+    changes: [
+      { type: 'new', text: 'Super admins can mark a name as \u201cNot a customer\u201d straight from Map Devices \u2014 on its card or on its page. Use it for people, warehouses, and test or write-off buckets. It disappears from Map Devices, the discrepancy report and HubSpot mapping; its units in inventory don\u2019t change' },
+      { type: 'new', text: 'The \u201cNot customers\u201d filter lists everything hidden this way, with a button to restore each one' },
+      { type: 'new', text: 'A customer\u2019s page in Map Devices now lists its UniFi gear: every Ubiquiti unit deployed to it with its UniFi site, name and online status, plus anything else live at that site that inventory has somewhere else. Super admins can record in-stock units found there as dispatched with one click' },
+    ],
+  },
+  {
     version: 'v123',
     date: '2026-10-19',
     title: 'Map Devices to the AIO Dashboard',
