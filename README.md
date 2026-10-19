@@ -17,7 +17,7 @@ AIO Microsoft account.
 - **Deployment** — assign units to customers, with a pending-deployment queue
 - **Servicing / RMA** — condition and test-outcome history per unit
 - **Stock audits** — three-phase physical count (build list → count/scan → variance), pausable
-- **Barcode scanning** — camera scanning on any serial field
+- **Barcode scanning** — USB/Bluetooth scanners on any serial field (Enter or comma adds the serial)
 - **Reporting** — KPI summaries and Excel export
 - **HubSpot sync** — nightly rollup of deployed hardware onto HubSpot companies
 - **Real-time multi-user sync** — changes appear for everyone immediately
@@ -31,7 +31,7 @@ the modules are IIFE singletons on `window`, loaded in a fixed order by `index.h
 - **Firebase Firestore** — data, with real-time sync
 - **Firebase Auth + Microsoft Entra ID** — SSO, with roles in a `users/<uid>` profile doc
 - **Cloud Functions** (`functions/`, Node 20) — HubSpot sync and a metrics feed
-- **CDN libraries** — SheetJS (Excel export), html5-qrcode (scanning), Firebase SDK v10.12.0
+- **CDN libraries** — SheetJS (Excel export), Firebase SDK v10.12.0
 
 ## Running locally
 

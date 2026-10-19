@@ -1091,14 +1091,6 @@ const Audit = (() => {
     const pauseBtn = document.getElementById('btn-pause-audit');
     if (pauseBtn && !pauseBtn._wired) { pauseBtn._wired = true; pauseBtn.addEventListener('click', _pause); }
 
-    const camBtn = document.getElementById('btn-audit-camera');
-    if (camBtn && !camBtn._wired) {
-      camBtn._wired = true;
-      camBtn.addEventListener('click', () => {
-        if (typeof Scanner !== 'undefined') Scanner.start(s => { input.value = s; _submitSerial(); });
-      });
-    }
-
     const logToggle = document.getElementById('btn-audit-log-toggle');
     if (logToggle && !logToggle._wired) {
       logToggle._wired = true;

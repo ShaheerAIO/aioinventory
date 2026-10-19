@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" />
-  <link rel="stylesheet" href="css/styles.v4.css?v=110" />
+  <link rel="stylesheet" href="css/styles.v4.css?v=131" />
   <style>
     .b-used { background: #FAE4E1 !important; color: #D5381D !important; border: 1px solid #D5381D !important; font-size: 12px; padding: 1px 8px; border-radius: 16px; font-weight: 500; }
     .used-toggle input:checked + .used-toggle-track { background: #D5381D !important; }
@@ -378,7 +378,6 @@
             <div style="font-size:12px;color:var(--text-muted);margin-top:3px;" id="audit-scope-label"></div>
           </div>
           <div style="display:flex;gap:8px;">
-            <button class="btn btn-ghost btn-sm" id="btn-audit-camera">📷 Scan</button>
             <button class="btn btn-orange btn-sm" id="btn-finish-audit">Complete Count</button>
             <button class="btn btn-ghost btn-sm" id="btn-pause-audit">⏸ Pause & Export Missing</button>
             <button class="btn btn-ghost btn-sm" id="btn-cancel-audit">✕ Cancel</button>
@@ -1280,18 +1279,43 @@
 </div>
 <script src="js/auth.js?v=120"></script>
 <script src="js/auth-ui.js?v=120"></script>
-<script src="js/scanner.js?v=101"></script>
 <script src="js/db.js?v=123"></script>
 <script src="js/activity.js?v=123"></script>
 <script src="js/hubspot-picker.js?v=113"></script>
 <script src="js/inventory.js?v=120"></script>
 <script src="js/reports.js?v=115"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-<script src="js/ui.js?v=121"></script>
-<script src="js/audit.js?v=122"></script>
+<script src="js/ui/core.js?v=131"></script>
+<script src="js/ui/dashboard.js?v=131"></script>
+<script src="js/ui/products.js?v=131"></script>
+<script src="js/ui/suppliers.js?v=131"></script>
+<script src="js/ui/orders.js?v=131"></script>
+<script src="js/ui/transit.js?v=131"></script>
+<script src="js/ui/receive-modals.js?v=131"></script>
+<script src="js/ui/deployed.js?v=131"></script>
+<script src="js/ui/shipment-history.js?v=131"></script>
+<script src="js/ui/stock-list.js?v=131"></script>
+<script src="js/ui/stock-transfer.js?v=131"></script>
+<script src="js/ui/edit-serial-modal.js?v=131"></script>
+<script src="js/ui/history.js?v=131"></script>
+<script src="js/ui/lookup.js?v=131"></script>
+<script src="js/ui/servicing.js?v=131"></script>
+<script src="js/ui/rma.js?v=131"></script>
+<script src="js/ui/total-loss.js?v=131"></script>
+<script src="js/ui/rmatl-dispatched.js?v=131"></script>
+<script src="js/ui/recall-modal.js?v=131"></script>
+<script src="js/ui/transfers.js?v=131"></script>
+<script src="js/audit.js?v=131"></script>
 <script src="js/device-map.js?v=130"></script>
-<script src="js/changelog.js?v=130"></script>
-<script src="js/app.js?v=123"></script>
+<script src="js/changelog.js?v=131"></script>
+<script src="js/forms/shared.js?v=131"></script>
+<script src="js/forms/stock-in.js?v=131"></script>
+<script src="js/forms/products.js?v=131"></script>
+<script src="js/forms/suppliers.js?v=131"></script>
+<script src="js/forms/orders.js?v=131"></script>
+<script src="js/forms/transit.js?v=131"></script>
+<script src="js/forms/stock-out.js?v=131"></script>
+<script src="js/app.js?v=131"></script>
 </body>
 </html>
 

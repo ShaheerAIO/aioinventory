@@ -4,6 +4,16 @@
  */
 var CHANGELOG = [
   {
+    version: 'v125',
+    date: '2026-10-19',
+    title: 'Back Button Works',
+    changes: [
+      { type: 'fixed', text: 'The browser and mouse Back button now steps back through the pages you visited instead of leaving the app. Forward works too' },
+      { type: 'new', text: 'Each page has its own address (for example \u2026/#stock-list), so a refresh keeps you where you were and a link can open straight to a page' },
+      { type: 'improved', text: 'Camera barcode scanning has been retired, including the \u201cScan\u201d button in Stock Count, which no longer worked. Typing, pasting and USB or Bluetooth barcode scanners work exactly as before' },
+    ],
+  },
+  {
     version: 'v124',
     date: '2026-10-19',
     title: 'UniFi on Each Restaurant, and Hiding Non-Customers',
