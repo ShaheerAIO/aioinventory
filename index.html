@@ -255,6 +255,7 @@
           <button class="nav-dropdown-item" data-view="activity" id="nav-activity" style="display:none;">Activity Log</button>
         </div>
       </div>
+      <button class="nav-btn" data-view="map-devices" id="nav-map-devices" style="display:none;">Map Devices</button>
       <button class="nav-btn" data-view="changelog">What's New</button>
       <span id="app-version-label" style="font-size:11px;color:rgba(255,255,255,0.45);margin-left:auto;padding-right:4px;letter-spacing:0.5px;">v94</span>
     </nav>
@@ -1177,6 +1178,18 @@
   </section>
 
   <!-- HISTORY -->
+  <!-- ══════════════════ MAP DEVICES (admin view, super admin writes) ══════════════════ -->
+  <section id="v-map-devices" class="view" style="display:none;">
+    <div class="panel">
+      <div class="panel-title">
+        Map devices to the AIO dashboard
+        <span><button class="btn btn-ghost btn-sm" id="dm-refresh">Refresh</button></span>
+      </div>
+      <p style="font-size:13px;color:var(--text-muted);margin:0 0 12px;">Registers deployed and staged hardware at the customer's restaurant in the AIO production dashboard, so each device finds its restaurant when it is switched on. Pick a customer, check the list, and map.</p>
+      <div id="dm-root"></div>
+    </div>
+  </section>
+
   <section id="v-changelog" class="view" style="display:none;">
     <div class="panel-toolbar">
       <span class="toolbar-title">What's New</span>
@@ -1268,16 +1281,17 @@
 <script src="js/auth.js?v=120"></script>
 <script src="js/auth-ui.js?v=120"></script>
 <script src="js/scanner.js?v=101"></script>
-<script src="js/db.js?v=120"></script>
-<script src="js/activity.js?v=120"></script>
+<script src="js/db.js?v=123"></script>
+<script src="js/activity.js?v=123"></script>
 <script src="js/hubspot-picker.js?v=113"></script>
 <script src="js/inventory.js?v=120"></script>
 <script src="js/reports.js?v=115"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="js/ui.js?v=121"></script>
 <script src="js/audit.js?v=122"></script>
-<script src="js/changelog.js?v=122"></script>
-<script src="js/app.js?v=119"></script>
+<script src="js/device-map.js?v=128"></script>
+<script src="js/changelog.js?v=128"></script>
+<script src="js/app.js?v=123"></script>
 </body>
 </html>
 

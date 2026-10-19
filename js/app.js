@@ -1305,6 +1305,7 @@
 
     try {
       let totalUnits = 0;
+      const outSerials = outRows.flatMap(r => r.serials);  // clearStockOut() empties outRows
       if (isStage) {
         // Stage for deployment — stays in Stock Holding, tagged to customer
         outRows.forEach(row => {
@@ -1330,6 +1331,8 @@
       // back: the form behind it has been cleared and the toast is covered.
       HubspotPicker.promptIfUnmapped(customer,
         `${totalUnits} unit${totalUnits!==1?'s':''} ${isStage ? 'staged for deployment to' : 'dispatched to'} "${customer}" — saved.`);
+      // Offer to register the hardware in the AIO dashboard while it's fresh
+      DeviceMap.nudge(customer, outSerials);
     } catch(err) { UI.showAlert(err.message, 'error'); }
   }
 
@@ -1357,7 +1360,7 @@
   }
 
   // ── Navigation ────────────────────────────────────────────────────────
-  const VIEWS = ['dashboard','products','suppliers','orders','transit','transfers','shipment-history','changelog','in','out','stock-list','deployed','servicing','rma','totalloss','rmatldisp','stocktake','reports','lookup','history','activity'];
+  const VIEWS = ['dashboard','products','suppliers','orders','transit','transfers','shipment-history','changelog','in','out','stock-list','deployed','servicing','rma','totalloss','rmatldisp','stocktake','reports','lookup','history','activity','map-devices'];
 
   function showView(view) {
     VIEWS.forEach(v => { document.getElementById('v-' + v).style.display = v === view ? '' : 'none'; });
@@ -1385,6 +1388,7 @@
     if (view === 'stocktake')  Audit.init();
     if (view === 'history')    { UI.populateCategoryFilters(); UI.renderHistory(); }
     if (view === 'activity')   Activity.render();
+    if (view === 'map-devices') DeviceMap.render();
     if (view === 'shipment-history') UI.renderShipmentHistory();
     if (view === 'changelog')        renderChangelog();
     if (view === 'in')         { UI.populateDataLists(); if (!inRows.length) inRows=[newInRow()]; renderInRows(); }
@@ -1627,7 +1631,11 @@
     DB.onReady(() => {
       // Apply view-only restrictions if not editor/admin
       AuthUI.applyRoleRestrictions();
-      if (Auth.isAdmin()) document.getElementById('nav-activity').style.display = '';
+      if (Auth.isAdmin()) {
+        document.getElementById('nav-activity').style.display = '';
+        document.getElementById('nav-map-devices').style.display = '';
+        document.getElementById('dm-refresh').addEventListener('click', () => DeviceMap.refresh());
+      }
       UI.initSmartSelects();
       showViewTracked('dashboard');
     });

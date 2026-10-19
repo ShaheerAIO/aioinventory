@@ -149,3 +149,169 @@ exports.hubspotCompanySearch = onRequest(
     }
   }
 );
+
+// ── Device mapping against the AIO production dashboard ──────────────────────
+// Backs the Map Devices view. Reads (restaurants, each one's devices, and the
+// platform-wide serial index) are open to admins; anything that writes to the
+// production dashboard is super admin only. Same Firebase ID token + app role
+// gate as the HubSpot picker.
+const AIO_DASHBOARD_USERNAME = defineSecret('AIO_DASHBOARD_USERNAME');
+const AIO_DASHBOARD_PASSWORD = defineSecret('AIO_DASHBOARD_PASSWORD');
+const { createClient, validateDevice } = require('./aioDashboard');
+const UNIFI_API_KEY = defineSecret('UNIFI_API_KEY');
+const { listUnifiDevices } = require('./unifi');
+
+const MAX_DEVICES_PER_MAP = 50;
+const CACHE_MS = 2 * 60 * 1000;
+let _aio = null;
+let _cache = { at: 0, locations: null, serials: null };
+let _unifi = { at: 0, devices: null };
+
+function aio() {
+  if (!_aio) _aio = createClient({ username: AIO_DASHBOARD_USERNAME.value(), password: AIO_DASHBOARD_PASSWORD.value() });
+  return _aio;
+}
+
+async function overview(fresh) {
+  if (fresh || !_cache.locations || Date.now() - _cache.at > CACHE_MS) {
+    const locations = await aio().listLocations();
+    if (!locations.length) throw new Error('The AIO dashboard returned no restaurants');
+    const serials = await aio().serialIndex(locations[0]);
+    _cache = { at: Date.now(), locations, serials };
+  }
+  return { locations: _cache.locations, serials: _cache.serials };
+}
+
+async function callerRole(req) {
+  const bearer = /^Bearer (.+)$/.exec(req.get('Authorization') || '');
+  if (!bearer) return null;
+  try {
+    const { uid } = await admin.auth().verifyIdToken(bearer[1]);
+    const profile = await admin.firestore().doc(`users/${uid}`).get();
+    return profile.exists && !profile.data().deleted ? profile.data().role : null;
+  } catch {
+    return null;
+  }
+}
+
+// The restaurant a serial is registered to right now, read fresh, plus the device record
+async function findRegistered(serial) {
+  const { locations, serials } = await overview(true);
+  const hit = serials.find(s => s.serial.toUpperCase() === serial.toUpperCase());
+  const loc = hit && locations.find(l => l.restaurantId === hit.restaurantId);
+  if (!loc) return null;
+  const device = (await aio().listDevices(loc.businessId, loc.restaurantId))
+    .find(d => d.serial.toUpperCase() === serial.toUpperCase());
+  return device ? { loc, device } : null;
+}
+
+async function knownLocation(businessId, restaurantId) {
+  const { locations } = await overview(false);
+  return locations.find(l => l.businessId === businessId && l.restaurantId === restaurantId) || null;
+}
+
+exports.aioDevices = onRequest(
+  { secrets: [AIO_DASHBOARD_USERNAME, AIO_DASHBOARD_PASSWORD, UNIFI_API_KEY], cors: PICKER_ORIGINS, timeoutSeconds: 300 },
+  async (req, res) => {
+    const role = await callerRole(req);
+    if (!role) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    if (!['superadmin', 'admin'].includes(role)) { res.status(403).json({ error: 'Forbidden' }); return; }
+
+    const isWrite = req.method === 'POST';
+    if (isWrite && role !== 'superadmin') {
+      res.status(403).json({ error: 'Only a super admin can change the AIO dashboard' });
+      return;
+    }
+    const p = isWrite ? (req.body || {}) : req.query;
+    const action = String(p.action || '');
+
+    try {
+      if (!isWrite && action === 'overview') {
+        res.json(await overview(p.fresh === '1'));
+        return;
+      }
+
+      // Every UniFi device (read-only key) — reconciled against inventory in the browser
+      if (!isWrite && action === 'unifi') {
+        if (p.fresh === '1' || !_unifi.devices || Date.now() - _unifi.at > CACHE_MS) {
+          _unifi = { at: Date.now(), devices: await listUnifiDevices(UNIFI_API_KEY.value()) };
+        }
+        res.json({ devices: _unifi.devices });
+        return;
+      }
+
+      if (!isWrite && action === 'devices') {
+        const loc = await knownLocation(Number(p.businessId), Number(p.restaurantId));
+        if (!loc) { res.status(400).json({ error: 'Unknown restaurant' }); return; }
+        res.json({ devices: await aio().listDevices(loc.businessId, loc.restaurantId) });
+        return;
+      }
+
+      if (isWrite && action === 'map') {
+        const loc = await knownLocation(Number(p.businessId), Number(p.restaurantId));
+        if (!loc) { res.status(400).json({ error: 'Unknown restaurant' }); return; }
+        const devices = Array.isArray(p.devices) ? p.devices : [];
+        if (!devices.length || devices.length > MAX_DEVICES_PER_MAP) {
+          res.status(400).json({ error: `Send between 1 and ${MAX_DEVICES_PER_MAP} devices` });
+          return;
+        }
+        const bad = devices.map(validateDevice).filter(Boolean);
+        if (bad.length) { res.status(400).json({ error: bad.join('; ') }); return; }
+
+        // One at a time — the backend's duplicate check is a read-then-write,
+        // so parallel creates could race it.
+        const results = [];
+        for (const d of devices) {
+          try {
+            const r = await aio().createDevice(loc.businessId, loc.restaurantId, d);
+            results.push({ serial: d.serial, ok: r.ok, message: r.message });
+          } catch (e) {
+            results.push({ serial: d.serial, ok: false, message: e.message });
+          }
+        }
+        _cache.at = 0;
+        res.json({ results });
+        return;
+      }
+
+      if (isWrite && (action === 'move' || action === 'remove')) {
+        const serial = String(p.serial || '').trim();
+        if (!serial) { res.status(400).json({ error: 'serial is required' }); return; }
+        const found = await findRegistered(serial);
+        if (!found) { res.status(404).json({ error: `${serial} is not registered in the AIO dashboard` }); return; }
+        const { loc: from, device } = found;
+
+        let to = null, moved = null;
+        if (action === 'move') {
+          to = await knownLocation(Number(p.to?.businessId), Number(p.to?.restaurantId));
+          if (!to) { res.status(400).json({ error: 'Unknown destination restaurant' }); return; }
+          if (to.restaurantId === from.restaurantId) { res.status(400).json({ error: 'Already at that restaurant' }); return; }
+          // The payment terminal travels with its POS; the backend re-assigns it to the new Adyen store
+          moved = { type: device.type, serial: device.serial, name: String(p.name || device.name).trim(),
+                    paymentDeviceSerial: device.paymentDeviceSerial };
+          const bad = validateDevice(moved);
+          if (bad) { res.status(400).json({ error: bad }); return; }
+        }
+
+        const del = await aio().deleteDevice(from.businessId, from.restaurantId, device);
+        _cache.at = 0;
+        if (!del.ok) { res.json({ ok: false, message: del.message || 'Delete failed' }); return; }
+        if (action === 'remove') { res.json({ ok: true, from }); return; }
+
+        const made = await aio().createDevice(to.businessId, to.restaurantId, moved).catch(e => ({ ok: false, message: e.message }));
+        if (made.ok) { res.json({ ok: true, from, to }); return; }
+
+        // Put it back where it was so a failed move never drops a device off the platform
+        const back = await aio().createDevice(from.businessId, from.restaurantId, { ...moved, name: device.name })
+          .catch(e => ({ ok: false, message: e.message }));
+        res.json({ ok: false, message: made.message || 'Create at destination failed', restored: back.ok, from, to });
+        return;
+      }
+
+      res.status(400).json({ error: `Unknown action "${action}"` });
+    } catch (e) {
+      console.error('aioDevices failed:', e);
+      res.status(502).json({ error: e.message });
+    }
+  }
+);

@@ -4,6 +4,22 @@
  */
 var CHANGELOG = [
   {
+    version: 'v123',
+    date: '2026-10-19',
+    title: 'Map Devices to the AIO Dashboard',
+    changes: [
+      { type: 'new', text: 'New Map Devices tab. It lists every customer with deployed or staged hardware next to the AIO dashboard restaurant it belongs to, and how many of its POS terminals, KDS screens, kiosks and menu boards are still missing there. Printers are left out \u2014 they find their restaurant by IP address on site, not by serial. Open a customer and one button registers them all at that restaurant, so each device finds its restaurant the first time it is switched on' },
+      { type: 'new', text: 'Adyen AMS1 terminals are paired with a POS or kiosk as part of mapping. With one of each it pairs them for you; with more, pick which terminal goes on which device first' },
+      { type: 'new', text: 'Each customer is linked once to a dashboard restaurant (tenant and location). The app suggests the link from devices already registered there or from the number in the customer’s name, and remembers it once confirmed' },
+      { type: 'new', text: 'After staging or dispatching, a prompt in the corner takes you straight to mapping that customer’s devices' },
+      { type: 'new', text: 'Super admins get a discrepancy report: units the dashboard has at a different restaurant, units it has registered that inventory still shows in stock, and deployed units it doesn’t have at all. Each comes with a fix — move it in the dashboard, update inventory, or remove it from the dashboard. Every change is written to the Activity Log' },
+      { type: 'new', text: 'UniFi is reconciled too. Map Devices shows how many of each customer\u2019s Ubiquiti units are online in UniFi, and the super admin report lists Ubiquiti gear that is live at a customer\u2019s site but still in stock in inventory, sitting at a site that belongs to another customer, never received into inventory, or deployed but not found in UniFi \u2014 with a one-click inventory fix where it can tell which customer is right. Template and QA consoles are left out, and UniFi is only read, never changed' },
+      { type: 'new', text: 'Super admins can move a registered device to any other restaurant, in any tenant: \u201cMove\u2026\u201d on a mapped device, or \u201cMove here\u201d on one registered somewhere else. A POS or kiosk keeps its payment terminal, and if the move fails half-way the device is put back where it was' },
+      { type: 'improved', text: 'Customers show as cards with chips (to map, mapped, elsewhere, staged, UniFi online), with quick filters, and the discrepancy report has its own tab' },
+      { type: 'improved', text: 'Admins can open Map Devices to look; only a super admin can map, fix, or see the discrepancy report' },
+    ],
+  },
+  {
     version: 'v122',
     date: '2026-10-16',
     title: 'Paused Stock Counts Resume Correctly',

@@ -73,6 +73,7 @@ const Activity = (() => {
     setProductCost:(name, cost) => ({ text: `Cost of ${name} set to ${cost}` }),
     setHubspotCompanyId: (c, id) => ({ text: `HubSpot company for ${c} set to ${id || '(none)'}` }),
     setHubspotIgnored:   (c, ig) => ({ text: `${c} ${ig ? 'marked' : 'unmarked'} as "Not a customer"` }),
+    setDeviceLocation:   (c, loc) => ({ text: loc ? `AIO dashboard restaurant for ${c} set to ${loc.name} (tenant ${loc.businessId}, location ${loc.restaurantId})` : `AIO dashboard restaurant for ${c} cleared` }),
     deleteSerial:  s  => ({ text: `Serial deleted: ${s}`, serials: [s] }),
     deleteSerials: ss => ({ text: `${n(ss)} serial(s) deleted`, serials: ss }),
     renameSerial:  (a, b) => ({ text: `Serial renamed: ${a} → ${b}`, serials: [a, b] }),
@@ -342,5 +343,9 @@ const Activity = (() => {
     _load(true);
   }
 
-  return { render };
+  // For writes that don't go through DB — e.g. Map Devices changing the AIO
+  // production dashboard through a Cloud Function
+  function log(action, text, detail, serials) { _queue({ action, text, detail, serials }); }
+
+  return { render, log };
 })();

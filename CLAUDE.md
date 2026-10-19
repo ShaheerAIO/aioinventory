@@ -26,8 +26,11 @@ Layered design:
 
 Views are sections `#v-<name>` in `index.html`; navigation buttons carry `data-view="<name>"` and `app.js` toggles visibility.
 
-**Cloud Functions (`functions/`)** — Node 20, `firebase-functions` v2, deployed separately from the
+**Cloud Functions (`functions/`)** — Node 22, `firebase-functions` v2, deployed separately from the
 static frontend (`firebase deploy --only functions`; the frontend is on Vercel).
+`aioDevices` (HTTP, Firebase ID token + role: admin reads, super admin writes) backs Map Devices and
+holds the AIO dashboard service-account login as secrets `AIO_DASHBOARD_USERNAME` / `AIO_DASHBOARD_PASSWORD`,
+plus a read-only UniFi Site Manager key `UNIFI_API_KEY` (`functions/unifi.js`, `action=unifi`; UniFi device id = MAC = inventory serial).
 `hubspotNightlySync` (scheduled) and `hubspotSyncManual` (HTTP, shared-secret query param) push
 deployed-hardware rollups into HubSpot. `metrics` (HTTP, `X-Metrics-Key` header) is a read-only
 aggregate feed for the executive dashboard — stock/deployed/in-transit units and value, plus
@@ -54,10 +57,12 @@ without Firebase.
 - `js/reports.js` — reporting suite (`Reports`).
 - `js/ui.js` — all DOM rendering (`UI`).
 - `js/audit.js` — physical stock-count workflow (`Audit`).
-- `js/changelog.js` — `CHANGELOG` array powering the "What's New" view; currently at `v120`.
+- `js/changelog.js` — `CHANGELOG` array powering the "What's New" view; currently at `v123`.
 - `functions/index.js` — Cloud Function entry points (`hubspotNightlySync`, `hubspotSyncManual`, `metrics`).
 - `functions/inventoryStats.js` — shared server-side inventory aggregation (see above).
 - `functions/hubspotSync.js` — HubSpot company rollup logic.
+- `functions/aioDashboard.js` — server-side client for the AIO production dashboard backend (`backend.prod.aioapp.com`): login/session, `x-tenant-id`, envelopes, device list/create/delete. Request bodies mirror `zeus/apps/backend/src/modules/restaurant-management/devices` (the backend source is the sibling `zeus` repo). Used by the `aioDevices` function.
+- `js/device-map.js` — `DeviceMap`: the Map Devices view. Registers deployed/staged POS, KDS, kiosks and menu boards (printers are deliberately excluded — they bind locally by IP) at the customer's AIO dashboard restaurant via `aioDevices`, pairs AMS1 terminals onto POS/kiosk records, the super-admin discrepancy report, and the corner nudge after a stage/dispatch. Customer → restaurant links live in `deviceLocationMap` on the main doc (`DB.setDeviceLocation`).
 - `js/app.js` — boot, navigation, event wiring (IIFE, no exports).
 - `css/styles.v4.css` — the active stylesheet (referenced by `index.html`). `styles.css` and `styles.v2.css` are older/unused versions.
 - `firestore.rules` — Firestore security rules (wired into `firebase.json`). **Gates role escalation** — see Conventions below.
@@ -71,6 +76,7 @@ dependency-free test file, run directly with node:
 ```bash
 node test/transfer-protocol.test.js    # warehouse transfers: dispatch → receive → cancel
 node test/super-edit.test.js           # super admin unit editor (movement splitting)
+node test/device-map.test.js           # Map Devices planning rules + AIO dashboard client
 ```
 
 It loads `js/inventory.js` as text and evaluates it with a fake `DB` injected (the module is a
@@ -136,3 +142,7 @@ Data backup/restore via browser console: `DB.exportJSON()` and `DB.importJSON('<
 - **Serial numbers are the primary key** for units. Auto-generated placeholders use an `NS-` prefix (non-serialised items); real serials replace these on receipt. Serials are generally upper-cased before lookup.
 - **HTML is built via template strings** with manual escaping (`esc(...)` helpers defined per module). When rendering user/data-driven text, escape it the same way to avoid breaking markup.
 - `README.md` and `js/changelog.js` are maintained by hand; the changelog is the most reliable record of recent feature work.
+- **AIO dashboard device serials**: inventory stores an AMS1 as its bare number, the dashboard as
+  `AMS1-<number>`. A dashboard serial must be unique platform-wide; moving a device is delete + create.
+  Attaching an AMS1 assigns it to the restaurant's live Adyen store and fails if the restaurant isn't
+  Adyen-onboarded. Some POS/menu boards are registered under their Android id and can never match inventory.
