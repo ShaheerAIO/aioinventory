@@ -326,6 +326,7 @@ const DeviceMap = (() => {
   let _detail = null;        // { customer, loc, existing, pairing, names, results }
   let _pendingOpen = null;
   let _loading = false;
+  const _openReport = new Set(); // discrepancy sections left expanded, kept across re-renders
 
   const root = () => document.getElementById('dm-root');
   const locLabel = l => `${l.name}${l.businessName && l.businessName !== l.name ? ` — ${l.businessName}` : ''}`;
@@ -816,7 +817,7 @@ const DeviceMap = (() => {
     };
 
     const section = (kinds, cols) => Object.keys(kinds).map(k => ({ k, items: items.filter(i => i.kind === k) })).map(g => `
-        <details style="margin-bottom:10px;">
+        <details data-kind="${g.k}" ${_openReport.has(g.k) ? 'open' : ''} style="margin-bottom:10px;">
           <summary style="cursor:pointer;font-weight:600;font-size:14px;">${esc(kinds[g.k].title)} <span class="badge ${g.items.length ? 'b-zero' : 'b-ok'}">${g.items.length}</span></summary>
           <div style="font-size:12px;color:var(--text-hint);margin:4px 0 8px;">${esc(kinds[g.k].hint)}</div>
           ${g.items.length ? `<div class="table-wrap"><table>
@@ -840,6 +841,8 @@ const DeviceMap = (() => {
       ${uni ? `<p style="font-size:13px;color:var(--text-muted);margin:0 0 12px;">Ubiquiti gear matched by MAC address. Fixes change inventory only — nothing is changed in UniFi.</p>${section(UNIFI_KINDS, 'UniFi site')}`
             : `<div class="empty">UniFi unavailable — ${esc(_unifi?.error || 'not loaded')}</div>`}`;
 
+    box.querySelectorAll('details[data-kind]').forEach(d => d.addEventListener('toggle', () =>
+      d.open ? _openReport.add(d.dataset.kind) : _openReport.delete(d.dataset.kind)));
     box.querySelectorAll('.dm-fix').forEach(btn => btn.addEventListener('click', () => runFix(btn.dataset, items[Number(btn.dataset.i)])));
   }
 
