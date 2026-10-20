@@ -4,6 +4,15 @@
  */
 var CHANGELOG = [
   {
+    version: 'v126',
+    date: '2026-10-20',
+    title: 'Payment Terminals in the Discrepancy Report',
+    changes: [
+      { type: 'new', text: 'The Map Devices discrepancy report now checks AMS1 payment terminals against the AIO dashboard: terminals paired at a different restaurant than inventory says, paired but still in stock, paired but never received, and deployed but not paired to any device. Each row shows which POS or kiosk it is on, with the same one-click fixes as the rest of the report' },
+      { type: 'improved', text: 'Sections you expand in the discrepancy report stay open after you run a fix' },
+    ],
+  },
+  {
     version: 'v125',
     date: '2026-10-19',
     title: 'Back Button Works',

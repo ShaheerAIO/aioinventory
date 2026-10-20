@@ -169,7 +169,9 @@ const DeviceMap = (() => {
   /* Where inventory and the dashboard disagree. Only serials inventory knows
      are considered — Android ids and backend-generated printer serials are
      unmappable by design. */
-  function buildDiscrepancies(byCustomer, locations, serialMap) {
+  // terminals: [{ serial: 'AMS1-…', restaurantId, device }] — AMS1s paired onto a
+  // POS or kiosk record (action=terminals). null = not loaded, so no t-* items.
+  function buildDiscrepancies(byCustomer, locations, serialMap, terminals = null) {
     const locById = {};
     locations.forEach(l => { locById[l.restaurantId] = l; });
     // restaurant → the inventory customer(s) that belong to it: saved links,
@@ -211,6 +213,30 @@ const DeviceMap = (() => {
       us.forEach(u => {
         if (u.state !== 'deployed' || isTerminal(u) || !deviceTypeFor(u) || serialMap[key(u.serial)] != null) return;
         out.push({ kind: 'missing', serial: u.serial, product: u.product, inv: { ...u, customer: c }, linked });
+      });
+    });
+
+    if (!terminals) return out;
+    const paired = {};
+    terminals.forEach(t => { paired[key(t.serial)] = t; });
+    const everKnown = new Set(DB.getData().movements.flatMap(m => (m.serials || []).map(key)));
+    terminals.forEach(t => {
+      const k = key(t.serial), u = inv[k];
+      const at = locById[t.restaurantId] || { restaurantId: t.restaurantId, name: `location ${t.restaurantId}` };
+      const base = { serial: u ? u.serial : terminalSerial(k), at, owners: reverse[t.restaurantId] || [], pairedTo: t.device };
+      if (!u) { if (!everKnown.has(k)) out.push({ ...base, kind: 't-unknown', product: 'Payment terminal', inv: { state: 'unknown' } }); return; }
+      if (u.state === 'in-stock' || u.state === 'in-transit') { out.push({ ...base, kind: 't-stock', product: u.product, inv: u }); return; }
+      if (u.state !== 'deployed' && u.state !== 'staged') return;
+      const linked = DB.getDeviceLocation(u.customer);
+      if ((linked && linked.restaurantId !== t.restaurantId) || (!linked && DB.isHubspotIgnored(u.customer)))
+        out.push({ ...base, kind: 't-wrong', product: u.product, inv: u, linked: linked || null });
+    });
+    Object.entries(byCustomer).forEach(([c, us]) => {
+      const linked = DB.getDeviceLocation(c);
+      if (!linked) return;
+      us.forEach(u => {
+        if (u.state !== 'deployed' || !isTerminal(u) || paired[key(u.serial)]) return;
+        out.push({ kind: 't-missing', serial: u.serial, product: u.product, inv: { ...u, customer: c }, linked });
       });
     });
     return out;
@@ -321,6 +347,7 @@ const DeviceMap = (() => {
   // ── State ─────────────────────────────────────────────────────────────────
   let _ov = null;            // { locations, serials }
   let _unifi = null;         // { devices } | { error } — read-only, never blocks the view
+  let _terminals = null;     // { terminals, failed } | { error } | 'loading' — discrepancy report only
   let _serialMap = {};       // key(serial) → restaurantId
   let _view = { customer: null, search: '', filter: 'all', tab: 'list' };
   let _detail = null;        // { customer, loc, existing, pairing, names, results }
@@ -689,6 +716,7 @@ const DeviceMap = (() => {
       UI.showAlert(bad.length
         ? `${ok.length} mapped, ${bad.length} failed: ${bad.map(b => `${b.serial} — ${b.message}`).join('; ')}`
         : `${ok.length} device${ok.length !== 1 ? 's' : ''} mapped to ${d.loc.name}`, bad.length ? 'error' : 'success');
+      _terminals = null;
       await loadOverview(true);
       d.existing = (await api({ action: 'devices', businessId: d.loc.businessId, restaurantId: d.loc.restaurantId })).devices;
     } catch (e) {
@@ -784,6 +812,12 @@ const DeviceMap = (() => {
     stock:   { title: 'Registered in the dashboard, but in stock in inventory', hint: 'Usually a dispatch that was never recorded in inventory.' },
     missing: { title: 'Deployed in inventory, not in the dashboard', hint: 'The device will not find its restaurant when it boots.' },
   };
+  const TERMINAL_KINDS = {
+    't-wrong':   { title: 'Paired at a different restaurant than inventory says', hint: 'The terminal takes payments into that restaurant\'s Adyen store.' },
+    't-stock':   { title: 'Paired in the dashboard, but in stock in inventory', hint: 'Usually a dispatch that was never recorded in inventory.' },
+    't-unknown': { title: 'Paired in the dashboard, never received into inventory', hint: 'Bought outside inventory, or a serial typed wrong at receipt.' },
+    't-missing': { title: 'Deployed in inventory, not paired to any device', hint: 'Pair it to a POS or kiosk on the restaurant page, or it can\'t take payments through AIO.' },
+  };
   const UNIFI_KINDS = {
     'u-wrong':   { title: 'At a UniFi site that belongs to a different customer', hint: 'The site is matched to the inventory customer most of its devices are deployed to.' },
     'u-stock':   { title: 'Live at a UniFi site, but in stock in inventory', hint: 'Usually a dispatch that was never recorded. Template and QA consoles are left out.' },
@@ -796,7 +830,15 @@ const DeviceMap = (() => {
     if (!box) return;
     const byCustomer = customerUnits();
     const uni = unifiView(byCustomer);
-    const items = [...buildDiscrepancies(byCustomer, _ov.locations, _serialMap), ...(uni ? uni.items : [])];
+    if (!_terminals) {
+      _terminals = 'loading';
+      api({ action: 'terminals' }).catch(e => ({ error: e.message })).then(r => {
+        _terminals = r;
+        if (_view.tab === 'report' && !_view.customer) renderReport();
+      });
+    }
+    const terms = _terminals?.terminals || null;
+    const items = [...buildDiscrepancies(byCustomer, _ov.locations, _serialMap, terms), ...(uni ? uni.items : [])];
     const invText = i => i.inv.state === 'unknown' ? 'Not in inventory'
       : i.inv.state === 'deployed' || i.inv.state === 'staged'
       ? `${i.inv.state === 'staged' ? 'Staged for' : 'Deployed to'} ${esc(i.inv.customer)}${i.source ? '' : i.linked ? ` (→ ${esc(i.linked.name)})` : ' (not a customer)'}`
@@ -805,14 +847,14 @@ const DeviceMap = (() => {
     const fixes = i => {
       const b = [];
       if (i.kind === 'wrong' && i.linked) b.push(`<button class="btn btn-primary btn-xs dm-fix" data-fix="move" data-serial="${esc(i.serial)}">Move to ${esc(i.linked.name)}</button>`);
-      if ((i.kind === 'wrong' || i.kind === 'u-wrong') && i.inv.state === 'deployed' && i.owners.length === 1)
+      if (['wrong', 'u-wrong', 't-wrong'].includes(i.kind) && i.inv.state === 'deployed' && i.owners.length === 1)
         b.push(`<button class="btn btn-ghost btn-xs dm-fix" data-fix="recustomer" data-serial="${esc(i.serial)}" data-customer="${esc(i.owners[0])}">Set inventory customer to ${esc(i.owners[0])}</button>`);
-      if ((i.kind === 'stock' || i.kind === 'u-stock') && i.inv.state === 'in-stock' && i.owners.length === 1)
+      if (['stock', 'u-stock', 't-stock'].includes(i.kind) && i.inv.state === 'in-stock' && i.owners.length === 1)
         b.push(`<button class="btn btn-ghost btn-xs dm-fix" data-fix="dispatch" data-serial="${esc(i.serial)}" data-customer="${esc(i.owners[0])}">Record as dispatched to ${esc(i.owners[0])}</button>`);
-      else if (i.kind === 'u-stock' && i.inv.state === 'in-stock')
+      else if ((i.kind === 'u-stock' || i.kind === 't-stock') && i.inv.state === 'in-stock')
         b.push(`<button class="btn btn-ghost btn-xs dm-fix" data-fix="dispatch" data-serial="${esc(i.serial)}" data-customer="">Record as dispatched…</button>`);
       if (i.kind === 'wrong' || i.kind === 'stock') b.push(`<button class="btn btn-danger btn-xs dm-fix" data-fix="remove" data-serial="${esc(i.serial)}">Remove from dashboard</button>`);
-      if (i.kind === 'missing' && i.inv.customer) b.push(`<button class="btn btn-ghost btn-xs dm-fix" data-fix="open" data-customer="${esc(i.inv.customer)}">Open ${esc(i.inv.customer)}</button>`);
+      if ((i.kind === 'missing' || i.kind === 't-missing') && i.inv.customer) b.push(`<button class="btn btn-ghost btn-xs dm-fix" data-fix="open" data-customer="${esc(i.inv.customer)}">Open ${esc(i.inv.customer)}</button>`);
       return b.join(' ');
     };
 
@@ -827,7 +869,7 @@ const DeviceMap = (() => {
                 <td style="font-family:var(--mono);font-size:12px;">${esc(i.serial)}</td>
                 <td>${esc(i.product)}</td>
                 <td>${invText(i)}</td>
-                <td>${i.at ? esc(i.at.name) + (i.unifi ? ` <span class="badge ${i.unifi.status === 'online' ? 'b-ok' : 'b-zero'}">${esc(i.unifi.status)}</span>` : '') : 'Not registered'}${i.owners?.length && i.source ? `<div style="font-size:11px;color:var(--text-hint);">site → ${esc(i.owners[0])}</div>` : ''}</td>
+                <td>${i.at ? esc(i.at.name) + (i.unifi ? ` <span class="badge ${i.unifi.status === 'online' ? 'b-ok' : 'b-zero'}">${esc(i.unifi.status)}</span>` : '') : 'Not registered'}${i.owners?.length && i.source ? `<div style="font-size:11px;color:var(--text-hint);">site → ${esc(i.owners[0])}</div>` : ''}${i.pairedTo ? `<div style="font-size:11px;color:var(--text-hint);">on ${esc(i.pairedTo.name || i.pairedTo.serial)}</div>` : ''}</td>
                 <td style="min-width:200px;display:flex;flex-wrap:wrap;gap:6px;">${fixes(i).replace(/class="btn /g, `data-i="${items.indexOf(i)}" class="btn `)}</td>
               </tr>`).join('')}</tbody>
           </table></div>` : ''}
@@ -837,6 +879,9 @@ const DeviceMap = (() => {
       <div class="panel-title">AIO dashboard</div>
       <p style="font-size:13px;color:var(--text-muted);margin:0 0 12px;">Serials inventory knows about, compared with where the production dashboard has them registered. Devices the dashboard tracks by Android id can't be matched and are left out.</p>
       ${section(REPORT_KINDS, 'Dashboard')}
+      <div class="panel-title" style="margin-top:18px;">Payment terminals</div>
+      ${terms ? `<p style="font-size:13px;color:var(--text-muted);margin:0 0 12px;">AMS1s paired onto a POS or kiosk record in the dashboard, compared with inventory.${_terminals.failed?.length ? ` ${_terminals.failed.length} restaurant${_terminals.failed.length !== 1 ? 's' : ''} couldn't be read and ${_terminals.failed.length !== 1 ? 'are' : 'is'} left out.` : ''}</p>${section(TERMINAL_KINDS, 'Paired at')}`
+              : `<div class="empty">${_terminals === 'loading' ? 'Reading every restaurant\'s devices for paired terminals…' : `Terminals unavailable — ${esc(_terminals?.error || 'not loaded')}`}</div>`}
       <div class="panel-title" style="margin-top:18px;">UniFi <span style="font-size:12px;color:var(--text-hint);font-weight:400;">read only</span></div>
       ${uni ? `<p style="font-size:13px;color:var(--text-muted);margin:0 0 12px;">Ubiquiti gear matched by MAC address. Fixes change inventory only — nothing is changed in UniFi.</p>${section(UNIFI_KINDS, 'UniFi site')}`
             : `<div class="empty">UniFi unavailable — ${esc(_unifi?.error || 'not loaded')}</div>`}`;
@@ -885,6 +930,7 @@ const DeviceMap = (() => {
         } else {
           UI.showAlert(`${item.serial} ${ds.fix === 'move' ? `moved to ${item.linked.name}` : 'removed from the dashboard'}`, 'success');
         }
+        _terminals = null;
         await loadOverview(true);
       }
     } catch (e) { UI.showAlert(e.message, 'error'); }
@@ -922,6 +968,7 @@ const DeviceMap = (() => {
     if (_loading) return;
     _ov = null;
     _unifi = null;
+    if (_terminals !== 'loading') _terminals = null;
     _detail = null;
     render();
   }

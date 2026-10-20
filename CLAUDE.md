@@ -55,7 +55,7 @@ without Firebase.
 - `js/ui/*.js` — DOM rendering (`UI`), one file per view/modal; `core.js` loads first.
 - `js/forms/*.js` — the data-entry forms (Stock In, In Transit, Orders, Stock Out, Products, Suppliers) as `Forms`; `shared.js` loads first and holds the product-row/serial-row builders. Each form owns its row state, its button bindings, and a `Forms.show…()` that `app.js` calls on navigation.
 - `js/audit.js` — physical stock-count workflow (`Audit`).
-- `js/changelog.js` — `CHANGELOG` array powering the "What's New" view; currently at `v125`.
+- `js/changelog.js` — `CHANGELOG` array powering the "What's New" view; currently at `v126`.
 - `functions/index.js` — Cloud Function entry points (`hubspotNightlySync`, `hubspotSyncManual`, `metrics`).
 - `functions/inventoryStats.js` — shared server-side inventory aggregation (see above).
 - `functions/hubspotSync.js` — HubSpot company rollup logic.

@@ -106,6 +106,23 @@ eq('a printer registered elsewhere is not a discrepancy', disc.some(x => x.seria
 eq('…with the linked customer as the fix', disc.find(x => x.kind === 'stock').owners, [C]);
 eq('deployed units missing from the dashboard (staged and terminals left out)',
   disc.filter(x => x.kind === 'missing').map(x => x.serial).sort(), ['MB-A', 'POS-B']);
+eq('no terminal checks until terminals are loaded', disc.some(x => x.kind.startsWith('t-')), false);
+
+console.log('\nPayment terminals');
+stock('Payment Terminal', ['000333']);
+const pos = { type: 'pos', name: 'POS 1 - PHD', serial: 'POS-A' };
+const td = R.buildDiscrepancies(R.customerUnits(), locs, {}, [
+  { serial: 'AMS1-000111', restaurantId: 9, device: pos },      // inventory: deployed to C, linked to 1784
+  { serial: 'AMS1-000333', restaurantId: 1784, device: pos },   // in stock in inventory
+  { serial: 'AMS1-000999', restaurantId: 1784, device: pos },   // never received
+]).filter(x => x.kind.startsWith('t-'));
+const tk = k => td.filter(x => x.kind === k).map(x => x.serial);
+eq('paired at the wrong restaurant (inventory serial, for the fixes)', tk('t-wrong'), ['000111']);
+eq('paired but in stock', tk('t-stock'), ['000333']);
+eq('…offers the restaurant\'s customer', td.find(x => x.kind === 't-stock').owners, [C]);
+eq('…and says which device it is on', td.find(x => x.kind === 't-stock').pairedTo.name, 'POS 1 - PHD');
+eq('paired, never received', tk('t-unknown'), ['AMS1-000999']);
+eq('deployed but not paired anywhere', tk('t-missing'), ['000222']);
 
 console.log('\nUniFi');
 stock('Gateway/Router', ['1C0B8BE4327C', '9041B27430B1']);

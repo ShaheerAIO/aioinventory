@@ -166,6 +166,11 @@ const CACHE_MS = 2 * 60 * 1000;
 let _aio = null;
 let _cache = { at: 0, locations: null, serials: null };
 let _unifi = { at: 0, devices: null };
+// Every paired AMS1 means reading each restaurant's device list — one call per
+// restaurant, so it is cached longer and fetched only for the discrepancy report
+const TERMINAL_CACHE_MS = 10 * 60 * 1000;
+const TERMINAL_SCAN_CONCURRENCY = 6;
+let _terminals = { at: 0, data: null };
 
 function aio() {
   if (!_aio) _aio = createClient({ username: AIO_DASHBOARD_USERNAME.value(), password: AIO_DASHBOARD_PASSWORD.value() });
@@ -180,6 +185,30 @@ async function overview(fresh) {
     _cache = { at: Date.now(), locations, serials };
   }
   return { locations: _cache.locations, serials: _cache.serials };
+}
+
+async function terminalIndex(fresh) {
+  if (fresh || !_terminals.data || Date.now() - _terminals.at > TERMINAL_CACHE_MS) {
+    const { locations } = await overview(false);
+    const terminals = [], failed = [];
+    let next = 0;
+    const worker = async () => {
+      while (next < locations.length) {
+        const loc = locations[next++];
+        try {
+          (await aio().listDevices(loc.businessId, loc.restaurantId))
+            .filter(d => d.paymentDeviceSerial)
+            .forEach(d => terminals.push({ serial: d.paymentDeviceSerial, restaurantId: loc.restaurantId,
+                                           device: { type: d.type, name: d.name, serial: d.serial } }));
+        } catch {
+          failed.push(loc.restaurantId);
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: TERMINAL_SCAN_CONCURRENCY }, worker));
+    _terminals = { at: Date.now(), data: { terminals, failed } };
+  }
+  return _terminals.data;
 }
 
 async function callerRole(req) {
@@ -240,6 +269,12 @@ exports.aioDevices = onRequest(
         return;
       }
 
+      // Every AMS1 paired onto a POS or kiosk record, platform-wide
+      if (!isWrite && action === 'terminals') {
+        res.json(await terminalIndex(p.fresh === '1'));
+        return;
+      }
+
       if (!isWrite && action === 'devices') {
         const loc = await knownLocation(Number(p.businessId), Number(p.restaurantId));
         if (!loc) { res.status(400).json({ error: 'Unknown restaurant' }); return; }
@@ -269,7 +304,7 @@ exports.aioDevices = onRequest(
             results.push({ serial: d.serial, ok: false, message: e.message });
           }
         }
-        _cache.at = 0;
+        _cache.at = 0; _terminals.at = 0;
         res.json({ results });
         return;
       }
@@ -294,7 +329,7 @@ exports.aioDevices = onRequest(
         }
 
         const del = await aio().deleteDevice(from.businessId, from.restaurantId, device);
-        _cache.at = 0;
+        _cache.at = 0; _terminals.at = 0;
         if (!del.ok) { res.json({ ok: false, message: del.message || 'Delete failed' }); return; }
         if (action === 'remove') { res.json({ ok: true, from }); return; }
 
