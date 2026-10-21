@@ -4,6 +4,14 @@
  */
 var CHANGELOG = [
   {
+    version: 'v127',
+    date: '2026-10-21',
+    title: 'Paste Serials to Dispatch',
+    changes: [
+      { type: 'new', text: 'Warehouse Transfers has a \u201cPaste serials to dispatch\u201d button: paste a whole list of serial numbers and dispatch them to another warehouse in one go, instead of ticking each row. Serials that aren\u2019t in stock are listed and skipped' },
+    ],
+  },
+  {
     version: 'v126',
     date: '2026-10-20',
     title: 'Payment Terminals in the Discrepancy Report',

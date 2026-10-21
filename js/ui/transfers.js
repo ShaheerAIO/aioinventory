@@ -21,6 +21,11 @@
     const active  = [...Inventory.getInFlightTransfers()].reverse();
 
     _syncTransferBadge();
+    const pasteBtn = document.getElementById('btn-transfer-paste');
+    if (pasteBtn) {
+      pasteBtn.style.display = canEdit ? '' : 'none';
+      pasteBtn.onclick = () => UI._._showPasteSerialsModal();
+    }
     const countEl = document.getElementById('transfer-count');
     if (countEl) countEl.textContent = active.length ? `(${active.length})` : '';
 

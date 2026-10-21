@@ -51,6 +51,71 @@
       : (locF ? '' : 'Tick items to send them to another warehouse, or filter by location to move a whole warehouse');
   }
 
+  // Paste a list of serials (one per line, or comma/tab/space separated) instead
+  // of ticking rows one at a time. Serials not in stock are listed and skipped.
+  function _showPasteSerialsModal() {
+    const existing = document.getElementById('transfer-paste-modal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'transfer-paste-modal';
+    modal.className = 'modal-overlay';
+    modal.innerHTML = `
+      <div class="modal-box" style="width:480px;">
+        <div class="modal-title" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.25rem;">
+          <span>⇄ Paste serials to dispatch</span>
+          <button class="btn-remove-row" id="transfer-paste-close">×</button>
+        </div>
+        <div class="form-group" style="margin-bottom:1rem;">
+          <label class="form-label">Serial numbers</label>
+          <textarea class="fi fi-mono" id="transfer-paste-input" rows="10" style="resize:vertical;"
+            placeholder="One per line, or separated by commas, tabs or spaces"></textarea>
+          <div class="hint" id="transfer-paste-count">0 serials</div>
+        </div>
+        <div id="transfer-paste-missing" style="display:none;color:var(--danger-text);font-size:12px;margin-bottom:10px;max-height:90px;overflow-y:auto;"></div>
+        <div style="display:flex;justify-content:flex-end;gap:8px;">
+          <button class="btn btn-ghost" id="transfer-paste-cancel">Cancel</button>
+          <button class="btn btn-primary" id="transfer-paste-continue" disabled>Continue</button>
+        </div>
+      </div>`;
+
+    document.body.appendChild(modal);
+
+    const input   = document.getElementById('transfer-paste-input');
+    const countEl = document.getElementById('transfer-paste-count');
+    const missEl  = document.getElementById('transfer-paste-missing');
+    const contBtn = document.getElementById('transfer-paste-continue');
+    const close   = () => modal.remove();
+
+    document.getElementById('transfer-paste-close').addEventListener('click', close);
+    document.getElementById('transfer-paste-cancel').addEventListener('click', close);
+    modal.addEventListener('click', e => { if (e.target === modal) close(); });
+    setTimeout(() => input.focus(), 50);
+
+    const inStock = new Set(Inventory.getAllSerialRows().filter(r => r.status === 'in-stock').map(r => r.serial.toUpperCase()));
+    let found = [];
+
+    input.addEventListener('input', () => {
+      const pasted  = [...new Set(input.value.split(/[\s,;]+/).map(s => s.trim().toUpperCase()).filter(Boolean))];
+      found         = pasted.filter(s => inStock.has(s));
+      const missing = pasted.filter(s => !inStock.has(s));
+
+      countEl.textContent = `${pasted.length} serial${pasted.length !== 1 ? 's' : ''} · ${found.length} in stock`;
+      missEl.style.display = missing.length ? 'block' : 'none';
+      missEl.innerHTML = missing.length
+        ? `${missing.length} not in stock — will be skipped: <span style="font-family:var(--mono)">${missing.map(esc).join(', ')}</span>`
+        : '';
+      contBtn.disabled    = found.length === 0;
+      contBtn.textContent = found.length ? `Continue with ${found.length} unit${found.length !== 1 ? 's' : ''}` : 'Continue';
+    });
+
+    contBtn.addEventListener('click', () => {
+      if (!found.length) return;
+      close();
+      _showTransferModal(found);
+    });
+  }
+
   function _showTransferModal(serials) {
     const existing = document.getElementById('transfer-modal');
     if (existing) existing.remove();
@@ -269,5 +334,5 @@
     });
   }
 
-  Object.assign(UI._, { _syncTransferBar, _refreshAfterTransfer, _syncRenameLocationButton });
+  Object.assign(UI._, { _syncTransferBar, _showPasteSerialsModal, _refreshAfterTransfer, _syncRenameLocationButton });
 })();
