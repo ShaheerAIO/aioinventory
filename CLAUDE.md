@@ -55,10 +55,11 @@ without Firebase.
 - `js/ui/*.js` — DOM rendering (`UI`), one file per view/modal; `core.js` loads first.
 - `js/forms/*.js` — the data-entry forms (Stock In, In Transit, Orders, Stock Out, Products, Suppliers) as `Forms`; `shared.js` loads first and holds the product-row/serial-row builders. Each form owns its row state, its button bindings, and a `Forms.show…()` that `app.js` calls on navigation.
 - `js/audit.js` — physical stock-count workflow (`Audit`).
-- `js/changelog.js` — `CHANGELOG` array powering the "What's New" view; currently at `v127`.
+- `js/changelog.js` — `CHANGELOG` array powering the "What's New" view; currently at `v128`.
 - `functions/index.js` — Cloud Function entry points (`hubspotNightlySync`, `hubspotSyncManual`, `metrics`).
 - `functions/inventoryStats.js` — shared server-side inventory aggregation (see above).
 - `functions/hubspotSync.js` — HubSpot company rollup logic.
+- `functions/buddyAccess.js` + `js/buddy-access.js` — the Buddy Access picker. `aioBuddyAccess` (HTTP, super admin only) adds restaurants to an AIO Buddy account the super admin picks by name/email (the id must be in the dashboard's buddy list — `resolveBuddy` — so only existing buddies can be edited) as the same ops service account `aioDevices` uses, so that account must hold the dashboard's `aiobuddy-*` permissions (granted once by a super admin; no super admin login lives in the cloud). The dashboard's buddy update **replaces the whole record**, so a grant reads it, appends, writes it all back, re-reads and restores the original if anything was dropped. Add-only. Tested by `test/buddy-access.test.js`.
 - `functions/aioDashboard.js` — server-side client for the AIO production dashboard backend (`backend.prod.aioapp.com`): login/session, `x-tenant-id`, envelopes, device list/create/delete. Request bodies mirror `zeus/apps/backend/src/modules/restaurant-management/devices` (the backend source is the sibling `zeus` repo). Used by the `aioDevices` function.
 - `js/device-map.js` — `DeviceMap`: the Map Devices view. Registers deployed/staged POS, KDS, kiosks and menu boards (printers are deliberately excluded — they bind locally by IP) at the customer's AIO dashboard restaurant via `aioDevices`, pairs AMS1 terminals onto POS/kiosk records, the super-admin discrepancy report, and the corner nudge after a stage/dispatch. Customer → restaurant links live in `deviceLocationMap` on the main doc (`DB.setDeviceLocation`).
 - `js/app.js` — boot, navigation (hash routing: each view is `#<view>`, so Back/Forward and deep links work), view-level event wiring (IIFE, no exports).
@@ -75,6 +76,7 @@ dependency-free test file, run directly with node:
 node test/transfer-protocol.test.js    # warehouse transfers: dispatch → receive → cancel
 node test/super-edit.test.js           # super admin unit editor (movement splitting)
 node test/device-map.test.js           # Map Devices planning rules + AIO dashboard client
+node test/buddy-access.test.js         # Buddy Access: add-only merge, verify and restore
 ```
 
 It loads `js/inventory.js` as text and evaluates it with a fake `DB` injected (the module is a

@@ -82,7 +82,7 @@ function createClient({ username, password, fetchImpl = fetch }) {
     if (!res.ok) {
       // Error bodies carry backend internals — log them here, return something plain
       console.error(`AIO dashboard ${method} ${path} → ${res.status}: ${out.message}`);
-      throw new Error(`AIO dashboard request failed (${res.status})`);
+      throw Object.assign(new Error(`AIO dashboard request failed (${res.status})`), { status: res.status, detail: out.message });
     }
     return out;
   }
@@ -156,7 +156,32 @@ function createClient({ username, password, fetchImpl = fetch }) {
     return { ok: r.success, message: r.message };
   }
 
-  return { listLocations, serialIndex, listDevices, createDevice, deleteDevice };
+  // AIO Buddy accounts. The dashboard reads and writes a buddy as one record, so
+  // item returns what update takes back: { aioBuddy, userBusinessData, userPermission }.
+  async function listBuddies() {
+    const r = await call('GET', '/api/user/aio-buddy/list?allRecords=true');
+    return r.data?.aiobuddy || [];
+  }
+
+  async function getBuddy(id) {
+    const r = await call('GET', `/api/user/aio-buddy/item?id=${encodeURIComponent(id)}`);
+    if (!r.success || !r.data?.aioBuddy) throw new Error(r.message || 'Could not read the buddy account');
+    return r.data;
+  }
+
+  // A 400 is the backend refusing the change (e.g. a restaurant missing from its tenant), and
+  // only a super admin reaches this, so its reason is passed on rather than hidden.
+  async function updateBuddy(body) {
+    try {
+      const r = await call('PUT', '/api/user/aio-buddy/update', { body });
+      return { ok: r.success, message: r.message };
+    } catch (e) {
+      if (e.status === 400) throw new Error(`The AIO dashboard rejected the update: ${String(e.detail || '').slice(0, 300)}`);
+      throw e;
+    }
+  }
+
+  return { listLocations, serialIndex, listDevices, createDevice, deleteDevice, listBuddies, getBuddy, updateBuddy };
 }
 
 // Validates one device the browser asked to create. Returns an error string or null.

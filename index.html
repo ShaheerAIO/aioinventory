@@ -256,6 +256,7 @@
         </div>
       </div>
       <button class="nav-btn" data-view="map-devices" id="nav-map-devices" style="display:none;">Map Devices</button>
+      <button class="nav-btn" data-view="buddy-access" id="nav-buddy-access" style="display:none;">Buddy Access</button>
       <button class="nav-btn" data-view="changelog">What's New</button>
       <span id="app-version-label" style="font-size:11px;color:rgba(255,255,255,0.45);margin-left:auto;padding-right:4px;letter-spacing:0.5px;">v94</span>
     </nav>
@@ -1190,6 +1191,16 @@
     </div>
   </section>
 
+  <section id="v-buddy-access" class="view" style="display:none;">
+    <div class="panel">
+      <div class="panel-title">
+        Buddy access
+        <span><button class="btn btn-ghost btn-sm" id="ba-refresh">Refresh</button></span>
+      </div>
+      <div id="ba-root"></div>
+    </div>
+  </section>
+
   <section id="v-changelog" class="view" style="display:none;">
     <div class="panel-toolbar">
       <span class="toolbar-title">What's New</span>
@@ -1308,7 +1319,8 @@
 <script src="js/ui/transfers.js?v=133"></script>
 <script src="js/audit.js?v=131"></script>
 <script src="js/device-map.js?v=132"></script>
-<script src="js/changelog.js?v=133"></script>
+<script src="js/buddy-access.js?v=134"></script>
+<script src="js/changelog.js?v=134"></script>
 <script src="js/forms/shared.js?v=131"></script>
 <script src="js/forms/stock-in.js?v=131"></script>
 <script src="js/forms/products.js?v=131"></script>
@@ -1316,7 +1328,7 @@
 <script src="js/forms/orders.js?v=131"></script>
 <script src="js/forms/transit.js?v=131"></script>
 <script src="js/forms/stock-out.js?v=131"></script>
-<script src="js/app.js?v=131"></script>
+<script src="js/app.js?v=132"></script>
 </body>
 </html>
 

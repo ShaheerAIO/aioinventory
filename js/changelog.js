@@ -4,6 +4,14 @@
  */
 var CHANGELOG = [
   {
+    version: 'v128',
+    date: '2026-10-26',
+    title: 'Buddy Access Picker',
+    changes: [
+      { type: 'new', text: 'Super admins get a Buddy Access view: search for an AIO Buddy account by name or email, then search every restaurant on the AIO dashboard and add the ones that account can\u2019t see yet. It only adds access \u2014 existing access is never removed \u2014 only edits existing buddy accounts, and rolls the account back if the dashboard drops anything' },
+    ],
+  },
+  {
     version: 'v127',
     date: '2026-10-21',
     title: 'Paste Serials to Dispatch',

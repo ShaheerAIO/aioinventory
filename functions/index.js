@@ -350,3 +350,63 @@ exports.aioDevices = onRequest(
     }
   }
 );
+
+// ── AIO Buddy access picker ──────────────────────────────────────────────────
+// Lets a super admin add restaurants to an AIO Buddy account they pick. It runs as the
+// same ops service account as aioDevices, which must first be granted the dashboard's
+// aiobuddy read/update permissions (a super admin does that once, in the dashboard);
+// no super admin login is stored here. Only an existing buddy can be named (checked
+// against the dashboard's buddy list), and only existing buddies — it creates none.
+// Add-only: it never removes access.
+const { grantLocations, grantedIds, resolveBuddy } = require('./buddyAccess');
+
+const MAX_GRANT = 50;
+
+exports.aioBuddyAccess = onRequest(
+  { secrets: [AIO_DASHBOARD_USERNAME, AIO_DASHBOARD_PASSWORD], cors: PICKER_ORIGINS, timeoutSeconds: 120 },
+  async (req, res) => {
+    const role = await callerRole(req);
+    if (!role) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    if (role !== 'superadmin') { res.status(403).json({ error: 'Super admin only' }); return; }
+
+    const isWrite = req.method === 'POST';
+    const p = isWrite ? (req.body || {}) : req.query;
+    const action = String(p.action || '');
+
+    try {
+      if (!isWrite && action === 'buddies') {
+        const buddies = await aio().listBuddies();
+        res.json({ buddies: buddies.map(b => ({ id: b.id, email: b.email, name: b.fullName })) });
+        return;
+      }
+
+      if (!isWrite && action === 'state') {
+        const target = await resolveBuddy(aio(), p.buddyId);
+        const [locations, buddy] = await Promise.all([aio().listLocations(), aio().getBuddy(target.id)]);
+        const b = buddy.aioBuddy;
+        res.json({
+          buddy: { id: target.id, name: `${b.firstName} ${b.lastName}`.trim(), email: b.email },
+          granted: [...grantedIds(buddy)],
+          locations,
+        });
+        return;
+      }
+
+      if (isWrite && action === 'grant') {
+        const ids = [...new Set((Array.isArray(p.restaurantIds) ? p.restaurantIds : []).map(Number))];
+        if (!ids.length || ids.length > MAX_GRANT || ids.some(n => !Number.isInteger(n) || n <= 0)) {
+          res.status(400).json({ error: `Send between 1 and ${MAX_GRANT} restaurant ids` });
+          return;
+        }
+        const target = await resolveBuddy(aio(), p.buddyId);
+        res.json(await grantLocations(aio(), target.id, ids, await aio().listLocations()));
+        return;
+      }
+
+      res.status(400).json({ error: `Unknown action "${action}"` });
+    } catch (e) {
+      console.error('aioBuddyAccess failed:', e);
+      res.status(502).json({ error: e.message });
+    }
+  }
+);

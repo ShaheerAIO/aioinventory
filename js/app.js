@@ -11,7 +11,7 @@
 
 
   // ── Navigation ────────────────────────────────────────────────────────
-  const VIEWS = ['dashboard','products','suppliers','orders','transit','transfers','shipment-history','changelog','in','out','stock-list','deployed','servicing','rma','totalloss','rmatldisp','stocktake','reports','lookup','history','activity','map-devices'];
+  const VIEWS = ['dashboard','products','suppliers','orders','transit','transfers','shipment-history','changelog','in','out','stock-list','deployed','servicing','rma','totalloss','rmatldisp','stocktake','reports','lookup','history','activity','map-devices','buddy-access'];
 
   function showView(view) {
     VIEWS.forEach(v => { document.getElementById('v-' + v).style.display = v === view ? '' : 'none'; });
@@ -40,6 +40,7 @@
     if (view === 'history')    { UI.populateCategoryFilters(); UI.renderHistory(); }
     if (view === 'activity')   Activity.render();
     if (view === 'map-devices') DeviceMap.render();
+    if (view === 'buddy-access') BuddyAccess.render();
     if (view === 'shipment-history') UI.renderShipmentHistory();
     if (view === 'changelog')        renderChangelog();
     if (view === 'in')         { UI.populateDataLists(); Forms.showStockIn(); }
@@ -148,10 +149,12 @@
   // Each view gets a #hash history entry, so the browser/mouse Back button
   // steps between views instead of leaving the app.
   const ADMIN_VIEWS = ['activity', 'map-devices'];
+  const SUPER_VIEWS = ['buddy-access'];
   function _viewFromHash() {
     const v = decodeURIComponent(location.hash.slice(1));
     if (!VIEWS.includes(v)) return null;
     if (ADMIN_VIEWS.includes(v) && !Auth.isAdmin()) return null;
+    if (SUPER_VIEWS.includes(v) && !Auth.isSuperAdmin()) return null;
     return v;
   }
 
@@ -189,6 +192,10 @@
         document.getElementById('nav-activity').style.display = '';
         document.getElementById('nav-map-devices').style.display = '';
         document.getElementById('dm-refresh').addEventListener('click', () => DeviceMap.refresh());
+      }
+      if (Auth.isSuperAdmin()) {
+        document.getElementById('nav-buddy-access').style.display = '';
+        document.getElementById('ba-refresh').addEventListener('click', () => BuddyAccess.refresh());
       }
       UI.initSmartSelects();
       const startView = _viewFromHash() || 'dashboard';
