@@ -4,6 +4,15 @@
  */
 var CHANGELOG = [
   {
+    version: 'v130',
+    date: '2026-10-27',
+    title: 'Bulk Move to RMA & Filtered Exports',
+    changes: [
+      { type: 'new', text: 'Servicing has checkboxes on Needs Testing and Faulty items: tick several (or tick the header box to select everything shown) and press \u201cMove to RMA\u201d to send them all to RMA at once' },
+      { type: 'improved', text: 'Export CSV on Stock Holding and Deployed, and Export Excel on Deployed, now download only the items your search and filters are showing, instead of the whole inventory' },
+    ],
+  },
+  {
     version: 'v129',
     date: '2026-10-27',
     title: 'Stuck Serials in the Discrepancy Report',
