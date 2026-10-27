@@ -735,6 +735,28 @@ const DB = (() => {
     });
     _persist([...SAVE_FIELDS, 'movements']);
   }
+  // Bulk version of updateSerialCondition — one write for the whole batch.
+  // Each serial keeps its existing test notes unless notes is given.
+  function updateSerialConditions(serials, condition, testedBy, testedDate, notes) {
+    if (!_data.serialConditions) _data.serialConditions = {};
+    const set = new Set(serials.map(x => x.toUpperCase()));
+    set.forEach(s => {
+      const prev = _data.serialConditions[s] || {};
+      _data.serialConditions[s] = {
+        condition:  condition,
+        testedBy:   testedBy  || '',
+        testedAt:   testedDate ? (testedDate + 'T00:00:00.000Z') : new Date().toISOString(),
+        testNotes:  notes !== undefined ? notes : (prev.testNotes || ''),
+      };
+    });
+    _data.movements = _data.movements.map(mv => {
+      if (mv.type === 'IN' && (mv.condition || '') !== '' && mv.serials.some(x => set.has(x.toUpperCase()))) {
+        return { ...mv, condition: '' };
+      }
+      return mv;
+    });
+    _persist([...SAVE_FIELDS, 'movements']);
+  }
   function getSerialCondition(serial) {
     const s = serial.toUpperCase();
     const sc = _data.serialConditions || {};
@@ -899,7 +921,7 @@ const DB = (() => {
   }
 
   init();
-  return { onReady, getData, save:_save, addMovement, addMovements, setThreshold, getThreshold, addShipment, updateShipment, removeShipment, addTransfer, updateTransfer, getTransfers, setSerialCost, getSerialCost, setProductCost, setHubspotCompanyId, getHubspotCompanyId, getHubspotCompanyMap, setHubspotIgnored, isHubspotIgnored, getHubspotIgnored, setDeviceLocation, getDeviceLocation, getDeviceLocationMap, deleteSerial, deleteSerials, renameSerial, editSerialProperties, renameLocation, updateSerialCondition, getSerialCondition, savePO, getPO, getAllPOs, getPONumbers, getPOUnitCost, setSerialPO, getSerialPO, addCustomSupplier, addCustomLocation, getCustomSuppliers, getCustomLocations, addOrder, updateOrder, removeOrder, getOrders, addSupplier, updateSupplier, removeSupplier, getSupplierRecords, addProductRecord, updateProductRecord, removeProductRecord, getProductRecords, addAuditRecord, saveAuditRecord, deleteAuditRecord, splitStorage, getAuditRecords, setPendingUser, getPendingUser, removePendingUser, addPendingDeployment, getPendingDeployments, removePendingDeployment, updatePendingDeployment, savePausedAudit, getPausedAudit, getAllPausedAudits, clearPausedAudit, exportJSON, importJSON, uploadDocument, addDocumentToShipment, removeDocumentFromShipment, addDocumentToOrder };
+  return { onReady, getData, save:_save, addMovement, addMovements, setThreshold, getThreshold, addShipment, updateShipment, removeShipment, addTransfer, updateTransfer, getTransfers, setSerialCost, getSerialCost, setProductCost, setHubspotCompanyId, getHubspotCompanyId, getHubspotCompanyMap, setHubspotIgnored, isHubspotIgnored, getHubspotIgnored, setDeviceLocation, getDeviceLocation, getDeviceLocationMap, deleteSerial, deleteSerials, renameSerial, editSerialProperties, renameLocation, updateSerialCondition, updateSerialConditions, getSerialCondition, savePO, getPO, getAllPOs, getPONumbers, getPOUnitCost, setSerialPO, getSerialPO, addCustomSupplier, addCustomLocation, getCustomSuppliers, getCustomLocations, addOrder, updateOrder, removeOrder, getOrders, addSupplier, updateSupplier, removeSupplier, getSupplierRecords, addProductRecord, updateProductRecord, removeProductRecord, getProductRecords, addAuditRecord, saveAuditRecord, deleteAuditRecord, splitStorage, getAuditRecords, setPendingUser, getPendingUser, removePendingUser, addPendingDeployment, getPendingDeployments, removePendingDeployment, updatePendingDeployment, savePausedAudit, getPausedAudit, getAllPausedAudits, clearPausedAudit, exportJSON, importJSON, uploadDocument, addDocumentToShipment, removeDocumentFromShipment, addDocumentToOrder };
 })();
 
 let _currentView = 'dashboard';

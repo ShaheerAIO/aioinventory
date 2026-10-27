@@ -5,10 +5,20 @@
   const { _dlCSV, esc, fmtDate, fmtDateFull, fmtDateTimeISO } = UI._;
 
   // ── Stock Deployed ────────────────────────────────────────────────────
-  function renderDeployed() {
+  // Deployed rows matching the By Unit search/category/customer filters
+  function _filteredDeployedRows() {
     const search  = (document.getElementById('dep-search').value || '').trim().toLowerCase();
     const catF    = document.getElementById('dep-cat-filter').value;
     const custF   = document.getElementById('dep-customer-filter').value;
+    return Inventory.getDeployedSerialRows().filter(r => {
+      const ms = !search  || r.serial.toLowerCase().includes(search) || r.product.toLowerCase().includes(search) || r.customer.toLowerCase().includes(search);
+      const mc = !catF    || r.category === catF;
+      const mcu= !custF   || r.customer === custF;
+      return ms && mc && mcu;
+    });
+  }
+
+  function renderDeployed() {
 
     // ── Pending deployments section ─────────────────────────────────
     const pendingPanel = document.getElementById('dep-pending-panel');
@@ -163,12 +173,7 @@ Items will remain in Stock Holding with no customer attached.`)) return;
     styleDeployedTabs(tab);
     if (tab === 'restaurant') { renderRestaurantBuckets(); return; }
 
-    let rows = Inventory.getDeployedSerialRows().filter(r => {
-      const ms = !search  || r.serial.toLowerCase().includes(search) || r.product.toLowerCase().includes(search) || r.customer.toLowerCase().includes(search);
-      const mc = !catF    || r.category === catF;
-      const mcu= !custF   || r.customer === custF;
-      return ms && mc && mcu;
-    });
+    let rows = _filteredDeployedRows();
 
     const totalCost    = rows.filter(r => r.cost != null).reduce((a, r) => a + r.cost, 0);
     const costedCount  = rows.filter(r => r.cost != null).length;
@@ -382,7 +387,7 @@ Items will remain in Stock Holding with no customer attached.`)) return;
 
   function exportDeployedCSV() {
     const rows = [['Serial Number','Product','Category','Customer / Account','Dispatched By','Date Deployed','Reference','Cost']];
-    Inventory.getDeployedSerialRows().forEach(r => {
+    _filteredDeployedRows().forEach(r => {
       rows.push([r.serial, r.product, r.category, r.customer, r.by, fmtDateTimeISO(r.date), r.ref, r.cost != null ? r.cost : '']);
     });
     _dlCSV(rows, 'aio_stock_deployed.csv');
@@ -390,7 +395,7 @@ Items will remain in Stock Holding with no customer attached.`)) return;
 
   function exportDeployedXLSX() {
     const header = ['Serial Number','Terminal Device Name','Customer / Account','Location','Value','Date Deployed'];
-    const data = Inventory.getDeployedSerialRows().map(r => [
+    const data = _filteredDeployedRows().map(r => [
       r.serial,
       r.product,
       r.customer || '',

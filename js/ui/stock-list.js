@@ -102,18 +102,13 @@
     if (titleEl) titleEl.textContent = _invProductFilter ? `Serials — ${_invProductFilter}` : 'All serials';
   }
 
-  function renderStockList() {
+  // Serial rows matching the search/category/location/status filters and the breakdown product pick
+  function _filteredStockRows() {
     const search  = (document.getElementById('inv-search').value || '').trim().toLowerCase();
     const catF    = document.getElementById('inv-cat-filter').value;
     const locF    = document.getElementById('inv-loc-filter').value;
     const statusF = document.getElementById('inv-status-filter').value;
-    const isAdmin = typeof Auth !== 'undefined' && Auth.isAdmin();
-    const canEdit = typeof Auth !== 'undefined' && Auth.canEdit();
-    // Serials staged for pending deployment (show badge in stock list)
-    const _pendingDeploySerials = typeof Inventory !== 'undefined' && Inventory.getPendingDeploymentSerials
-      ? Inventory.getPendingDeploymentSerials() : new Set();
-
-    let rows = Inventory.getAllSerialRows().filter(r => {
+    return Inventory.getAllSerialRows().filter(r => {
       const ms = !search || r.serial.toLowerCase().includes(search) || r.product.toLowerCase().includes(search) || r.location.toLowerCase().includes(search);
       const mc = !catF   || r.category === catF;
       const ml = !locF   || r.location === locF;
@@ -133,6 +128,17 @@
       }
       return ms && mc && ml && mst && mp;
     });
+  }
+
+  function renderStockList() {
+    const locF    = document.getElementById('inv-loc-filter').value;
+    const isAdmin = typeof Auth !== 'undefined' && Auth.isAdmin();
+    const canEdit = typeof Auth !== 'undefined' && Auth.canEdit();
+    // Serials staged for pending deployment (show badge in stock list)
+    const _pendingDeploySerials = typeof Inventory !== 'undefined' && Inventory.getPendingDeploymentSerials
+      ? Inventory.getPendingDeploymentSerials() : new Set();
+
+    let rows = _filteredStockRows();
 
     const totalCost   = rows.filter(r => r.cost != null).reduce((a, r) => a + r.cost, 0);
     const costedCount = rows.filter(r => r.cost != null).length;
@@ -318,7 +324,7 @@
   // ── CSV exports ───────────────────────────────────────────────────────
   function exportInventoryCSV() {
     const rows = [['Serial Number','Product','Category','Location','Status','Cost','PO Number']];
-    Inventory.getAllSerialRows().forEach(r => {
+    _filteredStockRows().forEach(r => {
       rows.push([r.serial, r.product, r.category, r.location, r.status, r.cost != null ? r.cost : '', r.poNumber || '']);
     });
     _dlCSV(rows, 'aio_stock.csv');

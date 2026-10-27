@@ -96,6 +96,8 @@ const Activity = (() => {
     },
     updateSerialCondition: (s, cond, testedBy, testedDate, notes) =>
       ({ text: `Condition of ${s} set to ${cond || '(cleared)'}`, detail: { testedBy, testedDate, notes }, serials: [s] }),
+    updateSerialConditions: (ss, cond, testedBy, testedDate, notes) =>
+      ({ text: `Condition of ${ss.length} unit${ss.length !== 1 ? 's' : ''} set to ${cond || '(cleared)'}: ${ss.join(', ')}`, detail: { testedBy, testedDate, notes }, serials: ss }),
     savePO:        (po, d) => ({ text: `Purchase order saved: ${po}`, detail: d }),
     addCustomSupplier: name => ({ text: `Supplier added to list: ${name}` }),
     addCustomLocation: name => ({ text: `Location added to list: ${name}` }),

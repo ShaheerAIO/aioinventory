@@ -5,6 +5,9 @@
   const { showAlert, esc, fmtDate, _conditionLabel } = UI._;
 
   // ── Servicing view ─────────────────────────────────────────────────────
+  const _svcSelected = new Set(); // serials ticked for bulk move to RMA
+  const _canBulkRma  = r => r.condition === 'needs-testing' || r.condition === 'faulty';
+
   function renderServicing() {
     const search  = (document.getElementById('svc-search')?.value || '').trim().toLowerCase();
     const flagF   = document.getElementById('svc-flag-filter')?.value || '';
@@ -119,13 +122,24 @@
     const footer = document.getElementById('svc-footer');
     if (!tbody) return;
 
+    // Drop selections that are no longer eligible (moved, passed, deleted)
+    const eligibleNow = new Set(allWorkshopRows.filter(_canBulkRma).map(r => r.serial));
+    [..._svcSelected].forEach(sn => { if (!eligibleNow.has(sn)) _svcSelected.delete(sn); });
+    const visibleEligible = rows.filter(_canBulkRma).map(r => r.serial);
+    const selectTh = document.querySelector('#v-servicing .th-select');
+    if (selectTh) selectTh.style.display = canEdit ? '' : 'none';
+    _syncBulkRma(visibleEligible, canEdit);
+
     if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="10"><div class="empty">${flagF || search ? 'No matching items' : 'No items in servicing'}</div></td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="${canEdit ? 11 : 10}"><div class="empty">${flagF || search ? 'No matching items' : 'No items in servicing'}</div></td></tr>`;
       if (footer) footer.textContent = '';
       return;
     }
 
     tbody.innerHTML = rows.map(r => `<tr>
+      ${canEdit ? `<td>${_canBulkRma(r)
+        ? `<input type="checkbox" class="svc-sel-chk" data-serial="${esc(r.serial)}"${_svcSelected.has(r.serial) ? ' checked' : ''} title="Select to move to RMA" />`
+        : ''}</td>` : ''}
       <td style="font-family:var(--mono);font-size:11px;font-weight:500">${esc(r.serial)}</td>
       <td style="font-weight:500">${esc(r.product)}</td>
       <td><span class="cat-badge">${esc(r.category||'—')}</span></td>
@@ -151,6 +165,46 @@
     tbody.querySelectorAll('.svc-test-btn').forEach(btn => {
       btn.addEventListener('click', () => _showTestOutcomeModal(btn.dataset.serial, btn.dataset.product, btn.dataset.condition));
     });
+
+    tbody.querySelectorAll('.svc-sel-chk').forEach(chk => {
+      chk.addEventListener('change', () => {
+        if (chk.checked) _svcSelected.add(chk.dataset.serial);
+        else             _svcSelected.delete(chk.dataset.serial);
+        _syncBulkRma(visibleEligible, canEdit);
+      });
+    });
+  }
+
+  // Select-all checkbox + "Move N to RMA" button state
+  function _syncBulkRma(visibleEligible, canEdit) {
+    const btn = document.getElementById('svc-bulk-rma');
+    const all = document.getElementById('svc-select-all');
+    if (btn) {
+      btn.style.display = canEdit && _svcSelected.size ? '' : 'none';
+      btn.textContent = `Move ${_svcSelected.size} to RMA`;
+      btn.onclick = _bulkMoveToRma;
+    }
+    if (all) {
+      const ticked = visibleEligible.filter(sn => _svcSelected.has(sn)).length;
+      all.checked = visibleEligible.length > 0 && ticked === visibleEligible.length;
+      all.indeterminate = ticked > 0 && ticked < visibleEligible.length;
+      all.disabled = !visibleEligible.length;
+      all.onchange = () => {
+        visibleEligible.forEach(sn => all.checked ? _svcSelected.add(sn) : _svcSelected.delete(sn));
+        renderServicing();
+      };
+    }
+  }
+
+  function _bulkMoveToRma() {
+    const serials = [..._svcSelected];
+    if (!serials.length) return;
+    if (!confirm(`Move ${serials.length} item${serials.length !== 1 ? 's' : ''} to RMA?\n\n${serials.join(', ')}`)) return;
+    const testedBy = typeof Auth !== 'undefined' ? Auth.getName() : '';
+    DB.updateSerialConditions(serials, 'rma', testedBy, new Date().toISOString().slice(0,10));
+    _svcSelected.clear();
+    renderServicing();
+    showAlert(`${serials.length} item${serials.length !== 1 ? 's' : ''} moved to RMA`, 'success');
   }
 
   // ── Test outcome modal ─────────────────────────────────────────────────
