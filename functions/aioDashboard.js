@@ -141,10 +141,11 @@ function createClient({ username, password, fetchImpl = fetch }) {
       table: null,
     };
     if (d.type === 'tv') device.orientation = '0';
-    if (d.paymentDeviceSerial) {
-      device.paymentSource = 'adyen';
-      device.paymentDeviceSerial = d.paymentDeviceSerial;
-    }
+    // pos/kiosk.paymentSource is NOT NULL and the backend doesn't use a transaction: without it the
+    // serial is claimed in restaurant_devices but the device row never lands, so it never lists.
+    // 'adyen' is the only source the dashboard's own form offers.
+    if (PAYMENT_TYPES.includes(d.type)) device.paymentSource = 'adyen';
+    if (d.paymentDeviceSerial) device.paymentDeviceSerial = d.paymentDeviceSerial;
     const r = await call('POST', '/api/device/create',
       { tenant: businessId, body: { businessId, restaurantId, device } });
     return { ok: r.success, message: r.message };

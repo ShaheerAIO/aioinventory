@@ -188,6 +188,18 @@ eq('bad serial refused', !!validateDevice({ type: 'pos', serial: 'a--b', name: '
   eq('create body matches the dashboard DTO', [body.businessId, body.restaurantId, body.device.deviceType, body.device.deviceSerialNumber, body.device.deviceName, body.device.paymentSource, body.device.paymentDeviceSerial],
     [1784, 1784, 'pos', 'DP1', 'POS 1', 'adyen', 'AMS1-1']);
 
+  // pos.paymentSource / kiosk.paymentSource are NOT NULL. Leave it off and the backend has already
+  // written restaurant_devices before the insert fails — the serial reads as taken but never lists.
+  const createBody = async d => {
+    await c.createDevice(1784, 1784, d);
+    return JSON.parse(calls.filter(x => x.url.includes('/device/create')).pop().opts.body).device;
+  };
+  eq('POS without a terminal still sends a payment source',
+    (await createBody({ type: 'pos', serial: 'DP2', name: 'POS 2' })).paymentSource, 'adyen');
+  eq('kiosk without a terminal still sends a payment source',
+    (await createBody({ type: 'kiosk', serial: 'K1', name: 'Kiosk 1' })).paymentSource, 'adyen');
+  eq('KDS sends no payment source', (await createBody({ type: 'kds', serial: 'KD1', name: 'KDS 1' })).paymentSource, undefined);
+
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);
 })();
