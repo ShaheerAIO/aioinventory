@@ -171,7 +171,9 @@ const DeviceMap = (() => {
      unmappable by design. */
   // terminals: [{ serial: 'AMS1-…', restaurantId, device }] — AMS1s paired onto a
   // POS or kiosk record (action=terminals). null = not loaded, so no t-* items.
-  function buildDiscrepancies(byCustomer, locations, serialMap, terminals = null) {
+  // stuck: [{ serial, restaurantId }] — serials the dashboard holds as taken but lists no
+  // device for (a create that failed half-way). Same scan; null = not loaded.
+  function buildDiscrepancies(byCustomer, locations, serialMap, terminals = null, stuck = null) {
     const locById = {};
     locations.forEach(l => { locById[l.restaurantId] = l; });
     // restaurant → the inventory customer(s) that belong to it: saved links,
@@ -190,9 +192,16 @@ const DeviceMap = (() => {
     });
 
     const out = [];
+    // A stuck serial has no device record to move or remove, so it only goes in its own section
+    const stuckKeys = new Set((stuck || []).map(s => key(s.serial)));
+    (stuck || []).forEach(s => {
+      const u = inv[key(s.serial)];
+      out.push({ kind: 'stuck', serial: s.serial, product: u ? u.product : '—', inv: u || { state: 'unknown' },
+                 at: locById[s.restaurantId] || { restaurantId: s.restaurantId, name: `location ${s.restaurantId}` } });
+    });
     Object.entries(serialMap).forEach(([k, rid]) => {
       const u = inv[k];
-      if (!u || isTerminal(u) || !deviceTypeFor(u)) return;   // printers etc. aren't mapped
+      if (!u || isTerminal(u) || !deviceTypeFor(u) || stuckKeys.has(k)) return;   // printers etc. aren't mapped
       const at = locById[rid] || { restaurantId: rid, name: `location ${rid}` };
       const owners = reverse[rid] || [];
       if (u.state === 'in-stock' || u.state === 'in-transit') {
@@ -347,7 +356,7 @@ const DeviceMap = (() => {
   // ── State ─────────────────────────────────────────────────────────────────
   let _ov = null;            // { locations, serials }
   let _unifi = null;         // { devices } | { error } — read-only, never blocks the view
-  let _terminals = null;     // { terminals, failed } | { error } | 'loading' — discrepancy report only
+  let _terminals = null;     // { terminals, failed, stuck } | { error } | 'loading' — discrepancy report only
   let _serialMap = {};       // key(serial) → restaurantId
   let _view = { customer: null, search: '', filter: 'all', tab: 'list' };
   let _detail = null;        // { customer, loc, existing, pairing, names, results }
@@ -818,6 +827,9 @@ const DeviceMap = (() => {
     't-unknown': { title: 'Paired in the dashboard, never received into inventory', hint: 'Bought outside inventory, or a serial typed wrong at receipt.' },
     't-missing': { title: 'Deployed in inventory, not paired to any device', hint: 'Pair it to a POS or kiosk on the restaurant page, or it can\'t take payments through AIO.' },
   };
+  const STUCK_KINDS = {
+    stuck: { title: 'Serial taken, but no device in the dashboard', hint: 'A create that failed half-way. The dashboard won\'t list it, and won\'t let it be added again ("Serial number already exists"), until the backend team deletes its restaurant_devices row.' },
+  };
   const UNIFI_KINDS = {
     'u-wrong':   { title: 'At a UniFi site that belongs to a different customer', hint: 'The site is matched to the inventory customer most of its devices are deployed to.' },
     'u-stock':   { title: 'Live at a UniFi site, but in stock in inventory', hint: 'Usually a dispatch that was never recorded. Template and QA consoles are left out.' },
@@ -838,7 +850,7 @@ const DeviceMap = (() => {
       });
     }
     const terms = _terminals?.terminals || null;
-    const items = [...buildDiscrepancies(byCustomer, _ov.locations, _serialMap, terms), ...(uni ? uni.items : [])];
+    const items = [...buildDiscrepancies(byCustomer, _ov.locations, _serialMap, terms, _terminals?.stuck || null), ...(uni ? uni.items : [])];
     const invText = i => i.inv.state === 'unknown' ? 'Not in inventory'
       : i.inv.state === 'deployed' || i.inv.state === 'staged'
       ? `${i.inv.state === 'staged' ? 'Staged for' : 'Deployed to'} ${esc(i.inv.customer)}${i.source ? '' : i.linked ? ` (→ ${esc(i.linked.name)})` : ' (not a customer)'}`
@@ -869,7 +881,7 @@ const DeviceMap = (() => {
                 <td style="font-family:var(--mono);font-size:12px;">${esc(i.serial)}</td>
                 <td>${esc(i.product)}</td>
                 <td>${invText(i)}</td>
-                <td>${i.at ? esc(i.at.name) + (i.unifi ? ` <span class="badge ${i.unifi.status === 'online' ? 'b-ok' : 'b-zero'}">${esc(i.unifi.status)}</span>` : '') : 'Not registered'}${i.owners?.length && i.source ? `<div style="font-size:11px;color:var(--text-hint);">site → ${esc(i.owners[0])}</div>` : ''}${i.pairedTo ? `<div style="font-size:11px;color:var(--text-hint);">on ${esc(i.pairedTo.name || i.pairedTo.serial)}</div>` : ''}</td>
+                <td>${i.at ? esc(i.at.name) + (i.unifi ? ` <span class="badge ${i.unifi.status === 'online' ? 'b-ok' : 'b-zero'}">${esc(i.unifi.status)}</span>` : '') : 'Not registered'}${i.owners?.length && i.source ? `<div style="font-size:11px;color:var(--text-hint);">site → ${esc(i.owners[0])}</div>` : ''}${i.pairedTo ? `<div style="font-size:11px;color:var(--text-hint);">on ${esc(i.pairedTo.name || i.pairedTo.serial)}</div>` : ''}${i.kind === 'stuck' && i.at.businessId != null ? `<div style="font-size:11px;color:var(--text-hint);">${esc(locIds(i.at))}</div>` : ''}</td>
                 <td style="min-width:200px;display:flex;flex-wrap:wrap;gap:6px;">${fixes(i).replace(/class="btn /g, `data-i="${items.indexOf(i)}" class="btn `)}</td>
               </tr>`).join('')}</tbody>
           </table></div>` : ''}
@@ -882,6 +894,9 @@ const DeviceMap = (() => {
       <div class="panel-title" style="margin-top:18px;">Payment terminals</div>
       ${terms ? `<p style="font-size:13px;color:var(--text-muted);margin:0 0 12px;">AMS1s paired onto a POS or kiosk record in the dashboard, compared with inventory.${_terminals.failed?.length ? ` ${_terminals.failed.length} restaurant${_terminals.failed.length !== 1 ? 's' : ''} couldn't be read and ${_terminals.failed.length !== 1 ? 'are' : 'is'} left out.` : ''}</p>${section(TERMINAL_KINDS, 'Paired at')}`
               : `<div class="empty">${_terminals === 'loading' ? 'Reading every restaurant\'s devices for paired terminals…' : `Terminals unavailable — ${esc(_terminals?.error || 'not loaded')}`}</div>`}
+      <div class="panel-title" style="margin-top:18px;">Stuck serials</div>
+      ${terms ? `<p style="font-size:13px;color:var(--text-muted);margin:0 0 12px;">Every serial the dashboard counts as registered, checked against the restaurant's actual device list. These can't be fixed from here.</p>${section(STUCK_KINDS, 'Taken at')}`
+              : `<div class="empty">${_terminals === 'loading' ? 'Reading every restaurant\'s devices…' : `Unavailable — ${esc(_terminals?.error || 'not loaded')}`}</div>`}
       <div class="panel-title" style="margin-top:18px;">UniFi <span style="font-size:12px;color:var(--text-hint);font-weight:400;">read only</span></div>
       ${uni ? `<p style="font-size:13px;color:var(--text-muted);margin:0 0 12px;">Ubiquiti gear matched by MAC address. Fixes change inventory only — nothing is changed in UniFi.</p>${section(UNIFI_KINDS, 'UniFi site')}`
             : `<div class="empty">UniFi unavailable — ${esc(_unifi?.error || 'not loaded')}</div>`}`;

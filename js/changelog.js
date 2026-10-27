@@ -4,6 +4,15 @@
  */
 var CHANGELOG = [
   {
+    version: 'v129',
+    date: '2026-10-27',
+    title: 'Stuck Serials in the Discrepancy Report',
+    changes: [
+      { type: 'fixed', text: 'Mapping a POS or kiosk with no payment terminal from Map Devices no longer leaves it half-created: before, it never appeared in the AIO dashboard, yet adding it there said \u201cSerial number already exists\u201d' },
+      { type: 'new', text: 'The Map Devices discrepancy report has a Stuck serials section: every serial the AIO dashboard counts as taken but has no device for, with the tenant and location it is stuck at, so the backend team can clear them' },
+    ],
+  },
+  {
     version: 'v128',
     date: '2026-10-26',
     title: 'Buddy Access Picker',

@@ -187,16 +187,22 @@ async function overview(fresh) {
   return { locations: _cache.locations, serials: _cache.serials };
 }
 
+// The list shows a backend-generated printer serial without its "printer_" prefix
+const listedSerial = s => String(s).replace(/^printer_/, '').toUpperCase();
+
 async function terminalIndex(fresh) {
   if (fresh || !_terminals.data || Date.now() - _terminals.at > TERMINAL_CACHE_MS) {
-    const { locations } = await overview(false);
+    const { locations, serials } = await overview(fresh);
     const terminals = [], failed = [];
+    const listed = new Map(); // restaurantId → Set of serials its device list shows
     let next = 0;
     const worker = async () => {
       while (next < locations.length) {
         const loc = locations[next++];
         try {
-          (await aio().listDevices(loc.businessId, loc.restaurantId))
+          const devices = await aio().listDevices(loc.businessId, loc.restaurantId);
+          listed.set(loc.restaurantId, new Set(devices.map(d => listedSerial(d.serial))));
+          devices
             .filter(d => d.paymentDeviceSerial)
             .forEach(d => terminals.push({ serial: d.paymentDeviceSerial, restaurantId: loc.restaurantId,
                                            device: { type: d.type, name: d.name, serial: d.serial } }));
@@ -206,7 +212,10 @@ async function terminalIndex(fresh) {
       }
     };
     await Promise.all(Array.from({ length: TERMINAL_SCAN_CONCURRENCY }, worker));
-    _terminals = { at: Date.now(), data: { terminals, failed } };
+    // Stuck: the serial is taken (restaurant_devices) but its restaurant lists no device with it —
+    // a create that failed after its first insert. Only restaurants that were read are judged.
+    const stuck = serials.filter(s => listed.has(s.restaurantId) && !listed.get(s.restaurantId).has(listedSerial(s.serial)));
+    _terminals = { at: Date.now(), data: { terminals, failed, stuck } };
   }
   return _terminals.data;
 }

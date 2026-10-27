@@ -124,6 +124,16 @@ eq('…and says which device it is on', td.find(x => x.kind === 't-stock').paire
 eq('paired, never received', tk('t-unknown'), ['AMS1-000999']);
 eq('deployed but not paired anywhere', tk('t-missing'), ['000222']);
 
+console.log('\nStuck serials');
+const sd = R.buildDiscrepancies(R.customerUnits(), locs, { 'POS-A': 9, 'MB-X': 1784 }, [],
+  [{ serial: 'POS-A', restaurantId: 9 }, { serial: 'ANDROID-1', restaurantId: 1784 }]);
+eq('every stuck serial listed, inventory or not', sd.filter(x => x.kind === 'stuck').map(x => x.serial), ['POS-A', 'ANDROID-1']);
+eq('…with where it is taken', sd.find(x => x.serial === 'ANDROID-1').at.restaurantId, 1784);
+eq('a stuck serial is not also offered a move or remove', sd.some(x => x.serial === 'POS-A' && x.kind === 'wrong'), false);
+eq('other discrepancies still found', sd.filter(x => x.kind === 'stock').map(x => x.serial), ['MB-X']);
+eq('no stuck section until the scan has run',
+  R.buildDiscrepancies(R.customerUnits(), locs, {}, []).some(x => x.kind === 'stuck'), false);
+
 console.log('\nUniFi');
 stock('Gateway/Router', ['1C0B8BE4327C', '9041B27430B1']);
 stock('Wi-Fi Access Point', ['942A6FD4150F', 'A89C6CC87BD2']);
