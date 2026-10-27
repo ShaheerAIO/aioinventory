@@ -4,6 +4,14 @@
  */
 var CHANGELOG = [
   {
+    version: 'v131',
+    date: '2026-10-27',
+    title: 'Bulk Move to Total Loss',
+    changes: [
+      { type: 'new', text: 'Servicing\u2019s bulk selection can now also send ticked items to Total Loss in one go, with the new \u201cMove to Total Loss\u201d button next to \u201cMove to RMA\u201d. RMA items can be ticked too, e.g. when the supplier rejects an RMA' },
+    ],
+  },
+  {
     version: 'v130',
     date: '2026-10-27',
     title: 'Bulk Move to RMA & Filtered Exports',

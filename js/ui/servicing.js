@@ -5,8 +5,9 @@
   const { showAlert, esc, fmtDate, _conditionLabel } = UI._;
 
   // ── Servicing view ─────────────────────────────────────────────────────
-  const _svcSelected = new Set(); // serials ticked for bulk move to RMA
-  const _canBulkRma  = r => r.condition === 'needs-testing' || r.condition === 'faulty';
+  const _svcSelected = new Set(); // serials ticked for bulk move to RMA / Total Loss
+  const _canBulkMove  = r => ['needs-testing', 'faulty', 'rma'].includes(r.condition);
+  let   _svcCondition = new Map(); // serial → current condition, refreshed each render
 
   function renderServicing() {
     const search  = (document.getElementById('svc-search')?.value || '').trim().toLowerCase();
@@ -123,12 +124,12 @@
     if (!tbody) return;
 
     // Drop selections that are no longer eligible (moved, passed, deleted)
-    const eligibleNow = new Set(allWorkshopRows.filter(_canBulkRma).map(r => r.serial));
-    [..._svcSelected].forEach(sn => { if (!eligibleNow.has(sn)) _svcSelected.delete(sn); });
-    const visibleEligible = rows.filter(_canBulkRma).map(r => r.serial);
+    _svcCondition = new Map(allWorkshopRows.filter(_canBulkMove).map(r => [r.serial, r.condition]));
+    [..._svcSelected].forEach(sn => { if (!_svcCondition.has(sn)) _svcSelected.delete(sn); });
+    const visibleEligible = rows.filter(_canBulkMove).map(r => r.serial);
     const selectTh = document.querySelector('#v-servicing .th-select');
     if (selectTh) selectTh.style.display = canEdit ? '' : 'none';
-    _syncBulkRma(visibleEligible, canEdit);
+    _syncBulkMove(visibleEligible, canEdit);
 
     if (!rows.length) {
       tbody.innerHTML = `<tr><td colspan="${canEdit ? 11 : 10}"><div class="empty">${flagF || search ? 'No matching items' : 'No items in servicing'}</div></td></tr>`;
@@ -137,8 +138,8 @@
     }
 
     tbody.innerHTML = rows.map(r => `<tr>
-      ${canEdit ? `<td>${_canBulkRma(r)
-        ? `<input type="checkbox" class="svc-sel-chk" data-serial="${esc(r.serial)}"${_svcSelected.has(r.serial) ? ' checked' : ''} title="Select to move to RMA" />`
+      ${canEdit ? `<td>${_canBulkMove(r)
+        ? `<input type="checkbox" class="svc-sel-chk" data-serial="${esc(r.serial)}"${_svcSelected.has(r.serial) ? ' checked' : ''} title="Select to move to RMA or Total Loss" />`
         : ''}</td>` : ''}
       <td style="font-family:var(--mono);font-size:11px;font-weight:500">${esc(r.serial)}</td>
       <td style="font-weight:500">${esc(r.product)}</td>
@@ -170,20 +171,22 @@
       chk.addEventListener('change', () => {
         if (chk.checked) _svcSelected.add(chk.dataset.serial);
         else             _svcSelected.delete(chk.dataset.serial);
-        _syncBulkRma(visibleEligible, canEdit);
+        _syncBulkMove(visibleEligible, canEdit);
       });
     });
   }
 
-  // Select-all checkbox + "Move N to RMA" button state
-  function _syncBulkRma(visibleEligible, canEdit) {
-    const btn = document.getElementById('svc-bulk-rma');
+  // Select-all checkbox + "Move N to RMA / Total Loss" button state
+  function _syncBulkMove(visibleEligible, canEdit) {
     const all = document.getElementById('svc-select-all');
-    if (btn) {
-      btn.style.display = canEdit && _svcSelected.size ? '' : 'none';
-      btn.textContent = `Move ${_svcSelected.size} to RMA`;
-      btn.onclick = _bulkMoveToRma;
-    }
+    [['svc-bulk-rma', 'rma', 'RMA'], ['svc-bulk-tl', 'fail-tl', 'Total Loss']].forEach(([id, condition, label]) => {
+      const btn = document.getElementById(id);
+      if (!btn) return;
+      const n = _movable(condition).length; // items already at RMA don't count towards Move to RMA
+      btn.style.display = canEdit && n ? '' : 'none';
+      btn.textContent = `Move ${n} to ${label}`;
+      btn.onclick = () => _bulkMove(condition, label);
+    });
     if (all) {
       const ticked = visibleEligible.filter(sn => _svcSelected.has(sn)).length;
       all.checked = visibleEligible.length > 0 && ticked === visibleEligible.length;
@@ -196,15 +199,19 @@
     }
   }
 
-  function _bulkMoveToRma() {
-    const serials = [..._svcSelected];
+  function _movable(condition) {
+    return [..._svcSelected].filter(sn => _svcCondition.get(sn) !== condition);
+  }
+
+  function _bulkMove(condition, label) {
+    const serials = _movable(condition);
     if (!serials.length) return;
-    if (!confirm(`Move ${serials.length} item${serials.length !== 1 ? 's' : ''} to RMA?\n\n${serials.join(', ')}`)) return;
+    if (!confirm(`Move ${serials.length} item${serials.length !== 1 ? 's' : ''} to ${label}?\n\n${serials.join(', ')}`)) return;
     const testedBy = typeof Auth !== 'undefined' ? Auth.getName() : '';
-    DB.updateSerialConditions(serials, 'rma', testedBy, new Date().toISOString().slice(0,10));
+    DB.updateSerialConditions(serials, condition, testedBy, new Date().toISOString().slice(0,10));
     _svcSelected.clear();
     renderServicing();
-    showAlert(`${serials.length} item${serials.length !== 1 ? 's' : ''} moved to RMA`, 'success');
+    showAlert(`${serials.length} item${serials.length !== 1 ? 's' : ''} moved to ${label}`, 'success');
   }
 
   // ── Test outcome modal ─────────────────────────────────────────────────
