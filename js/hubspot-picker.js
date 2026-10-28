@@ -152,5 +152,85 @@ const HubspotPicker = (() => {
     return true;
   }
 
-  return { open, promptIfUnmapped, seedTerm };
+  /* ── Quotes & invoices for a linked customer (Stock Out, before scanning) ── */
+  const DOCS_ENDPOINT = 'https://us-central1-aio-inventory-b9b29.cloudfunctions.net/hubspotCompanyDocs';
+  const DOCS_CACHE_MS = 60 * 1000;
+  const _docsCache = new Map(); // companyId -> { at, data }
+  let _docsSeq = 0;
+
+  async function loadDocs(companyId) {
+    const hit = _docsCache.get(companyId);
+    if (hit && Date.now() - hit.at < DOCS_CACHE_MS) return hit.data;
+    const res = await fetch(`${DOCS_ENDPOINT}?companyId=${encodeURIComponent(companyId)}`, {
+      headers: { Authorization: `Bearer ${await idToken()}` },
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error || `Lookup failed (${res.status})`);
+    }
+    const data = await res.json();
+    _docsCache.set(companyId, { at: Date.now(), data });
+    return data;
+  }
+
+  const _money = n => n == null ? '' : '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const _date  = s => { const d = s && new Date(s); return d && !isNaN(d) ? d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''; };
+  const _link  = (url, label) => url ? `<a href="${esc(url)}" target="_blank" rel="noopener" style="color:var(--aio-purple);white-space:nowrap;">${label} ↗</a>` : '';
+
+  function docRow(name, status, meta, publicUrl, publicLabel, hubspotUrl) {
+    return `
+      <div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 12px;padding:6px 0;border-bottom:1px solid var(--border);font-size:13px;">
+        <span style="font-weight:600;">${esc(name)}</span>
+        ${status ? `<span class="badge b-in">${esc(status)}</span>` : ''}
+        <span style="font-size:12px;color:var(--text-muted);">${esc(meta)}</span>
+        <span style="margin-left:auto;display:flex;gap:12px;font-size:12px;">${_link(publicUrl, publicLabel)}${_link(hubspotUrl, 'Open in HubSpot')}</span>
+      </div>`;
+  }
+
+  function docsHtml({ quotes = [], invoices = [] }) {
+    const none = '<div style="font-size:12px;color:var(--text-hint);padding:4px 0;">None</div>';
+    const q = quotes.map(d => docRow(
+      [d.number, d.title].filter(Boolean).join(' · ') || `Quote ${d.id}`, d.status,
+      [_money(d.amount), _date(d.date), d.expires ? `expires ${_date(d.expires)}` : ''].filter(Boolean).join(' · '),
+      d.publicUrl, 'Quote page', d.hubspotUrl)).join('');
+    const i = invoices.map(d => docRow(
+      d.number || `Invoice ${d.id}`, d.status,
+      [_money(d.amount), d.balance ? `${_money(d.balance)} due` : '', _date(d.date), d.due ? `due ${_date(d.due)}` : ''].filter(Boolean).join(' · '),
+      d.publicUrl, 'Invoice page', d.hubspotUrl)).join('');
+    return `
+      <div class="panel-title" style="margin-bottom:4px;">HubSpot quotes</div>${q || none}
+      <div class="panel-title" style="margin:12px 0 4px;">HubSpot invoices</div>${i || none}`;
+  }
+
+  /* renderDocs(el, customer) — fill `el` with the customer's quotes and invoices,
+     or a prompt to link it. Hidden for a blank or "not a customer" name. */
+  async function renderDocs(el, customer) {
+    if (!el) return;
+    const seq = ++_docsSeq;
+    const name = String(customer || '').trim();
+    const note = html => { el.style.display = ''; el.innerHTML = `<div style="font-size:12px;color:var(--text-hint);">${html}</div>`; };
+
+    if (!name || DB.isHubspotIgnored(name)) { el.style.display = 'none'; el.innerHTML = ''; return; }
+
+    const companyId = DB.getHubspotCompanyId(name);
+    if (!companyId) {
+      note(`“${esc(name)}” isn't linked to HubSpot, so its quotes and invoices can't be shown.
+        ${Auth.canEdit() ? ' <button class="btn btn-ghost btn-xs" id="hsd-link">Link to HubSpot</button>' : ''}`);
+      el.querySelector('#hsd-link')?.addEventListener('click', () =>
+        open({ customer: name, onDone: () => renderDocs(el, name) }));
+      return;
+    }
+
+    note('Loading quotes &amp; invoices…');
+    try {
+      const data = await loadDocs(companyId);
+      if (seq !== _docsSeq) return; // customer changed while this was loading
+      el.innerHTML = docsHtml(data);
+    } catch (e) {
+      if (seq !== _docsSeq) return;
+      note(`Couldn't load HubSpot quotes &amp; invoices — ${esc(e.message)}.`);
+    }
+  }
+
+  return { open, promptIfUnmapped, seedTerm, renderDocs };
 })();

@@ -4,6 +4,14 @@
  */
 var CHANGELOG = [
   {
+    version: 'v132',
+    date: '2026-10-28',
+    title: 'HubSpot Quotes & Invoices on Stock Out',
+    changes: [
+      { type: 'new', text: 'Stock Out now shows the customer\u2019s HubSpot quotes and invoices as soon as you enter the account, before you scan anything, so you can see what to pick. Each one has a link to its HubSpot record and to the customer-facing quote or invoice page. Quotes and invoices linked to the company\u2019s deals are included. An account not yet linked to HubSpot shows a Link button' },
+    ],
+  },
+  {
     version: 'v131',
     date: '2026-10-27',
     title: 'Bulk Move to Total Loss',

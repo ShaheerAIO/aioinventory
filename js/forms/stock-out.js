@@ -227,6 +227,7 @@
 
   function clearStockOut() {
     ['out-customer','out-by','out-ref'].forEach(id => { const e=document.getElementById(id); if(e) e.value=''; });
+    HubspotPicker.renderDocs(document.getElementById('out-hubspot-docs'), '');
     outRows = [newOutRow()];
     renderOutRows();
     Forms.autoFillUser();
@@ -336,6 +337,13 @@
 
   bind('btn-add-out-product',   'click', () => { outRows.push(newOutRow()); renderOutRows(); });
   bind('btn-submit-out',        'click', submitStockOut);
+
+  // Show the customer's HubSpot quotes and invoices as soon as it's entered —
+  // they say what to pick, so they need to be up before anything is scanned.
+  let _docsTimer = null;
+  const _showDocs = () => HubspotPicker.renderDocs(document.getElementById('out-hubspot-docs'), document.getElementById('out-customer').value);
+  bind('out-customer', 'input',  () => { clearTimeout(_docsTimer); _docsTimer = setTimeout(_showDocs, 400); });
+  bind('out-customer', 'change', () => { clearTimeout(_docsTimer); _showDocs(); });
 
   outRows = [newOutRow()];
 

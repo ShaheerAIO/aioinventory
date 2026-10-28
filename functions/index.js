@@ -150,6 +150,33 @@ exports.hubspotCompanySearch = onRequest(
   }
 );
 
+// ── A company's quotes and invoices, shown on Stock Out before scanning ──────
+// Open to every signed-in role — staff pick hardware from these documents.
+const { getCompanyDocs } = require('./hubspotDocs');
+
+exports.hubspotCompanyDocs = onRequest(
+  { secrets: [HUBSPOT_TOKEN], cors: PICKER_ORIGINS },
+  async (req, res) => {
+    if (!(await callerRole(req))) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const companyId = String(req.query.companyId || '').trim();
+    if (!/^\d+$/.test(companyId)) {
+      res.status(400).json({ error: 'companyId must be a HubSpot Company ID' });
+      return;
+    }
+
+    try {
+      res.json(await getCompanyDocs(HUBSPOT_TOKEN.value(), companyId));
+    } catch (e) {
+      console.error('hubspotCompanyDocs failed:', e.message);
+      res.status(502).json({ error: 'HubSpot lookup failed' });
+    }
+  }
+);
+
 // ── Device mapping against the AIO production dashboard ──────────────────────
 // Backs the Map Devices view. Reads (restaurants, each one's devices, and the
 // platform-wide serial index) are open to admins; anything that writes to the
