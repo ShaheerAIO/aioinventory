@@ -13,19 +13,83 @@
     const recent = [...movements].reverse().slice(0, 10);
     const byProduct = Inventory.getStockByProduct();
 
-    document.getElementById('stats-row').innerHTML = `
-      <div class="stat"><div class="stat-label">In stock</div><div class="stat-val green">${stats.inStock}</div></div>
-      <div class="stat"><div class="stat-label">In transit</div><div class="stat-val transit">${stats.inTransit}</div></div>
-      <div class="stat"><div class="stat-label">Deployed</div><div class="stat-val deployed">${stats.deployed}</div></div>
-      <div class="stat"><div class="stat-label">Total received</div><div class="stat-val">${stats.totalIn}</div></div>
-      <div class="stat"><div class="stat-label">Product lines</div><div class="stat-val">${stats.productLines}</div></div>
-      <div class="stat"><div class="stat-label">Low stock</div><div class="stat-val amber">${stats.lowCount}</div></div>`;
+    // ── Lifecycle strip ───────────────────────────────────────────────
+    const { orders = [], shipments = [], pendingDeployments = [] } = DB.getData();
+    const openPOs = orders.filter(o => o.status === 'pending' || o.status === 'partial');
+    const receivedByPO = {};
+    movements.forEach(m => {
+      if (m.type === 'IN' && !m.isTransfer && m.poNumber) {
+        const k = m.poNumber + '||' + m.product;
+        receivedByPO[k] = (receivedByPO[k] || 0) + m.serials.length;
+      }
+    });
+    const shippedByPO = {};
+    shipments.filter(s => s.status === 'in-transit' && s.poNumber).forEach(s =>
+      s.products.forEach(p => { const k = s.poNumber + '||' + p.product; shippedByPO[k] = (shippedByPO[k] || 0) + p.serials.length; }));
+    const orderedUnits = openPOs.reduce((a, o) => a + (o.products || []).reduce((b, p) => {
+      const k = o.poNumber + '||' + p.product;
+      return b + Math.max(0, (parseInt(p.qty) || 0) - (receivedByPO[k] || 0) - (shippedByPO[k] || 0));
+    }, 0), 0);
+    const openShipments = shipments.filter(s => s.status === 'in-transit');
+    const flights = Inventory.getInFlightTransfers();
+    const wkRows = Inventory.getAllSerialRows().filter(r => r.condition && r.condition !== 'used'); // same source as Servicing view
+    const rmaCount = wkRows.filter(r => r.condition === 'rma').length;
+    const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+    const cols = [
+      { label: 'Ordered',    n: orderedUnits,    view: 'orders',     color: 'var(--text-hint)',    hint: plural(openPOs.length, 'open PO') },
+      { label: 'In transit', n: stats.inTransit, view: 'transit',    color: 'var(--aio-orange)',   hint: plural(openShipments.length, 'shipment') + (flights.length ? ` · ${plural(flights.length, 'transfer')}` : '') },
+      { label: 'In stock',   n: stats.inStock,   view: 'stock-list', color: 'var(--aio-purple)',   hint: plural(stats.productLines, 'product line') },
+      { label: 'Deployed',   n: stats.deployed,  view: 'deployed',   color: 'var(--success-text)', hint: 'with customers' },
+      { label: 'Servicing',  n: wkRows.length,   view: 'servicing',  color: 'var(--danger-text)',  hint: rmaCount ? `${rmaCount} RMA` : 'RMA & repair' },
+    ];
+    const maxN = Math.max(...cols.map(c => c.n), 1);
+    document.getElementById('stats-row').innerHTML = `<div class="dash-strip">${cols.map(c => `
+      <a class="dash-col" href="#${c.view}">
+        <div class="dash-col-head"><span class="dash-dot" style="background:${c.color}"></span>${esc(c.label)}</div>
+        <div class="dash-col-n">${c.n.toLocaleString()}</div>
+        <div class="dash-col-hint">${esc(c.hint)}</div>
+        <div class="dash-track"><div class="dash-fill" style="width:${c.n > 0 ? Math.max(3, c.n / maxN * 100) : 0}%;background:${c.color}"></div></div>
+      </a>`).join('')}</div>`;
+
+    // ── Needs attention ───────────────────────────────────────────────
+    const ic = {
+      box:   '<path d="M3 7l9-4 9 4v10l-9 4-9-4V7z"/><path d="M3 7l9 4 9-4M12 11v10"/>',
+      truck: '<path d="M2 6h11v10H2zM13 10h4l3 3v3h-7"/><circle cx="6" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/>',
+      check: '<path d="M5 12l5 5 9-10"/>',
+      swap:  '<path d="M4 8h14l-3-3M20 16H6l3 3"/>',
+    };
+    const svg = k => `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ic[k]}</svg>`;
+    const today = new Date().toISOString().slice(0, 10);
+    const att = [];
+    lowItems.forEach(v => att.push({ k: 'box', tint: 'low', title: `${v.product} running low`,
+      hint: `${v.inStock.size} left · ${v.location || 'no location'} · threshold ${DB.getThreshold(v.product + '||' + v.location)}`, pill: 'Reorder', href: 'orders' }));
+    openShipments.slice().sort((x, y) => (x.expectedBy || '9999').localeCompare(y.expectedBy || '9999')).forEach(s => {
+      const units = s.products.reduce((a, p) => a + p.serials.length, 0);
+      const late = s.expectedBy && s.expectedBy < today;
+      att.push({ k: 'truck', tint: 'ship', title: s.poNumber || s.supplier || 'Shipment',
+        hint: `${plural(units, 'unit')}${s.expectedBy ? ` · ${late ? 'overdue, was due' : 'ETA'} ${fmtDate(s.expectedBy)}` : ''}`, pill: 'Receive', href: 'transit' });
+    });
+    pendingDeployments.forEach(d => {
+      const n = (d.serials || []).length;
+      att.push({ k: 'check', tint: 'dep', title: d.customer || 'Pending deployment', hint: `${n} × ${d.product || 'unit'} staged${d.location ? ' · ' + d.location : ''}`, pill: 'Confirm', href: 'deployed' });
+    });
+    flights.forEach(t => {
+      const n = (t.products || []).reduce((a, p) => a + (p.serials || []).length, 0);
+      att.push({ k: 'swap', tint: 'ship', title: `Transfer ${t.from || '?'} → ${t.to || '?'}`, hint: `${plural(n, 'unit')} in flight`, pill: 'View', href: 'transfers' });
+    });
+    const shown = att.slice(0, 6);
+    const attEl = document.getElementById('dash-attention');
+    attEl.innerHTML = att.length
+      ? shown.map(r => `<div class="dash-row">
+          <span class="dash-chip dash-chip-${r.tint}">${svg(r.k)}</span>
+          <div class="dash-row-main"><div class="dash-row-title">${esc(r.title)}</div><div class="dash-row-hint">${esc(r.hint)}</div></div>
+          <a class="dash-pill dash-pill-${r.tint}" href="#${r.href}">${esc(r.pill)}</a></div>`).join('')
+        + (att.length > 6 ? `<div class="dash-more">+${att.length - 6} more</div>` : '')
+      : `<div class="dash-row"><span class="dash-chip dash-chip-ok">${svg('check')}</span><div class="dash-row-main"><div class="dash-row-title" style="font-weight:500;color:var(--text-muted)">Nothing needs attention</div></div></div>`;
+    document.getElementById('dash-attention-count').textContent = att.length;
 
     const lowBox = document.getElementById('low-alert-box');
-    if (lowItems.length > 0) {
-      lowBox.style.display = 'block';
-      lowBox.textContent = `⚠ Low stock: ${lowItems.map(v => `${v.product} (${v.inStock.size})`).join(', ')}`;
-    } else { lowBox.style.display = 'none'; }
+    if (lowBox) lowBox.style.display = 'none';
 
     // Stock by product — with per-product condition breakdown
     const maxStock = Math.max(...byProduct.map(p => p.inStock), 1);
@@ -143,12 +207,6 @@
          ${recent.map(m => `<tr><td style="font-weight:500">${esc(m.product)}</td><td><span class="badge ${m.type==='IN'?'b-in':'b-out'}">${m.type}</span>${m.isTransfer?'<span class="badge b-transfer" style="margin-left:3px;">⇄</span>':''}</td><td><span class="loc-badge">${esc(m.location||'—')}</span></td><td style="color:var(--text-hint)">${fmtDate(m.date)}</td></tr>`).join('')}
          </tbody></table>`
       : '<div class="empty">No movements yet</div>';
-
-    document.getElementById('dash-low').innerHTML = lowItems.length
-      ? `<table><thead><tr><th style="width:45%">Product</th><th style="width:30%">Location</th><th>Stock</th></tr></thead><tbody>
-         ${lowItems.map(v => `<tr><td>${esc(v.product)}</td><td><span class="loc-badge">${esc(v.location||'—')}</span></td><td><span class="badge ${v.inStock.size===0?'b-zero':'b-low'}">${v.inStock.size}</span></td></tr>`).join('')}
-         </tbody></table>`
-      : '<div class="empty" style="padding:1rem">All products well stocked</div>';
 
     // ── Workshop summary ──────────────────────────────────────────────
     const wkshpEl = document.getElementById('dash-workshop');

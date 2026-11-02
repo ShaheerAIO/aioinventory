@@ -251,6 +251,8 @@ const Reports = (() => {
     };
   }
 
+  let stockValueGroup = 'category';
+
   function render() {
     const from = document.getElementById('rpt-date-from').value;
     const to   = document.getElementById('rpt-date-to').value;
@@ -258,7 +260,6 @@ const Reports = (() => {
     const summary    = buildSummary(from, to);
     const byCategory = buildByCategory(from, to);
     const byProduct  = buildByProduct(from, to);
-    const lowStock   = buildLowStock();
     const byCustomer = buildDeployedByCustomer(from, to);
     const byLocation = buildHoldingByLocation(from, to);
     const taxReport  = buildTaxReport(from, to);
@@ -305,8 +306,10 @@ const Reports = (() => {
         </div>`).join('')}</div>`;
     }
 
-    // ── Stock value by category ────────────────────────────────────────
-    document.getElementById('rpt-by-category').innerHTML = `
+    // ── Stock value (Category | Product | Location toggle) ─────────────
+    const stockValueHtml = {
+      category: () => {
+        return `
       <div class="rpt-grid">
         ${barRows(byCategory, 'category', 'value', 'purple')}
         <div class="table-wrap">
@@ -325,9 +328,9 @@ const Reports = (() => {
           </table>
         </div>
       </div>`;
-
-    // ── Stock value by product ─────────────────────────────────────────
-    document.getElementById('rpt-by-product').innerHTML = `
+      },
+      product: () => {
+        return `
       <div class="rpt-grid">
         ${barRows(byProduct, 'product', 'value', 'purple')}
         <div class="table-wrap">
@@ -346,9 +349,9 @@ const Reports = (() => {
           </table>
         </div>
       </div>`;
-
-    // ── Holding cost by location ───────────────────────────────────────
-    document.getElementById('rpt-by-location').innerHTML = `
+      },
+      location: () => {
+        return `
       <div class="rpt-grid">
         ${barRows(byLocation, 'location', 'value', 'purple')}
         <div class="table-wrap">
@@ -366,26 +369,20 @@ const Reports = (() => {
           </table>
         </div>
       </div>`;
-
-    // ── Low stock items ────────────────────────────────────────────────
-    document.getElementById('rpt-low-stock').innerHTML = lowStock.length
-      ? `<table>
-          <thead><tr>
-            <th style="width:25%">Product</th><th style="width:13%">Category</th>
-            <th style="width:15%">Location</th><th>In stock</th>
-            <th>Threshold</th><th>Shortfall</th><th>Status</th>
-          </tr></thead>
-          <tbody>${lowStock.map(item => `<tr>
-            <td style="font-weight:500">${esc(item.product)}</td>
-            <td><span class="cat-badge">${esc(item.category||'—')}</span></td>
-            <td><span class="loc-badge">${esc(item.location||'—')}</span></td>
-            <td style="font-weight:600;color:var(--${item.inStockCount===0?'danger':'warning'}-text)">${item.inStockCount}</td>
-            <td style="color:var(--text-muted)">${item.threshold}</td>
-            <td style="color:var(--danger-text)">${item.gap > 0 ? '+'+item.gap+' needed' : 'At threshold'}</td>
-            <td><span class="badge ${item.inStockCount===0?'b-zero':'b-low'}">${item.inStockCount===0?'Out of stock':'Low stock'}</span></td>
-          </tr>`).join('')}</tbody>
-        </table>`
-      : '<div class="empty">All products above threshold</div>';
+      },
+    };
+    function renderStockValue() {
+      document.getElementById('rpt-stock-value').innerHTML = stockValueHtml[stockValueGroup]();
+      document.querySelectorAll('#rpt-stock-toggle [data-group]').forEach(b => {
+        const on = b.dataset.group === stockValueGroup;
+        b.classList.toggle('btn-primary', on);
+        b.classList.toggle('btn-ghost', !on);
+      });
+    }
+    document.querySelectorAll('#rpt-stock-toggle [data-group]').forEach(b => {
+      b.onclick = () => { stockValueGroup = b.dataset.group; renderStockValue(); };
+    });
+    renderStockValue();
 
     // ── Deployed cost by customer ──────────────────────────────────────
     document.getElementById('rpt-by-customer').innerHTML = `

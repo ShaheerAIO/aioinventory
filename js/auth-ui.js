@@ -121,10 +121,10 @@ const AuthUI = (() => {
     setTimeout(() => document.getElementById('login-email')?.focus(), 100);
   }
 
-  // ── Inject user bar into header ───────────────────────────────────────
+  // ── Inject user bar into the sidebar foot ─────────────────────────────
   function injectUserBar() {
-    const header = document.querySelector('.header');
-    if (!header) return;
+    const foot = document.getElementById('sidebar-foot');
+    if (!foot) return;
 
     const profile = Auth.getProfile();
     const name    = Auth.getName();
@@ -135,13 +135,22 @@ const AuthUI = (() => {
     const bar = document.createElement('div');
     bar.className = 'user-bar';
     bar.id = 'user-bar';
+    const words = String(name || '').trim().split(/\s+/).filter(Boolean);
+    const initials = ((words[0] || '?')[0] + (words.length > 1 ? words[words.length - 1][0] : '')).toUpperCase();
     bar.innerHTML = `
-      <span class="user-name">${esc(name)}</span>
-      <span class="user-role" style="color:${roleColour}">${roleLabel}</span>
-      ${Auth.isAdmin() ? '<button class="btn btn-ghost btn-xs" id="btn-manage-users">Manage users</button>' : ''}
-      ${Auth.isAdmin() ? '<button class="btn btn-ghost btn-xs" id="btn-hubspot-map">HubSpot mapping</button>' : ''}
-      <button class="btn btn-ghost btn-xs" id="btn-sign-out">Sign out</button>`;
-    header.appendChild(bar);
+      <div class="user-id">
+        <span class="user-avatar" aria-hidden="true">${esc(initials)}</span>
+        <span class="user-meta">
+          <span class="user-name" title="${esc(name)}">${esc(name)}</span>
+          <span class="user-role" style="color:${roleColour}">${roleLabel}</span>
+        </span>
+      </div>
+      <div class="user-actions">
+        ${Auth.isAdmin() ? '<button class="btn btn-ghost btn-xs" id="btn-manage-users">Manage users</button>' : ''}
+        ${Auth.isAdmin() ? '<button class="btn btn-ghost btn-xs" id="btn-hubspot-map">HubSpot mapping</button>' : ''}
+        <button class="btn btn-ghost btn-xs" id="btn-sign-out">Sign out</button>
+      </div>`;
+    foot.insertBefore(bar, foot.firstChild);
 
     document.getElementById('btn-sign-out')?.addEventListener('click', () => {
       if (confirm('Sign out?')) Auth.signOut();

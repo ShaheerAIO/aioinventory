@@ -33,80 +33,48 @@
       };
     });
 
-    if (!allProducts.length) {
-      container.innerHTML = '<div class="empty" style="padding:1.5rem">No products yet</div>';
+    const q = (document.getElementById('prod-search')?.value || '').trim().toLowerCase();
+    const canEdit = Auth.canEdit();
+    const addBtn = document.getElementById('btn-add-product');
+    if (addBtn) addBtn.style.display = canEdit ? '' : 'none';
+
+    const rows = allProducts.map(p => ({
+      p,
+      threshold: p.defaultThreshold != null ? p.defaultThreshold : DB.getThreshold(p.name + '||'),
+    })).filter(({ p, threshold }) =>
+      !q || [p.name, p.category, p.supplier, threshold, p.notes].join(' ').toLowerCase().includes(q));
+
+    const count = document.getElementById('prod-count');
+    if (count) count.textContent = q ? `${rows.length} of ${allProducts.length}` : String(allProducts.length);
+
+    if (!rows.length) {
+      container.innerHTML = `<tr><td colspan="7" class="cat-empty">${q ? `No products match "${esc(q)}"` : 'No products yet'}</td></tr>`;
       return;
     }
 
-    const fillForm = (p) => {
-      document.getElementById('prod-name').value             = p.name;
-      document.getElementById('prod-category').value         = p.category || '';
-      document.getElementById('prod-supplier').value         = p.supplier || '';
-      document.getElementById('prod-threshold').value        = p.defaultThreshold ?? '';
-      document.getElementById('prod-notes').value            = p.notes || '';
-      document.getElementById('prod-serial-editable').checked = !!p.serialEditable;
-      document.getElementById('prod-edit-id').value          = p.id || '';
-      document.getElementById('btn-submit-product').textContent = p.id ? 'Update product' : 'Add product';
-      const cancelBtn = document.getElementById('btn-cancel-product-edit');
-      if (cancelBtn) cancelBtn.style.display = p.id ? 'inline-flex' : 'none';
-      document.getElementById('prod-name').focus();
-      document.getElementById('product-form-panel').scrollIntoView({ behavior: 'smooth' });
-    };
-
-    container.innerHTML = allProducts.map(p => {
-      const threshold = p.defaultThreshold != null ? p.defaultThreshold : DB.getThreshold(p.name + '||');
-      if (p._stub) {
-        return `<div class="supplier-card supplier-card-stub" id="prod-card-stub-${esc(p.name)}">
-          <div class="supplier-card-header">
-            <div>
-              <div class="supplier-card-name">${esc(p.name)}</div>
-              <div style="font-size:11px;color:var(--text-hint);margin-top:2px;">
-                ${p.category ? `<span class="cat-badge">${esc(p.category)}</span>` : ''} No details added yet
-              </div>
-            </div>
-            <div class="supplier-card-actions">
-              <button class="btn btn-orange btn-xs" data-edit-product="${esc(p.name)}">Edit / Add details</button>
-            </div>
-          </div>
-          <div class="supplier-card-stats">
-            <div class="supplier-stat"><div class="supplier-stat-label">Stock alert at</div><div class="supplier-stat-val">${threshold}</div></div>
-          </div>
-        </div>`;
-      }
-      return `<div class="supplier-card" id="prod-card-${p.id}">
-        <div class="supplier-card-header">
-          <div>
-            <div class="supplier-card-name">${esc(p.name)}</div>
-            <div style="margin-top:3px;">
-              ${p.category ? `<span class="cat-badge">${esc(p.category)}</span>` : ''}
-              ${p.supplier ? `<span style="font-size:11px;color:var(--text-muted);margin-left:6px;">from ${esc(p.supplier)}</span>` : ''}
-            </div>
-          </div>
-          <div class="supplier-card-actions">
-            <button class="btn btn-ghost btn-xs" data-edit-product-id="${p.id}">Edit</button>
-            <button class="btn btn-ghost btn-xs btn-danger-ghost" data-delete-product="${p.id}">Remove</button>
-          </div>
-        </div>
-        ${p.notes ? `<div class="supplier-card-notes">${esc(p.notes)}</div>` : ''}
-        <div class="supplier-card-stats">
-          <div class="supplier-stat"><div class="supplier-stat-label">Category</div><div class="supplier-stat-val" style="font-size:12px;">${esc(p.category||'—')}</div></div>
-          <div class="supplier-stat"><div class="supplier-stat-label">Supplier</div><div class="supplier-stat-val" style="font-size:12px;">${esc(p.supplier||'—')}</div></div>
-          <div class="supplier-stat"><div class="supplier-stat-label">Stock alert at</div><div class="supplier-stat-val">${threshold}</div></div>
-        </div>
-      </div>`;
-    }).join('');
+    container.innerHTML = rows.map(({ p, threshold }) => `<tr>
+      <td>${esc(p.name)}${p._stub ? '<span class="cat-default">Default</span>' : ''}</td>
+      <td>${p.category ? `<span class="cat-badge">${esc(p.category)}</span>` : '—'}</td>
+      <td>${esc(p.supplier || '—')}</td>
+      <td>${threshold}</td>
+      <td>${p.serialEditable ? 'Yes' : '—'}</td>
+      <td class="cat-notes" title="${esc(p.notes)}">${esc(p.notes || '—')}</td>
+      <td class="cat-actions">${canEdit ? (p._stub
+        ? `<button class="btn btn-ghost btn-xs" data-edit-product="${esc(p.name)}">Edit</button>`
+        : `<button class="btn btn-ghost btn-xs" data-edit-product-id="${p.id}">Edit</button>
+           <button class="btn btn-ghost btn-xs btn-danger-ghost" data-delete-product="${p.id}">Remove</button>`) : ''}</td>
+    </tr>`).join('');
 
     container.querySelectorAll('[data-edit-product]').forEach(btn => {
       btn.addEventListener('click', () => {
-        const name = btn.dataset.editProduct;
-        const p    = allProducts.find(x => x.name === name);
-        if (p) fillForm(p);
+        const p = allProducts.find(x => x.name === btn.dataset.editProduct);
+        if (p) openProductForm(p);
       });
     });
     container.querySelectorAll('[data-edit-product-id]').forEach(btn => {
       btn.addEventListener('click', () => {
         const rec = DB.getProductRecords().find(r => r.id == btn.dataset.editProductId);
-        if (rec) fillForm({ ...rec, _stub: false });
+        if (rec) openProductForm({ ...rec, _stub: false });
       });
     });
     container.querySelectorAll('[data-delete-product]').forEach(btn => {
@@ -121,5 +89,34 @@
     });
   }
 
-  Object.assign(UI, { renderProductList });
+  // Show the form panel, filled for p (or blank for a new product)
+  function openProductForm(p) {
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+    set('prod-name', p?.name || '');
+    set('prod-category', p?.category || '');
+    set('prod-supplier', p?.supplier || '');
+    set('prod-threshold', p?.defaultThreshold ?? '');
+    set('prod-notes', p?.notes || '');
+    set('prod-edit-id', p?.id || '');
+    document.getElementById('prod-serial-editable').checked = !!p?.serialEditable;
+    document.getElementById('btn-submit-product').textContent = p?.id ? 'Update product' : 'Save product';
+    const panel = document.getElementById('product-form-panel');
+    panel.style.display = '';
+    document.getElementById('prod-name').focus();
+    panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function closeProductForm() {
+    const panel = document.getElementById('product-form-panel');
+    if (panel) panel.style.display = 'none';
+  }
+
+  // Start closed on every visit: close when the view is hidden (re-renders after a save don't touch it)
+  const prodView = document.getElementById('v-products');
+  if (prodView) new MutationObserver(() => { if (prodView.style.display === 'none') closeProductForm(); })
+    .observe(prodView, { attributes: true, attributeFilter: ['style', 'class'] });
+  document.getElementById('prod-search')?.addEventListener('input', renderProductList);
+  document.getElementById('btn-add-product')?.addEventListener('click', () => openProductForm(null));
+
+  Object.assign(UI, { renderProductList, openProductForm, closeProductForm });
 })();

@@ -11,14 +11,24 @@
     const badge = document.getElementById('transfer-count-badge');
     if (!badge) return;
     const n = Inventory.getInFlightTransfers().length;
-    badge.textContent = n > 0 ? `(${n})` : '';
+    badge.textContent = n > 0 ? String(n) : '';
   }
+
+
+  // ── Search ──
+  function _q() { return (document.getElementById('xfer-search')?.value || '').trim(); }
+  function _hay(x) {
+    return [x.from, x.to, x.ref, x.by, ...(x.products || []).flatMap(p => [p.product, ...(p.serials || [])])].filter(Boolean).join(' ').toLowerCase();
+  }
+  document.getElementById('xfer-search')?.addEventListener('input', () => UI.renderTransferList());
 
   function renderTransferList() {
     const container = document.getElementById('transfer-list');
     if (!container) return;
     const canEdit = typeof Auth !== 'undefined' && Auth.canEdit();
-    const active  = [...Inventory.getInFlightTransfers()].reverse();
+    const all     = [...Inventory.getInFlightTransfers()].reverse();
+    const q       = _q().toLowerCase();
+    const active  = q ? all.filter(t => _hay(t).includes(q)) : all;
 
     _syncTransferBadge();
     const pasteBtn = document.getElementById('btn-transfer-paste');
@@ -27,8 +37,12 @@
       pasteBtn.onclick = () => UI._._showPasteSerialsModal();
     }
     const countEl = document.getElementById('transfer-count');
-    if (countEl) countEl.textContent = active.length ? `(${active.length})` : '';
+    if (countEl) countEl.textContent = all.length ? `(${all.length})` : '';
 
+    if (!active.length && q) {
+      container.innerHTML = `<div class="empty">No transfers match “${esc(_q())}”</div>`;
+      return;
+    }
     if (!active.length) {
       container.innerHTML = '<div class="empty">No warehouse transfers in flight — dispatch stock from Stock Holding</div>';
       return;

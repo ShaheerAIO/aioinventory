@@ -4,6 +4,29 @@
  */
 var CHANGELOG = [
   {
+    version: 'v135',
+    date: '2026-11-02',
+    title: 'Search Everywhere and Tidier Pages',
+    changes: [
+      { type: 'new', text: 'Search boxes on Purchase Orders, In Transit, Warehouse Transfers and Shipment History, so you can find an order, shipment or transfer by typing part of its name, supplier or serial number' },
+      { type: 'improved', text: 'Products and Suppliers are now compact tables you can search. The add and edit form opens only when you need it. Suppliers also show how many orders you\u2019ve placed and your total spend with each' },
+      { type: 'improved', text: 'Stock Holding now starts with the serial number table. The Breakdown by product section is a drawer that stays closed until you open it' },
+      { type: 'improved', text: 'Reports: the category, product and location tables are now one Stock value panel with a Category / Product / Location switch. The Low stock panel is gone, because low stock is on the Overview page' },
+      { type: 'improved', text: 'The RMA page is now part of RMA / Total Loss. That page also lists in-stock units waiting to be returned, and you can filter by status. Old RMA links take you there' },
+      { type: 'improved', text: 'Networking shows the last results straight away and refreshes in the background, with an Updated N min ago line so you can see how fresh it is' },
+    ],
+  },
+  {
+    version: 'v134',
+    date: '2026-11-02',
+    title: 'A New Look: Sidebar, Overview and \u2318K Search',
+    changes: [
+      { type: 'new', text: 'A menu down the left side replaces the top menus. Every page is always visible, grouped by what it does, with counts next to the busy ones. Stock In and Stock Out buttons sit top right on every page for anyone who can edit. On phones the menu slides in from a button' },
+      { type: 'new', text: 'The Overview page now shows the whole life of your stock as a strip: Ordered \u2192 In transit \u2192 In stock \u2192 Deployed \u2192 Servicing. Click any step to open it. Beneath it, a Needs attention list shows low stock, shipments due or overdue, staged deployments and transfers in flight, and replaces the old low-stock banner' },
+      { type: 'new', text: 'Press \u2318K (Ctrl+K on Windows) or click Find a serial in the sidebar, from any page, to search any part of a serial number. You see its status and recent history, and Enter opens it in Serial Lookup' },
+    ],
+  },
+  {
     version: 'v133',
     date: '2026-11-02',
     title: 'Networking: SIMs & IMEIs, and a Tidier Menu',

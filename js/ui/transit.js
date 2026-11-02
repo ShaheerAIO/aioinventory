@@ -5,15 +5,24 @@
   const { showAlert, esc, fmtDate } = UI._;
 
   // ── In Transit ────────────────────────────────────────────────────────
+  // ── Search ──
+  function _q() { return (document.getElementById('trn-search')?.value || '').trim(); }
+  function _hay(x) {
+    return [x.poNumber, x.supplier, x.location, x.freightSupplier, x.freightPO, ...(x.products || []).flatMap(p => [p.product, ...(p.serials || [])])].filter(Boolean).join(' ').toLowerCase();
+  }
+  document.getElementById('trn-search')?.addEventListener('input', () => UI.renderTransitList());
+
   function renderTransitList() {
     const { shipments } = DB.getData();
-    const active = shipments.filter(s => s.status === 'in-transit').reverse();
+    const all = shipments.filter(s => s.status === 'in-transit').reverse();
+    const q = _q().toLowerCase();
+    const active = q ? all.filter(s => _hay(s).includes(q)) : all;
     const badge = document.getElementById('transit-count-badge');
-    if (badge) badge.textContent = active.length > 0 ? `(${active.length})` : '';
+    if (badge) badge.textContent = all.length > 0 ? String(all.length) : '';
 
     const container = document.getElementById('transit-list');
     if (!container) return;
-    if (!active.length) { container.innerHTML = '<div class="empty">No active shipments</div>'; return; }
+    if (!active.length) { container.innerHTML = q ? `<div class="empty">No shipments match “${esc(_q())}”</div>` : '<div class="empty">No active shipments</div>'; return; }
 
     container.innerHTML = active.map(s => {
       const totalUnits = s.products.reduce((a, p) => a + p.serials.length, 0);

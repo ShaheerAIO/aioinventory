@@ -5,17 +5,25 @@
   const { showAlert, esc, fmtDate } = UI._;
 
   // ── Orders ─────────────────────────────────────────────────────────────
+  // ── Search ──
+  function _q() { return (document.getElementById('ord-search')?.value || '').trim(); }
+  function _hay(x) {
+    return [x.poNumber, x.supplier, x.taxRef, x.status, ...(x.products || []).flatMap(p => [p.product, ...(p.serials || [])])].filter(Boolean).join(' ').toLowerCase();
+  }
+  document.getElementById('ord-search')?.addEventListener('input', () => UI.renderOrderList());
+
   function renderOrderList() {
     const allOrders = DB.getOrders().slice().reverse();
     // Purchase Orders tab: show pending, partial, in-transit and cancelled
-    const orders = allOrders.filter(o => o.status === 'pending' || o.status === 'partial' || o.status === 'in-transit' || o.status === 'cancelled');
+    const q = _q().toLowerCase();
+    const orders = allOrders.filter(o => o.status === 'pending' || o.status === 'partial' || o.status === 'in-transit' || o.status === 'cancelled').filter(o => !q || _hay(o).includes(q));
     const badge  = document.getElementById('order-count-badge');
     const pending = allOrders.filter(o => o.status === 'pending' || o.status === 'partial').length;
-    if (badge) badge.textContent = pending > 0 ? `(${pending})` : '';
+    if (badge) badge.textContent = pending > 0 ? String(pending) : '';
 
     const container = document.getElementById('order-list');
     if (!container) return;
-    if (!orders.length) { container.innerHTML = '<div class="empty">No orders placed yet</div>'; return; }
+    if (!orders.length) { container.innerHTML = q ? `<div class="empty">No orders match “${esc(_q())}”</div>` : '<div class="empty">No orders placed yet</div>'; return; }
 
     const statusLabel = { pending: '⏳ Pending', partial: '⚡ Partial', 'in-transit': '✈ In Transit', received: '✓ Received', cancelled: '✗ Cancelled' };
     const statusClass = { pending: 'b-low', partial: 'b-partial', 'in-transit': 'transit', received: 'b-in', cancelled: 'b-zero' };

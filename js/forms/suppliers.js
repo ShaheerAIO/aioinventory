@@ -45,10 +45,11 @@
     }
 
     clearSupplierForm();
+    UI.closeSupplierForm();
     UI.renderSupplierList();
     UI.refreshSmartSelects();
   }
 
   bind('btn-submit-supplier',   'click', submitSupplier);
-  bind('btn-cancel-supplier-edit', 'click', () => { clearSupplierForm(); document.getElementById('btn-cancel-supplier-edit').style.display='none'; });
+  bind('btn-cancel-supplier-edit', 'click', () => { clearSupplierForm(); UI.closeSupplierForm(); });
 })();

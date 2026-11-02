@@ -1,0 +1,9 @@
+.cat-tools { display: flex; align-items: center; gap: 8px; }
+.cat-search { width: 240px; max-width: 50vw; }
+.cat-count { font-size: 13px; font-weight: 400; color: var(--text-hint); margin-left: 6px; }
+.cat-notes { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-muted); }
+.cat-default { font-size: 10px; color: var(--text-hint); margin-left: 6px; }
+.cat-actions { white-space: nowrap; text-align: right; }
+.cat-empty { text-align: center; color: var(--text-hint); padding: 1.5rem; }
+@media (max-width: 640px) { .panel-toolbar { flex-wrap: wrap; gap: 8px; } .cat-search { width: 100%; max-width: none; } }
+.cat-num { text-align: right; font-variant-numeric: tabular-nums; }

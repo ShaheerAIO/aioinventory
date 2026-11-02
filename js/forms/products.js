@@ -41,11 +41,12 @@
     }
 
     clearProductForm();
+    UI.closeProductForm();
     Inventory.refreshProducts();
     UI.renderProductList();
     UI.populateCategoryFilters();
   }
 
   bind('btn-submit-product',    'click', submitProduct);
-  bind('btn-cancel-product-edit','click', () => { clearProductForm(); });
+  bind('btn-cancel-product-edit','click', () => { clearProductForm(); UI.closeProductForm(); });
 })();

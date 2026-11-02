@@ -58,6 +58,8 @@
       <td></td>
     </tr>`;
 
+    const bdSum = document.getElementById('inv-breakdown-summary');
+    if (bdSum) bdSum.textContent = `${rows.length} product${rows.length!==1?'s':''} · ${tot.total.toLocaleString()} units`;
     if (footer) footer.textContent = `${rows.length} product line${rows.length!==1?'s':''} · ${tot.total} units in stock · ${tot.working} working`;
 
     // Row click → filter serial table

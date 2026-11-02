@@ -5,14 +5,22 @@
   const { showAlert, esc, fmtDate } = UI._;
 
   // ── Shipment History ─────────────────────────────────────────────────
+  // ── Search ──
+  function _q() { return (document.getElementById('shist-search')?.value || '').trim(); }
+  function _hay(x) {
+    return [x.poNumber, x.supplier, x.location, x.actualLocation, x.receivedBy, x.freightSupplier, x.freightPO, ...(x.products || []).flatMap(p => [p.product, ...(p.serials || [])])].filter(Boolean).join(' ').toLowerCase();
+  }
+  document.getElementById('shist-search')?.addEventListener('input', () => UI.renderShipmentHistory());
+
   function renderShipmentHistory() {
     const { shipments } = DB.getData();
-    const received = shipments.filter(s => s.status === 'received').slice().reverse();
+    const q = _q().toLowerCase();
+    const received = shipments.filter(s => s.status === 'received').slice().reverse().filter(s => !q || _hay(s).includes(q));
     const container = document.getElementById('shipment-history-list');
     if (!container) return;
 
     if (!received.length) {
-      container.innerHTML = '<div class="empty">No received shipments yet</div>';
+      container.innerHTML = q ? `<div class="empty">No shipments match “${esc(_q())}”</div>` : '<div class="empty">No received shipments yet</div>';
       return;
     }
 

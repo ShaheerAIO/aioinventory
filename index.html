@@ -7,7 +7,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" />
-  <link rel="stylesheet" href="css/styles.v4.css?v=139" />
+  <link rel="stylesheet" href="css/styles.v4.css?v=141" />
+  <link rel="stylesheet" href="css/dashboard.css?v=134" />
+  <link rel="stylesheet" href="css/palette.css?v=134" />
+  <link rel="stylesheet" href="css/catalog.css?v=141" />
   <style>
     .b-used { background: #FAE4E1 !important; color: #D5381D !important; border: 1px solid #D5381D !important; font-size: 12px; padding: 1px 8px; border-radius: 16px; font-weight: 500; }
     .used-toggle input:checked + .used-toggle-track { background: #D5381D !important; }
@@ -184,92 +187,92 @@
   </style>
 </head>
 <body>
-<div class="app">
+<div class="app" id="app-shell">
 
-  <header class="header">
-    <div class="logo">
-      <img src="logo.png" alt="AIO" class="logo-img" />
-      <div class="logo-divider"></div>
-      <span class="logo-label">Inventory</span>
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <span class="brand-tile"><img src="logo.png" alt="AIO" class="brand-logo" /></span>
+      <span class="brand-text">
+        <span class="brand-name">Inventory</span>
+        <span class="brand-sub">AIO App</span>
+      </span>
     </div>
-    <nav class="nav">
-      <button class="nav-btn active" data-view="dashboard">Dashboard</button>
-      <div class="nav-dropdown">
-        <button class="nav-btn nav-dropdown-toggle" data-dropdown="catalog-group">
-          Catalog <span class="nav-caret">▾</span>
-        </button>
-        <div class="nav-dropdown-menu" id="dd-catalog-group">
-          <button class="nav-dropdown-item" data-view="products">Products</button>
-          <button class="nav-dropdown-item" data-view="suppliers">Suppliers</button>
-        </div>
+    <button type="button" class="nav-search" id="nav-search">
+      <svg class="nav-search-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <span class="nav-search-text">Find a serial…</span>
+      <kbd class="nav-kbd">⌘K</kbd>
+    </button>
+    <nav class="nav" aria-label="Main">
+      <div class="nav-group">
+        <button class="nav-item active" data-view="dashboard"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg><span class="nav-label">Overview</span></button>
       </div>
-      <div class="nav-dropdown">
-        <button class="nav-btn nav-dropdown-toggle" data-dropdown="orders-group">
-          Orders <span class="nav-caret">▾</span>
-        </button>
-        <div class="nav-dropdown-menu" id="dd-orders-group">
-          <button class="nav-dropdown-item" data-view="orders">Purchase Orders <span id="order-count-badge"></span></button>
-          <button class="nav-dropdown-item" data-view="transit">In Transit <span id="transit-count-badge"></span></button>
-          <button class="nav-dropdown-item" data-view="shipment-history">Shipment History</button>
-        </div>
+      <div class="nav-group">
+        <div class="nav-group-label">Catalog</div>
+        <button class="nav-item" data-view="products"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5"/><path d="M12 13v8"/></svg><span class="nav-label">Products</span></button>
+        <button class="nav-item" data-view="suppliers"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg><span class="nav-label">Suppliers</span></button>
       </div>
-      <div class="nav-dropdown">
-        <button class="nav-btn nav-dropdown-toggle" data-dropdown="stock-info">
-          Stock <span class="nav-caret">▾</span>
-        </button>
-        <div class="nav-dropdown-menu" id="dd-stock-info">
-          <button class="nav-dropdown-item" data-view="in">Stock In</button>
-          <button class="nav-dropdown-item" data-view="out">Stock Out</button>
-          <div class="nav-dropdown-divider"></div>
-          <button class="nav-dropdown-item" data-view="stock-list">Stock Holding</button>
-          <button class="nav-dropdown-item" data-view="deployed">Stock Deployed</button>
-          <button class="nav-dropdown-item" data-view="rmatldisp">Stock RMA / TL</button>
-          <button class="nav-dropdown-item" data-view="stocktake">Stock Audit</button>
-          <button class="nav-dropdown-item" data-view="transfers">Warehouse Transfers <span id="transfer-count-badge"></span></button>
-        </div>
+      <div class="nav-group">
+        <div class="nav-group-label">Orders</div>
+        <button class="nav-item" data-view="orders"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 12h6M9 16h6"/></svg><span class="nav-label">Purchase Orders</span><span id="order-count-badge" class="nav-badge"></span></button>
+        <button class="nav-item" data-view="transit"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 17V6H3v11h2"/><path d="M14 9h4l3 3v5h-2"/><path d="M9 17h6"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg><span class="nav-label">In Transit</span><span id="transit-count-badge" class="nav-badge"></span></button>
+        <button class="nav-item" data-view="shipment-history"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"/><path d="M10 12h4"/></svg><span class="nav-label">Shipment History</span></button>
       </div>
-      <div class="nav-dropdown">
-        <button class="nav-btn nav-dropdown-toggle" data-dropdown="workshop">
-          Workshop <span class="nav-caret">▾</span>
-        </button>
-        <div class="nav-dropdown-menu" id="dd-workshop">
-          <button class="nav-dropdown-item" data-view="servicing">Servicing</button>
-          <button class="nav-dropdown-item" data-view="rma">RMA</button>
-          <button class="nav-dropdown-item" data-view="totalloss">Total Loss</button>
-        </div>
+      <div class="nav-group">
+        <div class="nav-group-label">Stock</div>
+        <button class="nav-item" data-view="in"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg><span class="nav-label">Stock In</span></button>
+        <button class="nav-item" data-view="out"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"/><path d="m7 8 5-5 5 5"/><path d="M5 21h14"/></svg><span class="nav-label">Stock Out</span></button>
+        <button class="nav-item" data-view="stock-list"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 2 9 5-9 5-9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></svg><span class="nav-label">Stock Holding</span></button>
+        <button class="nav-item" data-view="deployed"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg><span class="nav-label">Stock Deployed</span></button>
+        <button class="nav-item" data-view="rmatldisp"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></svg><span class="nav-label">RMA / Total Loss</span></button>
+        <button class="nav-item" data-view="stocktake"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/></svg><span class="nav-label">Stock Audit</span></button>
+        <button class="nav-item" data-view="transfers"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg><span class="nav-label">Warehouse Transfers</span><span id="transfer-count-badge" class="nav-badge"></span></button>
       </div>
-      <div class="nav-dropdown">
-        <button class="nav-btn nav-dropdown-toggle" data-dropdown="records-group">
-          Records <span class="nav-caret">▾</span>
-        </button>
-        <div class="nav-dropdown-menu" id="dd-records-group">
-          <button class="nav-dropdown-item" data-view="reports">Reports</button>
-          <button class="nav-dropdown-item" data-view="lookup">Serial Lookup</button>
-          <button class="nav-dropdown-item" data-view="history">History</button>
-          <button class="nav-dropdown-item" data-view="activity" id="nav-activity" style="display:none;">Activity Log</button>
-          <button class="nav-dropdown-item" data-view="changelog">What's New</button>
-        </div>
+      <div class="nav-group">
+        <div class="nav-group-label">Workshop</div>
+        <button class="nav-item" data-view="servicing"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9z"/></svg><span class="nav-label">Servicing</span></button>
+        <button class="nav-item" data-view="totalloss"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m15 9-6 6M9 9l6 6"/></svg><span class="nav-label">Total Loss</span></button>
       </div>
-      <div class="nav-dropdown" id="nav-integrations" style="display:none;">
-        <button class="nav-btn nav-dropdown-toggle" data-dropdown="integrations">
-          Integrations <span class="nav-caret">▾</span>
-        </button>
-        <div class="nav-dropdown-menu" id="dd-integrations">
-          <button class="nav-dropdown-item" data-view="map-devices">Map Devices</button>
-          <button class="nav-dropdown-item" data-view="networking">Networking</button>
-          <button class="nav-dropdown-item" data-view="buddy-access" id="nav-buddy-access" style="display:none;">Buddy Access</button>
-        </div>
+      <div class="nav-group">
+        <div class="nav-group-label">Records</div>
+        <button class="nav-item" data-view="reports"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M8 17v-5M13 17V8M18 17v-8"/></svg><span class="nav-label">Reports</span></button>
+        <button class="nav-item" data-view="lookup"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M8 8v8M12 8v8M16 8v8"/></svg><span class="nav-label">Serial Lookup</span></button>
+        <button class="nav-item" data-view="history"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l3 2"/></svg><span class="nav-label">History</span></button>
+        <button class="nav-item" data-view="activity" id="nav-activity" style="display:none;"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg><span class="nav-label">Activity Log</span></button>
+        <button class="nav-item" data-view="changelog"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m12 3 1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 16v5M16.5 18.5h5"/></svg><span class="nav-label">What's New</span></button>
       </div>
-      <button id="app-version-label" data-goto-view="changelog" title="What's New" style="font-size:11px;color:rgba(255,255,255,0.45);margin-left:auto;padding-right:4px;letter-spacing:0.5px;background:none;border:none;cursor:pointer;font-family:inherit;">v94</button>
+      <div class="nav-group" id="nav-integrations" style="display:none;">
+        <div class="nav-group-label">Integrations</div>
+        <button class="nav-item" data-view="map-devices"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg><span class="nav-label">Map Devices</span></button>
+        <button class="nav-item" data-view="networking"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 9a15 15 0 0 1 20 0"/><path d="M5 12.5a10 10 0 0 1 14 0"/><path d="M8.5 16a5 5 0 0 1 7 0"/><path d="M12 20h.01"/></svg><span class="nav-label">Networking</span></button>
+        <button class="nav-item" data-view="buddy-access" id="nav-buddy-access" style="display:none;"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.3-9.3"/><path d="m16 7 3 3"/><path d="m19 4 2 2"/></svg><span class="nav-label">Buddy Access</span></button>
+      </div>
     </nav>
-  </header>
+    <div class="sidebar-foot" id="sidebar-foot">
+      <button id="app-version-label" class="app-version" data-goto-view="changelog" title="What's New">v94</button>
+    </div>
+  </aside>
+  <div class="sidebar-backdrop" id="sidebar-backdrop"></div>
+
+  <div class="main">
+  <div class="topbar">
+    <button type="button" class="topbar-menu" id="nav-toggle" aria-label="Open menu" aria-controls="sidebar" aria-expanded="false"><svg class="topbar-menu-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+    <h1 class="topbar-title" id="topbar-title">Overview</h1>
+    <div class="topbar-actions">
+      <button type="button" class="btn btn-ghost btn-sm" id="top-stock-out" style="display:none;">Stock out</button>
+      <button type="button" class="btn btn-primary btn-sm" id="top-stock-in" style="display:none;">+ Stock in</button>
+    </div>
+  </div>
 
   <div id="alert-box" class="alert" role="alert"></div>
   <div id="low-alert-box" class="low-alert" style="display:none;"></div>
 
   <!-- DASHBOARD -->
   <section id="v-dashboard" class="view">
-    <div class="stats-row" id="stats-row"></div>
+    <div id="stats-row"></div>
+    <div class="panel" style="margin-bottom:1rem;">
+      <div class="dash-panel-head"><div class="panel-title" style="margin:0">Needs attention</div><span class="dash-count" id="dash-attention-count"></span></div>
+      <div id="dash-attention"></div>
+    </div>
     <!-- Stock by product -->
     <div class="panel" style="margin-bottom:1rem;">
       <div class="panel-title">Stock holding by product</div>
@@ -284,10 +287,7 @@
       <div class="panel-title">Workshop</div>
       <div id="dash-workshop"></div>
     </div>
-    <div class="two-col">
-      <div class="panel"><div class="panel-title">Recent movements</div><div id="dash-recent"></div></div>
-      <div class="panel"><div class="panel-title">Low stock alerts</div><div id="dash-low"></div></div>
-    </div>
+    <div class="panel" style="margin-bottom:1rem;"><div class="panel-title">Recent movements</div><div id="dash-recent"></div></div>
     <div class="panel"><div class="panel-title">Stock by location</div><div id="dash-locations"></div></div>
   </section>
 
@@ -432,9 +432,13 @@
   <!-- PRODUCTS -->
   <section id="v-products" class="view" style="display:none;">
     <div class="panel-toolbar">
-      <span class="toolbar-title">Products</span>
+      <span class="toolbar-title">Products <span class="cat-count" id="prod-count"></span></span>
+      <div class="cat-tools">
+        <input class="fi cat-search" id="prod-search" type="search" placeholder="Search products…" autocomplete="off" />
+        <button class="btn btn-primary" id="btn-add-product" style="display:none;">Add product</button>
+      </div>
     </div>
-    <div class="panel" id="product-form-panel" style="margin-bottom:1rem;">
+    <div class="panel" id="product-form-panel" style="display:none;margin-bottom:1rem;">
       <div class="panel-title">Add / edit product</div>
       <input type="hidden" id="prod-edit-id" />
       <div class="form-grid g3">
@@ -470,23 +474,34 @@
       </div>
       <div style="margin-top:12px;display:flex;gap:8px;align-items:center;">
         <button class="btn btn-primary" id="btn-submit-product">Save product</button>
-        <button class="btn btn-ghost btn-sm" id="btn-cancel-product-edit" style="display:none;">Cancel edit</button>
+        <button class="btn btn-ghost btn-sm" id="btn-cancel-product-edit">Cancel</button>
       </div>
     </div>
     <div class="panel">
-      <div class="panel-title">All products</div>
-      <div id="product-list"></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th><th>Category</th><th>Supplier</th><th>Alert threshold</th><th>Serial editable</th><th>Notes</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="product-list"></tbody>
+        </table>
+      </div>
     </div>
   </section>
 
   <!-- SUPPLIERS -->
   <section id="v-suppliers" class="view" style="display:none;">
     <div class="panel-toolbar">
-      <span class="toolbar-title">Suppliers</span>
+      <span class="toolbar-title">Suppliers <span class="cat-count" id="supp-count"></span></span>
+      <div class="cat-tools">
+        <input class="fi cat-search" id="supp-search" type="search" placeholder="Search suppliers…" autocomplete="off" />
+        <button class="btn btn-primary" id="btn-add-supplier" style="display:none;">Add supplier</button>
+      </div>
     </div>
 
-    <!-- Add / Edit form -->
-    <div class="panel" id="supplier-form-panel" style="margin-bottom:1rem;">
+    <div class="panel" id="supplier-form-panel" style="display:none;margin-bottom:1rem;">
       <div class="panel-title">New supplier</div>
       <input type="hidden" id="supp-edit-id" />
       <div class="form-grid g3">
@@ -533,14 +548,21 @@
       </div>
       <div style="margin-top:12px;display:flex;gap:8px;align-items:center;">
         <button class="btn btn-primary" id="btn-submit-supplier">Add supplier</button>
-        <button class="btn btn-ghost btn-sm" id="btn-cancel-supplier-edit" style="display:none;">Cancel edit</button>
+        <button class="btn btn-ghost btn-sm" id="btn-cancel-supplier-edit">Cancel</button>
       </div>
     </div>
 
-    <!-- Supplier list -->
     <div class="panel">
-      <div class="panel-title">All suppliers</div>
-      <div id="supplier-list"></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Name</th><th>Contact</th><th>Email</th><th>Phone</th><th>Currency</th><th>Payment terms</th><th>Lead time</th><th class="cat-num">Orders</th><th class="cat-num">Total spend</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="supplier-list"></tbody>
+        </table>
+      </div>
     </div>
   </section>
 
@@ -598,6 +620,9 @@
     </div>
     <div class="panel">
       <div class="panel-title">All orders <span id="order-count-badge"></span></div>
+      <div class="search-bar" style="margin-bottom:10px;">
+        <input class="fi" id="ord-search" placeholder="Search PO, supplier, product, serial…" />
+      </div>
       <div id="order-list"></div>
     </div>
   </section>
@@ -641,6 +666,9 @@
     <!-- Active shipments list -->
     <div class="panel">
       <div class="panel-title">Active shipments</div>
+      <div class="search-bar" style="margin-bottom:10px;">
+        <input class="fi" id="trn-search" placeholder="Search supplier, PO, location, product, serial…" />
+      </div>
       <div id="transit-list"></div>
     </div>
   </section>
@@ -655,6 +683,9 @@
     <div class="panel" id="transfer-panel">
       <div class="panel-title">⇄ Warehouse transfers in flight <span id="transfer-count" style="font-size:12px;color:var(--text-muted);font-weight:400;"></span></div>
       <div style="font-size:12px;color:var(--text-muted);margin:-4px 0 10px;">Stock that has left one warehouse and not yet been received at the next. Receive it here when it lands.</div>
+      <div class="search-bar" style="margin-bottom:10px;">
+        <input class="fi" id="xfer-search" placeholder="Search from, to, reference, product, serial…" />
+      </div>
       <div id="transfer-list"></div>
     </div>
   </section>
@@ -666,6 +697,9 @@
     </div>
     <div class="panel">
       <div class="panel-title">Received shipments</div>
+      <div class="search-bar" style="margin-bottom:10px;">
+        <input class="fi" id="shist-search" placeholder="Search supplier, PO, location, product, serial…" />
+      </div>
       <div id="shipment-history-list"></div>
     </div>
   </section>
@@ -775,33 +809,6 @@
 
   <!-- STOCK HOLDING -->
   <section id="v-stock-list" class="view" style="display:none;">
-    <!-- Product-level breakdown table -->
-    <div class="panel" id="inv-breakdown-panel">
-      <div class="panel-title">
-        Stock breakdown — by product
-        <button class="btn btn-ghost btn-sm" id="btn-export-inv">Export CSV</button>
-      </div>
-      <div class="table-wrap">
-        <table id="inv-breakdown-table">
-          <thead>
-            <tr>
-              <th style="width:28%">Product</th>
-              <th style="width:14%">Category</th>
-              <th style="width:9%;text-align:center">Total</th>
-              <th style="width:9%;text-align:center;color:var(--cond-working)">✅ Working</th>
-              <th style="width:9%;text-align:center;color:var(--cond-testing)">🔬 Testing</th>
-              <th style="width:9%;text-align:center;color:var(--cond-faulty)">⚠ Faulty</th>
-              <th style="width:9%;text-align:center;color:var(--cond-rma)">⛔ RMA</th>
-              <th style="width:9%;text-align:center;color:var(--cond-tl)">🗑 Total Loss</th>
-              <th style="width:4%;text-align:center"></th>
-            </tr>
-          </thead>
-          <tbody id="inv-breakdown-body"></tbody>
-        </table>
-      </div>
-      <div id="inv-breakdown-footer" class="inv-footer"></div>
-    </div>
-
     <!-- Serial-level detail table -->
     <div class="panel" id="inv-serial-panel">
       <div class="panel-title" id="inv-serial-title">All serials</div>
@@ -849,6 +856,37 @@
       </div>
       <div class="inv-footer" id="inv-footer"></div>
     </div>
+
+    <!-- Product-level breakdown table -->
+    <details class="panel" id="inv-breakdown-panel">
+      <summary id="inv-breakdown-toggle" style="cursor:pointer;display:flex;align-items:center;gap:8px;font-weight:600;">
+        <span>Breakdown by product</span>
+        <span id="inv-breakdown-summary" style="margin-left:auto;font-weight:400;color:var(--text-muted);"></span>
+      </summary>
+      <div class="panel-title">
+        Stock breakdown
+        <button class="btn btn-ghost btn-sm" id="btn-export-inv">Export CSV</button>
+      </div>
+      <div class="table-wrap">
+        <table id="inv-breakdown-table">
+          <thead>
+            <tr>
+              <th style="width:28%">Product</th>
+              <th style="width:14%">Category</th>
+              <th style="width:9%;text-align:center">Total</th>
+              <th style="width:9%;text-align:center;color:var(--cond-working)">✅ Working</th>
+              <th style="width:9%;text-align:center;color:var(--cond-testing)">🔬 Testing</th>
+              <th style="width:9%;text-align:center;color:var(--cond-faulty)">⚠ Faulty</th>
+              <th style="width:9%;text-align:center;color:var(--cond-rma)">⛔ RMA</th>
+              <th style="width:9%;text-align:center;color:var(--cond-tl)">🗑 Total Loss</th>
+              <th style="width:4%;text-align:center"></th>
+            </tr>
+          </thead>
+          <tbody id="inv-breakdown-body"></tbody>
+        </table>
+      </div>
+      <div id="inv-breakdown-footer" class="inv-footer"></div>
+    </details>
   </section>
 
   <!-- STOCK DEPLOYED -->
@@ -985,46 +1023,6 @@
     </div>
   </section>
 
-  <!-- RMA -->
-  <section id="v-rma" class="view" style="display:none;">
-    <div class="panel-toolbar">
-      <span class="toolbar-title">RMA</span>
-      <span class="hint" style="margin-top:0;">Items that have failed testing. Use Stock Out to book them back to the supplier.</span>
-    </div>
-    <div class="panel">
-      <div class="search-bar">
-        <input class="fi" id="rma-search" placeholder="Search serial, product, location..." />
-        <select class="fi" id="rma-status-filter" style="width:160px;">
-          <option value="">All</option>
-          <option value="to-return">⛔ To Return</option>
-          <option value="returned">✓ Returned</option>
-        </select>
-      </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th style="width:13%">Serial</th>
-              <th style="width:16%">Product</th>
-              <th style="width:9%">Category</th>
-              <th style="width:9%">Location</th>
-              <th style="width:8%">Status</th>
-              <th style="width:9%">Tested by</th>
-              <th style="width:8%">Test date</th>
-              <th style="width:11%">Notes</th>
-              <th style="width:9%">Returned</th>
-              <th style="width:8%">Cost</th>
-            </tr>
-          </thead>
-          <tbody id="rma-body"></tbody>
-        </table>
-      </div>
-      <div class="hint" id="rma-footer" style="margin-top:8px;"></div>
-    </div>
-  </section>
-
-
-  <!-- TOTAL LOSS -->
   <section id="v-totalloss" class="view" style="display:none;">
     <div class="panel-toolbar">
       <span class="toolbar-title">Total Loss</span>
@@ -1065,16 +1063,17 @@
   <!-- STOCK RMA / TL DISPATCHED -->
   <section id="v-rmatldisp" class="view" style="display:none;">
     <div class="panel-toolbar">
-      <span class="toolbar-title">Stock RMA / TL</span>
-      <span class="hint" style="margin-top:0;">Items dispatched as RMA or Total Loss — excluded from Stock Deployed.</span>
+      <span class="toolbar-title">RMA / Total Loss</span>
+      <span class="hint" style="margin-top:0;">RMA units awaiting return plus items dispatched as RMA or Total Loss — dispatched items are excluded from Stock Deployed. Use Stock Out to book RMA units back to the supplier.</span>
     </div>
     <div class="panel">
       <div class="search-bar">
-        <input class="fi" id="rmatldisp-search" placeholder="Search serial, product, customer..." />
-        <select class="fi" id="rmatldisp-type-filter" style="width:175px;">
-          <option value="">All types</option>
-          <option value="rma">⛔ RMA</option>
-          <option value="fail-tl">🗑 Total Loss</option>
+        <input class="fi" id="rmatldisp-search" placeholder="Search serial, product, customer, location..." />
+        <select class="fi" id="rmatldisp-type-filter" style="width:200px;">
+          <option value="">All</option>
+          <option value="to-return">⛔ RMA to return</option>
+          <option value="rma">✓ RMA returned</option>
+          <option value="fail-tl">🗑 Total Loss dispatched</option>
         </select>
       </div>
       <div class="table-wrap">
@@ -1085,8 +1084,8 @@
               <th style="width:19%">Product</th>
               <th style="width:13%">Category</th>
               <th style="width:9%">Type</th>
-              <th style="width:16%">Dispatched to</th>
-              <th style="width:12%">Dispatched by</th>
+              <th style="width:16%">Customer / location</th>
+              <th style="width:12%">By</th>
               <th style="width:10%">Date</th>
               <th style="width:6%">Cost</th>
             </tr>
@@ -1121,30 +1120,14 @@
 
     <div class="rpt-panel">
       <div class="rpt-panel-header">
-        <div><div class="rpt-panel-title">Stock value by category</div><div class="rpt-panel-sub">Total holding value broken down by product category</div></div>
+        <div><div class="rpt-panel-title">Stock value</div><div class="rpt-panel-sub">Total holding value, grouped by category, product or location</div></div>
+        <div id="rpt-stock-toggle" style="display:flex;gap:4px;">
+          <button class="btn btn-sm btn-primary" data-group="category">Category</button>
+          <button class="btn btn-sm btn-ghost" data-group="product">Product</button>
+          <button class="btn btn-sm btn-ghost" data-group="location">Location</button>
+        </div>
       </div>
-      <div class="rpt-panel-body" id="rpt-by-category"></div>
-    </div>
-
-    <div class="rpt-panel">
-      <div class="rpt-panel-header">
-        <div><div class="rpt-panel-title">Stock value by product</div><div class="rpt-panel-sub">Ranked by total value — holding stock only</div></div>
-      </div>
-      <div class="rpt-panel-body" id="rpt-by-product"></div>
-    </div>
-
-    <div class="rpt-panel">
-      <div class="rpt-panel-header">
-        <div><div class="rpt-panel-title">Holding cost by location</div><div class="rpt-panel-sub">Total value of stock at each warehouse / location</div></div>
-      </div>
-      <div class="rpt-panel-body" id="rpt-by-location"></div>
-    </div>
-
-    <div class="rpt-panel">
-      <div class="rpt-panel-header">
-        <div><div class="rpt-panel-title">Low stock items</div><div class="rpt-panel-sub">Products at or below their alert threshold</div></div>
-      </div>
-      <div class="rpt-panel-body" id="rpt-low-stock"></div>
+      <div class="rpt-panel-body" id="rpt-stock-value"></div>
     </div>
 
     <div class="rpt-panel">
@@ -1306,48 +1289,49 @@
     </div>
   </section>
 
+  </div><!-- /.main -->
 </div>
 <script src="js/auth.js?v=120"></script>
-<script src="js/auth-ui.js?v=120"></script>
+<script src="js/auth-ui.js?v=141"></script>
 <script src="js/db.js?v=124"></script>
 <script src="js/activity.js?v=124"></script>
 <script src="js/hubspot-picker.js?v=132"></script>
 <script src="js/inventory.js?v=120"></script>
-<script src="js/reports.js?v=115"></script>
+<script src="js/reports.js?v=141"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="js/ui/core.js?v=131"></script>
-<script src="js/ui/dashboard.js?v=131"></script>
-<script src="js/ui/products.js?v=131"></script>
-<script src="js/ui/suppliers.js?v=131"></script>
-<script src="js/ui/orders.js?v=131"></script>
-<script src="js/ui/transit.js?v=131"></script>
+<script src="js/ui/dashboard.js?v=141"></script>
+<script src="js/ui/products.js?v=141"></script>
+<script src="js/ui/suppliers.js?v=141"></script>
+<script src="js/ui/orders.js?v=141"></script>
+<script src="js/ui/transit.js?v=141"></script>
 <script src="js/ui/receive-modals.js?v=131"></script>
 <script src="js/ui/deployed.js?v=133"></script>
-<script src="js/ui/shipment-history.js?v=131"></script>
-<script src="js/ui/stock-list.js?v=132"></script>
+<script src="js/ui/shipment-history.js?v=141"></script>
+<script src="js/ui/stock-list.js?v=141"></script>
 <script src="js/ui/stock-transfer.js?v=133"></script>
 <script src="js/ui/edit-serial-modal.js?v=131"></script>
 <script src="js/ui/history.js?v=131"></script>
 <script src="js/ui/lookup.js?v=131"></script>
 <script src="js/ui/servicing.js?v=133"></script>
-<script src="js/ui/rma.js?v=131"></script>
 <script src="js/ui/total-loss.js?v=131"></script>
-<script src="js/ui/rmatl-dispatched.js?v=131"></script>
+<script src="js/ui/rmatl-dispatched.js?v=141"></script>
 <script src="js/ui/recall-modal.js?v=131"></script>
-<script src="js/ui/transfers.js?v=133"></script>
+<script src="js/ui/transfers.js?v=141"></script>
+<script src="js/ui/command-palette.js?v=141"></script>
 <script src="js/audit.js?v=131"></script>
 <script src="js/device-map.js?v=135"></script>
 <script src="js/buddy-access.js?v=134"></script>
-<script src="js/networking.js?v=140"></script>
-<script src="js/changelog.js?v=139"></script>
+<script src="js/networking.js?v=141"></script>
+<script src="js/changelog.js?v=141"></script>
 <script src="js/forms/shared.js?v=131"></script>
 <script src="js/forms/stock-in.js?v=131"></script>
-<script src="js/forms/products.js?v=131"></script>
-<script src="js/forms/suppliers.js?v=131"></script>
+<script src="js/forms/products.js?v=141"></script>
+<script src="js/forms/suppliers.js?v=141"></script>
 <script src="js/forms/orders.js?v=131"></script>
 <script src="js/forms/transit.js?v=131"></script>
 <script src="js/forms/stock-out.js?v=132"></script>
-<script src="js/app.js?v=139"></script>
+<script src="js/app.js?v=141"></script>
 </body>
 </html>
 
