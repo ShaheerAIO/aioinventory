@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" />
-  <link rel="stylesheet" href="css/styles.v4.css?v=131" />
+  <link rel="stylesheet" href="css/styles.v4.css?v=139" />
   <style>
     .b-used { background: #FAE4E1 !important; color: #D5381D !important; border: 1px solid #D5381D !important; font-size: 12px; padding: 1px 8px; border-radius: 16px; font-weight: 500; }
     .used-toggle input:checked + .used-toggle-track { background: #D5381D !important; }
@@ -214,19 +214,13 @@
         </div>
       </div>
       <div class="nav-dropdown">
-        <button class="nav-btn nav-dropdown-toggle" data-dropdown="stock-movements">
-          Stock Movements <span class="nav-caret">▾</span>
-        </button>
-        <div class="nav-dropdown-menu" id="dd-stock-movements">
-          <button class="nav-dropdown-item" data-view="in">Stock In</button>
-          <button class="nav-dropdown-item" data-view="out">Stock Out</button>
-        </div>
-      </div>
-      <div class="nav-dropdown">
         <button class="nav-btn nav-dropdown-toggle" data-dropdown="stock-info">
-          Stock Info <span class="nav-caret">▾</span>
+          Stock <span class="nav-caret">▾</span>
         </button>
         <div class="nav-dropdown-menu" id="dd-stock-info">
+          <button class="nav-dropdown-item" data-view="in">Stock In</button>
+          <button class="nav-dropdown-item" data-view="out">Stock Out</button>
+          <div class="nav-dropdown-divider"></div>
           <button class="nav-dropdown-item" data-view="stock-list">Stock Holding</button>
           <button class="nav-dropdown-item" data-view="deployed">Stock Deployed</button>
           <button class="nav-dropdown-item" data-view="rmatldisp">Stock RMA / TL</button>
@@ -253,12 +247,20 @@
           <button class="nav-dropdown-item" data-view="lookup">Serial Lookup</button>
           <button class="nav-dropdown-item" data-view="history">History</button>
           <button class="nav-dropdown-item" data-view="activity" id="nav-activity" style="display:none;">Activity Log</button>
+          <button class="nav-dropdown-item" data-view="changelog">What's New</button>
         </div>
       </div>
-      <button class="nav-btn" data-view="map-devices" id="nav-map-devices" style="display:none;">Map Devices</button>
-      <button class="nav-btn" data-view="buddy-access" id="nav-buddy-access" style="display:none;">Buddy Access</button>
-      <button class="nav-btn" data-view="changelog">What's New</button>
-      <span id="app-version-label" style="font-size:11px;color:rgba(255,255,255,0.45);margin-left:auto;padding-right:4px;letter-spacing:0.5px;">v94</span>
+      <div class="nav-dropdown" id="nav-integrations" style="display:none;">
+        <button class="nav-btn nav-dropdown-toggle" data-dropdown="integrations">
+          Integrations <span class="nav-caret">▾</span>
+        </button>
+        <div class="nav-dropdown-menu" id="dd-integrations">
+          <button class="nav-dropdown-item" data-view="map-devices">Map Devices</button>
+          <button class="nav-dropdown-item" data-view="networking">Networking</button>
+          <button class="nav-dropdown-item" data-view="buddy-access" id="nav-buddy-access" style="display:none;">Buddy Access</button>
+        </div>
+      </div>
+      <button id="app-version-label" data-goto-view="changelog" title="What's New" style="font-size:11px;color:rgba(255,255,255,0.45);margin-left:auto;padding-right:4px;letter-spacing:0.5px;background:none;border:none;cursor:pointer;font-family:inherit;">v94</button>
     </nav>
   </header>
 
@@ -1195,6 +1197,18 @@
     </div>
   </section>
 
+  <!-- ══════════════════ NETWORKING (admin view, read only) ══════════════════ -->
+  <section id="v-networking" class="view" style="display:none;">
+    <div class="panel">
+      <div class="panel-title">
+        Networking — SIMs in UniFi LTE units
+        <span><button class="btn btn-ghost btn-sm" id="net-refresh">Refresh</button></span>
+      </div>
+      <p style="font-size:13px;color:var(--text-muted);margin:0 0 12px;">Every SIM in a UniFi LTE backup unit, with its IMEI, ICCID, carrier and signal. SIMs whose APN isn't exactly <b>Broadband</b> or whose auth type isn't none are flagged in red. Read from UniFi; nothing is changed there.</p>
+      <div id="net-root"></div>
+    </div>
+  </section>
+
   <section id="v-buddy-access" class="view" style="display:none;">
     <div class="panel">
       <div class="panel-title">
@@ -1324,7 +1338,8 @@
 <script src="js/audit.js?v=131"></script>
 <script src="js/device-map.js?v=135"></script>
 <script src="js/buddy-access.js?v=134"></script>
-<script src="js/changelog.js?v=138"></script>
+<script src="js/networking.js?v=140"></script>
+<script src="js/changelog.js?v=139"></script>
 <script src="js/forms/shared.js?v=131"></script>
 <script src="js/forms/stock-in.js?v=131"></script>
 <script src="js/forms/products.js?v=131"></script>
@@ -1332,7 +1347,7 @@
 <script src="js/forms/orders.js?v=131"></script>
 <script src="js/forms/transit.js?v=131"></script>
 <script src="js/forms/stock-out.js?v=132"></script>
-<script src="js/app.js?v=132"></script>
+<script src="js/app.js?v=139"></script>
 </body>
 </html>
 

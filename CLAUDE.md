@@ -20,7 +20,7 @@ Layered design:
 - **Rendering (`js/ui/`)** — `UI` singleton, one file per view (dashboard, stock list, deployed, transit, lookup, history, etc.) rendering into the `<section class="view">` containers in `index.html`. `js/ui/core.js` defines `UI` and the shared helpers (`esc`, date formatting, alerts, SmartSelect); each view file attaches its public renderers to `UI` and any helper another file needs to `UI._`. Files pull core helpers from `UI._` at load, but call *other view files* through `UI.x` / `UI._.x` at call time — view files reference each other in cycles, so never destructure a non-core helper at load.
 - **Reporting (`reports.js`)** — `Reports` singleton: KPI/summary builders and report exports (uses `xlsx`).
 - **Stock audit (`audit.js`)** — `Audit` singleton: 3-phase physical stock count (build count list → count/scan → variance report), with pause/resume support.
-- **Event wiring & navigation (`app.js`)** — bootstraps the app: gates everything behind `Auth.onReady`, shows login if logged out, otherwise injects the user bar, waits for `DB.onReady`, applies role restrictions, and shows the view named in the URL hash (else the dashboard). Wires all nav buttons (`data-view="..."`) and view-level filters/exports; navigating pushes `#<view>` onto browser history and `popstate` re-renders, so Back/Forward stay inside the app. Admin-only views (`activity`, `map-devices`) fall back to the dashboard for non-admins. The data-entry forms live in `js/forms/` (`Forms`).
+- **Event wiring & navigation (`app.js`)** — bootstraps the app: gates everything behind `Auth.onReady`, shows login if logged out, otherwise injects the user bar, waits for `DB.onReady`, applies role restrictions, and shows the view named in the URL hash (else the dashboard). Wires all nav buttons (`data-view="..."`) and view-level filters/exports; navigating pushes `#<view>` onto browser history and `popstate` re-renders, so Back/Forward stay inside the app. Admin-only views (`activity`, `map-devices`, `networking`) fall back to the dashboard for non-admins. The data-entry forms live in `js/forms/` (`Forms`).
 
 Views are sections `#v-<name>` in `index.html`; navigation buttons carry `data-view="<name>"` and `app.js` toggles visibility.
 
@@ -28,7 +28,7 @@ Views are sections `#v-<name>` in `index.html`; navigation buttons carry `data-v
 static frontend (`firebase deploy --only functions`; the frontend is on Vercel).
 `aioDevices` (HTTP, Firebase ID token + role: admin reads, super admin writes) backs Map Devices and
 holds the AIO dashboard service-account login as secrets `AIO_DASHBOARD_USERNAME` / `AIO_DASHBOARD_PASSWORD`,
-plus a read-only UniFi Site Manager key `UNIFI_API_KEY` (`functions/unifi.js`, `action=unifi`; UniFi device id = MAC = inventory serial).
+plus a read-only UniFi Site Manager key `UNIFI_API_KEY` (`functions/unifi.js`, `action=unifi`; UniFi device id = MAC = inventory serial). `action=cellular` reads SIM details (IMEI, ICCID, carrier, signal) from each console with LTE gear through the Site Manager connector (`/v1/connector/consoles/<hostId>/proxy/network/api/s/<site>/stat/device`); it backs the Networking view (`js/networking.js`).
 `hubspotNightlySync` (scheduled) and `hubspotSyncManual` (HTTP, shared-secret query param) push
 deployed-hardware rollups into HubSpot. `metrics` (HTTP, `X-Metrics-Key` header) is a read-only
 aggregate feed for the executive dashboard — stock/deployed/in-transit units and value, plus
@@ -55,7 +55,7 @@ without Firebase.
 - `js/ui/*.js` — DOM rendering (`UI`), one file per view/modal; `core.js` loads first.
 - `js/forms/*.js` — the data-entry forms (Stock In, In Transit, Orders, Stock Out, Products, Suppliers) as `Forms`; `shared.js` loads first and holds the product-row/serial-row builders. Each form owns its row state, its button bindings, and a `Forms.show…()` that `app.js` calls on navigation.
 - `js/audit.js` — physical stock-count workflow (`Audit`).
-- `js/changelog.js` — `CHANGELOG` array powering the "What's New" view; currently at `v132`.
+- `js/changelog.js` — `CHANGELOG` array powering the "What's New" view; currently at `v133`.
 - `functions/index.js` — Cloud Function entry points (`hubspotNightlySync`, `hubspotSyncManual`, `metrics`).
 - `functions/inventoryStats.js` — shared server-side inventory aggregation (see above).
 - `functions/hubspotSync.js` — HubSpot company rollup logic.
@@ -63,6 +63,7 @@ without Firebase.
 - `functions/buddyAccess.js` + `js/buddy-access.js` — the Buddy Access picker. `aioBuddyAccess` (HTTP, super admin only) adds restaurants to an AIO Buddy account the super admin picks by name/email (the id must be in the dashboard's buddy list — `resolveBuddy` — so only existing buddies can be edited) as the same ops service account `aioDevices` uses, so that account must hold the dashboard's `aiobuddy-*` permissions (granted once by a super admin; no super admin login lives in the cloud). The dashboard's buddy update **replaces the whole record**, so a grant reads it, appends, writes it all back, re-reads and restores the original if anything was dropped. Add-only. Tested by `test/buddy-access.test.js`.
 - `functions/aioDashboard.js` — server-side client for the AIO production dashboard backend (`backend.prod.aioapp.com`): login/session, `x-tenant-id`, envelopes, device list/create/delete. Request bodies mirror `zeus/apps/backend/src/modules/restaurant-management/devices` (the backend source is the sibling `zeus` repo). Used by the `aioDevices` function.
 - `js/device-map.js` — `DeviceMap`: the Map Devices view. Registers deployed/staged POS, KDS, kiosks and menu boards (printers are deliberately excluded — they bind locally by IP) at the customer's AIO dashboard restaurant via `aioDevices`, pairs AMS1 terminals onto POS/kiosk records, the super-admin discrepancy report, and the corner nudge after a stage/dispatch. Customer → restaurant links live in `deviceLocationMap` on the main doc (`DB.setDeviceLocation`).
+- `js/networking.js` — `Networking`: the Networking view (Integrations → Networking, admin only). Lists every SIM in a UniFi LTE unit via `aioDevices` `action=cellular`, flagging any whose APN isn't exactly `Broadband` or whose auth type isn't none. Read only.
 - `js/app.js` — boot, navigation (hash routing: each view is `#<view>`, so Back/Forward and deep links work), view-level event wiring (IIFE, no exports).
 - `css/styles.v4.css` — the active stylesheet (referenced by `index.html`). `styles.css` and `styles.v2.css` are older/unused versions.
 - `firestore.rules` — Firestore security rules (wired into `firebase.json`). **Gates role escalation** — see Conventions below.
@@ -107,7 +108,7 @@ firebase deploy --only functions
 Data backup/restore via browser console: `DB.exportJSON()` and `DB.importJSON('<json>')`.
 
 ## Conventions & Gotchas
-- **Script load order is load-bearing** (see bottom of `index.html`): `auth.js → auth-ui.js → db.js → activity.js → hubspot-picker.js → inventory.js → reports.js → xlsx → ui/core.js → ui/*.js → audit.js → device-map.js → changelog.js → forms/shared.js → forms/*.js → app.js`. Each module assumes its dependencies are already defined as globals.
+- **Script load order is load-bearing** (see bottom of `index.html`): `auth.js → auth-ui.js → db.js → activity.js → hubspot-picker.js → inventory.js → reports.js → xlsx → ui/core.js → ui/*.js → audit.js → device-map.js → buddy-access.js → networking.js → changelog.js → forms/shared.js → forms/*.js → app.js`. Each module assumes its dependencies are already defined as globals.
 - **Cache-busting query strings** (`?v=101`, `?v=108`, ...) are appended to each `<script src>` in `index.html`. When you change a JS file, **bump its version number** in `index.html` so browsers reload it.
 - **Firebase config is committed in source** (`db.js` and `auth.js` both inline the same `FB_CONFIG` for project `aio-inventory-b9b29`). This is a client-side Firebase web key (normal for Firebase), but be aware it is in the repo; security relies on Firestore/Auth rules, not on hiding the key.
 - **Single shared Firestore document** (`inventory/main`) holds *all* inventory data and is fully read into memory and rewritten on save. Writes set a `_pendingWrite` flag so the app ignores its own `onSnapshot` echo. Keep this in mind for concurrency — last write generally wins on the whole document.

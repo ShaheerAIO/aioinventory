@@ -4,6 +4,15 @@
  */
 var CHANGELOG = [
   {
+    version: 'v133',
+    date: '2026-11-02',
+    title: 'Networking: SIMs & IMEIs, and a Tidier Menu',
+    changes: [
+      { type: 'new', text: 'New Networking page (Integrations \u2192 Networking, admins): every SIM in a UniFi LTE backup unit, with the UniFi site, its IMEI, SIM number (ICCID), carrier, APN, signal, and whether that site is running on LTE right now because its main internet is down. Any SIM whose APN isn\u2019t exactly \u201cBroadband\u201d or whose auth type isn\u2019t none is flagged in red and listed first, with filters for wrong APN / auth, not connected, on LTE now and offline. Read from UniFi only' },
+      { type: 'improved', text: 'The top menu is shorter: Map Devices, Networking and Buddy Access are under a new Integrations menu; Stock In and Stock Out joined Stock Holding and the rest under Stock; and What\u2019s New is under Records (the version number in the corner also opens it)' },
+    ],
+  },
+  {
     version: 'v132',
     date: '2026-10-28',
     title: 'HubSpot Quotes & Invoices on Stock Out',

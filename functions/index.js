@@ -186,13 +186,15 @@ const AIO_DASHBOARD_USERNAME = defineSecret('AIO_DASHBOARD_USERNAME');
 const AIO_DASHBOARD_PASSWORD = defineSecret('AIO_DASHBOARD_PASSWORD');
 const { createClient, validateDevice } = require('./aioDashboard');
 const UNIFI_API_KEY = defineSecret('UNIFI_API_KEY');
-const { listUnifiDevices } = require('./unifi');
+const { listUnifiDevices, listCellular } = require('./unifi');
 
 const MAX_DEVICES_PER_MAP = 50;
 const CACHE_MS = 2 * 60 * 1000;
 let _aio = null;
 let _cache = { at: 0, locations: null, serials: null };
 let _unifi = { at: 0, devices: null };
+// SIMs mean one connector call per console with cellular gear, so cached like terminals
+let _cellular = { at: 0, data: null };
 // Every paired AMS1 means reading each restaurant's device list — one call per
 // restaurant, so it is cached longer and fetched only for the discrepancy report
 const TERMINAL_CACHE_MS = 10 * 60 * 1000;
@@ -302,6 +304,15 @@ exports.aioDevices = onRequest(
           _unifi = { at: Date.now(), devices: await listUnifiDevices(UNIFI_API_KEY.value()) };
         }
         res.json({ devices: _unifi.devices });
+        return;
+      }
+
+      // Every SIM in a UniFi LTE device: IMEI, ICCID, carrier, signal (read-only key)
+      if (!isWrite && action === 'cellular') {
+        if (p.fresh === '1' || !_cellular.data || Date.now() - _cellular.at > TERMINAL_CACHE_MS) {
+          _cellular = { at: Date.now(), data: await listCellular(UNIFI_API_KEY.value()) };
+        }
+        res.json({ ..._cellular.data, at: _cellular.at });
         return;
       }
 

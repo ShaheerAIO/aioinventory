@@ -167,6 +167,7 @@ html, body { font-family: var(--font); font-size: 14px; background: var(--bg-3);
   cursor: pointer;
 }
 .nav-dropdown-item:hover { background: var(--aio-purple-light); color: var(--aio-purple-deep); }
+.nav-dropdown-divider { height: 1px; margin: 4px 6px; background: var(--border); }
 .nav-dropdown-item.active { background: var(--aio-purple-light); color: var(--aio-purple-deep); font-weight: 500; }
 
 /* ── Page content padding ────────────────────────────────────────────── */
