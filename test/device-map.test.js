@@ -43,6 +43,10 @@ const eq = (name, a, b) => { const good = JSON.stringify(a) === JSON.stringify(b
 console.log('\nRules');
 eq('AMS1 key strips the prefix', R.key('ams1-000168254080966'), '000168254080966');
 eq('terminal serial gets the prefix', R.terminalSerial('000168254080966'), 'AMS1-000168254080966');
+// Move restaurant: what the browser offers to move must be exactly what the function's move accepts
+[{ type: 'kiosk', serial: 'K18VIBS0LH' }, { type: 'tv', serial: 'ADRB0AAHE00021' }, { type: 'pos', serial: 'DP1' },
+ { type: 'kds', serial: 'KD1' }, { type: 'printer', serial: 'Wke764' }, { type: 'nugget', serial: 'N1' }, { type: 'kiosk', serial: 'bad serial' }]
+  .forEach(x => eq(`movable ${x.type} ${x.serial} agrees with validateDevice`, R.isMovable(x), validateDevice({ ...x, name: 'n' }) === null));
 eq('POS terminal → pos', R.deviceTypeFor({ serial: 'DP02256GJ0540', category: 'POS Terminal' }), 'pos');
 eq('kitchen printer is not mapped (bound locally by IP)', R.deviceTypeFor({ serial: 'N439257312266', category: 'Kitchen Printer' }), null);
 eq('label printer is not mapped', R.deviceTypeFor({ serial: 'XAZ2005618', category: 'Receipt/Label Printer' }), null);

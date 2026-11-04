@@ -180,13 +180,15 @@ exports.hubspotCompanyDocs = onRequest(
 // ── Device mapping against the AIO production dashboard ──────────────────────
 // Backs the Map Devices view. Reads (restaurants, each one's devices, and the
 // platform-wide serial index) are open to admins; anything that writes to the
-// production dashboard is super admin only. Same Firebase ID token + app role
-// gate as the HubSpot picker.
+// production dashboard is super admin only — except churn (functions/churn.js),
+// which editors may call too. Same Firebase ID token + app role gate as the
+// HubSpot picker.
 const AIO_DASHBOARD_USERNAME = defineSecret('AIO_DASHBOARD_USERNAME');
 const AIO_DASHBOARD_PASSWORD = defineSecret('AIO_DASHBOARD_PASSWORD');
 const { createClient, validateDevice } = require('./aioDashboard');
 const UNIFI_API_KEY = defineSecret('UNIFI_API_KEY');
 const { listUnifiDevices, listCellular } = require('./unifi');
+const { accessError, previewChurn, runChurn } = require('./churn');
 
 const MAX_DEVICES_PER_MAP = 50;
 const CACHE_MS = 2 * 60 * 1000;
@@ -282,17 +284,30 @@ exports.aioDevices = onRequest(
   async (req, res) => {
     const role = await callerRole(req);
     if (!role) { res.status(401).json({ error: 'Unauthorized' }); return; }
-    if (!['superadmin', 'admin'].includes(role)) { res.status(403).json({ error: 'Forbidden' }); return; }
 
     const isWrite = req.method === 'POST';
-    if (isWrite && role !== 'superadmin') {
-      res.status(403).json({ error: 'Only a super admin can change the AIO dashboard' });
-      return;
-    }
     const p = isWrite ? (req.body || {}) : req.query;
     const action = String(p.action || '');
+    const denied = accessError(role, action, isWrite);
+    if (denied) { res.status(denied.status).json({ error: denied.error }); return; }
 
     try {
+      // Churn — editors too. The restaurant comes from the customer's link, never the client.
+      if (!isWrite && action === 'churnPreview') {
+        const r = await previewChurn(admin.firestore(), aio(), knownLocation, p.customer);
+        if (r.error) { res.status(400).json({ error: r.error }); return; }
+        res.json(r);
+        return;
+      }
+
+      if (isWrite && action === 'churn') {
+        const r = await runChurn(admin.firestore(), aio(), knownLocation, p.customer);
+        if (r.error) { res.status(400).json({ error: r.error }); return; }
+        if (r.location) { _cache.at = 0; _terminals.at = 0; }
+        res.json(r);
+        return;
+      }
+
       if (!isWrite && action === 'overview') {
         res.json(await overview(p.fresh === '1'));
         return;

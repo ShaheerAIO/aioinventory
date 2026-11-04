@@ -26,9 +26,10 @@ Views are sections `#v-<name>` in `index.html`; navigation buttons carry `data-v
 
 **Cloud Functions (`functions/`)** — Node 22, `firebase-functions` v2, deployed separately from the
 static frontend (`firebase deploy --only functions`; the frontend is on Vercel).
-`aioDevices` (HTTP, Firebase ID token + role: admin reads, super admin writes) backs Map Devices and
+`aioDevices` (HTTP, Firebase ID token + role: admin reads, super admin writes — except churn, below) backs Map Devices and
 holds the AIO dashboard service-account login as secrets `AIO_DASHBOARD_USERNAME` / `AIO_DASHBOARD_PASSWORD`,
 plus a read-only UniFi Site Manager key `UNIFI_API_KEY` (`functions/unifi.js`, `action=unifi`; UniFi device id = MAC = inventory serial). `action=cellular` reads SIM details (IMEI, ICCID, carrier, signal) from each console with LTE gear through the Site Manager connector (`/v1/connector/consoles/<hostId>/proxy/network/api/s/<site>/stat/device`); it backs the Networking view (`js/networking.js`).
+`action=churnPreview` (GET) / `churn` (POST) list / delete every device at a customer's dashboard restaurant, open to superadmin, admin **and edit**; the browser sends only the customer name and the server resolves the restaurant from `deviceLocationMap` (`functions/churn.js`).
 `hubspotNightlySync` (scheduled) and `hubspotSyncManual` (HTTP, shared-secret query param) push
 deployed-hardware rollups into HubSpot. `metrics` (HTTP, `X-Metrics-Key` header) is a read-only
 aggregate feed for the executive dashboard — stock/deployed/in-transit units and value, plus
@@ -61,6 +62,7 @@ without Firebase.
 - `functions/hubspotSync.js` — HubSpot company rollup logic.
 - `functions/hubspotDocs.js` — `hubspotCompanyDocs` (HTTP, any signed-in role): a linked company's quotes and invoices (direct + via its deals, deduped) with HubSpot record and public links, shown on Stock Out by `HubspotPicker.renderDocs`. Needs the token's quote/invoice read scopes. Tested by `test/hubspot-docs.test.js`.
 - `functions/buddyAccess.js` + `js/buddy-access.js` — the Buddy Access picker. `aioBuddyAccess` (HTTP, super admin only) adds restaurants to an AIO Buddy account the super admin picks by name/email (the id must be in the dashboard's buddy list — `resolveBuddy` — so only existing buddies can be edited) as the same ops service account `aioDevices` uses, so that account must hold the dashboard's `aiobuddy-*` permissions (granted once by a super admin; no super admin login lives in the cloud). The dashboard's buddy update **replaces the whole record**, so a grant reads it, appends, writes it all back, re-reads and restores the original if anything was dropped. Add-only. Tested by `test/buddy-access.test.js`.
+- `functions/churn.js` — churn for `aioDevices`: the role gate (`accessError`, the only place `edit` is let through), resolving a customer to its restaurant via `deviceLocationMap` + `knownLocation` (never from the client), and deleting its devices one at a time. Takes `db` and the aio client as parameters. Tested by `test/churn.test.js`.
 - `functions/aioDashboard.js` — server-side client for the AIO production dashboard backend (`backend.prod.aioapp.com`): login/session, `x-tenant-id`, envelopes, device list/create/delete. Request bodies mirror `zeus/apps/backend/src/modules/restaurant-management/devices` (the backend source is the sibling `zeus` repo). Used by the `aioDevices` function.
 - `js/device-map.js` — `DeviceMap`: the Map Devices view. Registers deployed/staged POS, KDS, kiosks and menu boards (printers are deliberately excluded — they bind locally by IP) at the customer's AIO dashboard restaurant via `aioDevices`, pairs AMS1 terminals onto POS/kiosk records, the super-admin discrepancy report, and the corner nudge after a stage/dispatch. Customer → restaurant links live in `deviceLocationMap` on the main doc (`DB.setDeviceLocation`).
 - `js/networking.js` — `Networking`: the Networking view (Integrations → Networking, admin only). Lists every SIM in a UniFi LTE unit via `aioDevices` `action=cellular`, flagging any whose APN isn't exactly `Broadband` or whose auth type isn't none. Read only. The last result is cached in localStorage key `aio_networking_cache_v1` (per uid, cleared on sign-out), shown instantly, then refreshed in the background.
@@ -81,6 +83,7 @@ node test/super-edit.test.js           # super admin unit editor (movement split
 node test/device-map.test.js           # Map Devices planning rules + AIO dashboard client
 node test/buddy-access.test.js         # Buddy Access: add-only merge, verify and restore
 node test/hubspot-docs.test.js         # HubSpot quotes/invoices for Stock Out
+node test/churn.test.js                # churn: role gate, restaurant resolution, deletes
 node test/views.test.js           # every view has its section, every app.js id exists
 ```
 

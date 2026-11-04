@@ -4,6 +4,24 @@
  */
 var CHANGELOG = [
   {
+    version: 'v143',
+    date: '2026-11-04',
+    title: 'Move a Restaurant\u2019s Devices in One Go',
+    changes: [
+      { type: 'new', text: 'Map Devices \u2192 Move restaurant (super admins): pick a From and a To restaurant and every POS, kiosk, KDS and menu board registered at the first moves to the second with one button \u2014 handy for the demo room. It reads the AIO dashboard\u2019s own device list, so devices inventory doesn\u2019t know about move too. Untick any you want to leave behind' },
+      { type: 'new', text: 'Each device moves one at a time and shows its own result. If a device can\u2019t be created at the new restaurant it is put back where it was. Names and payment terminals go with it; printers stay put, and inventory isn\u2019t changed' },
+    ],
+  },
+  {
+    version: 'v142',
+    date: '2026-11-03',
+    title: 'Churn a Restaurant',
+    changes: [
+      { type: 'new', text: 'When a restaurant leaves, open it in Stock Deployed \u2192 Restaurants and press Churn restaurant (anyone who can edit). You review the units coming back and the devices that will be removed from the AIO dashboard, choose where the units return to, then type the restaurant name to confirm' },
+      { type: 'new', text: 'Churning deletes the restaurant\u2019s devices in the AIO dashboard, then returns every unit to stock flagged Needs Testing with its cost kept, and unlinks the restaurant from the dashboard. If any dashboard device can\u2019t be removed, nothing in inventory changes and you can run it again to retry' },
+    ],
+  },
+  {
     version: 'v135',
     date: '2026-11-02',
     title: 'Search Everywhere and Tidier Pages',

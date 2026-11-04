@@ -50,6 +50,11 @@ const DeviceMap = (() => {
     return type;
   }
 
+  // A dashboard device record the move action can carry to another restaurant
+  // (the same types and serial rule the function's validateDevice accepts)
+  const MOVABLE_TYPES = Object.values(CATEGORY_TYPES);
+  const isMovable = d => MOVABLE_TYPES.includes(d.type) && SERIAL_RE.test(String(d.serial || ''));
+
   // "Pac Heights Deli" → "PHD", the suffix the dashboard's own device names use
   function initials(name) {
     return String(name || '').replace(/\([^)]*\)/g, ' ').split(/[^A-Za-z0-9]+/).filter(Boolean)
@@ -360,6 +365,7 @@ const DeviceMap = (() => {
   let _serialMap = {};       // key(serial) → restaurantId
   let _view = { customer: null, search: '', filter: 'all', tab: 'list' };
   let _detail = null;        // { customer, loc, existing, pairing, names, results }
+  let _move = null;          // Move restaurant tab: { from, to, devices, sel: Set, results, running, error }
   let _pendingOpen = null;
   let _loading = false;
   const _openReport = new Set(); // discrepancy sections left expanded, kept across re-renders
@@ -427,7 +433,7 @@ const DeviceMap = (() => {
     const byCustomer = customerUnits();
     const uni = unifiView(byCustomer);
     const isSuper = Auth.isSuperAdmin();
-    const tab = isSuper && _view.tab === 'report' ? 'report' : 'list';
+    const tab = isSuper && ['report', 'move'].includes(_view.tab) ? _view.tab : 'list';
     const uniIssue = c => { const u = uni?.perCustomer[c]; return !!u && u.online < u.total; };
     const match = {
       all: () => true, tomap: r => r.toMap > 0, unlinked: r => !r.sug,
@@ -468,12 +474,19 @@ const DeviceMap = (() => {
       <div style="display:flex;gap:4px;margin-bottom:12px;">
         <button class="btn btn-sm ${tab === 'list' ? 'btn-orange' : 'btn-ghost'} dm-tab" data-tab="list">Restaurants</button>
         <button class="btn btn-sm ${tab === 'report' ? 'btn-orange' : 'btn-ghost'} dm-tab" data-tab="report">Discrepancies</button>
+        <button class="btn btn-sm ${tab === 'move' ? 'btn-orange' : 'btn-ghost'} dm-tab" data-tab="move" title="Move a restaurant's devices to another restaurant in one go">Move restaurant</button>
       </div>` : '';
 
     if (tab === 'report') {
       root().innerHTML = tabs + `<div id="dm-report"></div>`;
       wireTabs();
       renderReport();
+      return;
+    }
+    if (tab === 'move') {
+      root().innerHTML = tabs + `<div id="dm-move"></div>`;
+      wireTabs();
+      renderMove();
       return;
     }
 
@@ -778,6 +791,116 @@ const DeviceMap = (() => {
     renderDetail(d.customer);
   }
 
+  // ── Super admin: move a whole restaurant's devices (e.g. the demo room) ───
+  // Works off the dashboard's own device list, not inventory, so it moves
+  // devices inventory doesn't know about or files under another customer.
+  // Each device goes through the existing per-serial move (delete here, create
+  // there, put back if the create fails), one at a time.
+  function renderMove() {
+    const box = document.getElementById('dm-move');
+    if (!box) return;
+    const m = _move = _move || { from: null, to: null, devices: null, sel: new Set(), results: {}, running: false, error: '' };
+    const locBtn = (id, l, label) => `
+      <div style="flex:1;min-width:240px;padding:12px 14px;border:1px ${l ? 'solid' : 'dashed'} var(--border-md);border-radius:var(--r-md);">
+        <div style="font-size:11px;color:var(--text-hint);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px;">${label}</div>
+        ${l ? `<div style="font-size:14px;font-weight:600;">${esc(locLabel(l))}</div><div style="font-size:12px;color:var(--text-hint);">${esc(locIds(l))}</div>` : ''}
+        <button class="btn btn-ghost btn-xs" id="${id}" style="margin-top:6px;" ${m.running ? 'disabled' : ''}>${l ? 'Change' : 'Choose restaurant'}</button>
+      </div>`;
+    const res = s => {
+      const r = m.results[s];
+      if (!r) return '';
+      if (r === 'moving') return '<span class="badge b-low">Moving…</span>';
+      return r.ok ? '<span class="badge b-ok">Moved</span>'
+        : `<span class="badge b-zero" title="${esc(r.message || '')}">${r.restored ? 'Failed — put back' : r.restored === false ? 'Failed — NOT put back' : 'Failed'}</span>`;
+    };
+    const rows = (m.devices || []).map(d => `
+      <tr>
+        <td><input type="checkbox" class="dmm-sel" data-serial="${esc(d.serial)}" ${isMovable(d) ? '' : 'disabled'} ${m.sel.has(d.serial) ? 'checked' : ''} ${m.running ? 'disabled' : ''} /></td>
+        <td style="font-family:var(--mono);font-size:12px;">${esc(d.serial || '—')}</td>
+        <td>${esc(d.type)}</td>
+        <td>${esc(d.name || '—')}</td>
+        <td>${esc(d.paymentDeviceSerial || '—')}</td>
+        <td>${isMovable(d) ? res(d.serial) : '<span style="font-size:12px;color:var(--text-hint);">Not moved</span>'}</td>
+      </tr>`).join('');
+    const chosen = (m.devices || []).filter(d => m.sel.has(d.serial));
+    const withTerminal = chosen.filter(d => d.paymentDeviceSerial).length;
+    const skipped = (m.devices || []).filter(d => !isMovable(d)).length;
+
+    box.innerHTML = `
+      <p style="font-size:13px;color:var(--text-muted);margin:0 0 12px;">Move devices from one AIO dashboard restaurant to another in one go — the demo room, say. This reads the dashboard's own list, so it doesn't matter what inventory says. Names stay as they are, and inventory is not changed.</p>
+      <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px;">
+        ${locBtn('dmm-from', m.from, 'From')}
+        <div style="font-size:18px;color:var(--text-hint);">→</div>
+        ${locBtn('dmm-to', m.to, 'To')}
+      </div>
+      ${!m.from ? '' : m.error ? `<div class="empty">Couldn't read this restaurant's devices — ${esc(m.error)}</div>`
+        : !m.devices ? `<div class="empty">Reading this restaurant's devices…</div>` : `
+        <div class="table-wrap"><table>
+          <thead><tr><th><input type="checkbox" id="dmm-all" ${m.running ? 'disabled' : ''} ${chosen.length && chosen.length === m.devices.filter(isMovable).length ? 'checked' : ''} /></th><th>Serial</th><th>Type</th><th>Name</th><th>Payment terminal</th><th>Result</th></tr></thead>
+          <tbody>${rows || '<tr><td colspan="6" class="empty">No devices at this restaurant.</td></tr>'}</tbody>
+        </table></div>
+        ${skipped ? `<div style="font-size:12px;color:var(--text-hint);margin:8px 0;">${skipped} device${skipped !== 1 ? 's' : ''} (printers and other types) can't be moved from here and stay put.</div>` : ''}
+        ${withTerminal ? `<div style="font-size:12px;color:var(--warning-text);margin:8px 0;">${withTerminal} selected device${withTerminal !== 1 ? 's carry' : ' carries'} a payment terminal. It is re-assigned to the destination's Adyen store; if that restaurant isn't Adyen-onboarded the move fails and the device is put back.</div>` : ''}
+        <button class="btn btn-primary" id="dmm-go" style="margin-top:8px;" ${!m.to || !chosen.length || m.running ? 'disabled' : ''}>
+          ${m.running ? 'Moving…' : `Move ${chosen.length} device${chosen.length !== 1 ? 's' : ''}${m.to ? ` to ${esc(m.to.name)}` : ''}`}
+        </button>`}`;
+
+    box.querySelector('#dmm-from')?.addEventListener('click', () =>
+      pickLocation({ title: 'Move devices from…', exclude: m.to?.restaurantId ?? null }, loc => loadMoveSource(loc)));
+    box.querySelector('#dmm-to')?.addEventListener('click', () =>
+      pickLocation({ title: 'Move devices to…', exclude: m.from?.restaurantId ?? null }, loc => { m.to = loc; renderMove(); }));
+    box.querySelectorAll('.dmm-sel').forEach(c => c.addEventListener('change', () => {
+      c.checked ? m.sel.add(c.dataset.serial) : m.sel.delete(c.dataset.serial);
+      renderMove();
+    }));
+    box.querySelector('#dmm-all')?.addEventListener('change', e => {
+      m.sel = new Set(e.target.checked ? m.devices.filter(isMovable).map(d => d.serial) : []);
+      renderMove();
+    });
+    box.querySelector('#dmm-go')?.addEventListener('click', runBulkMove);
+  }
+
+  async function loadMoveSource(loc) {
+    const m = _move;
+    Object.assign(m, { from: loc, devices: null, sel: new Set(), results: {}, error: '' });
+    renderMove();
+    try {
+      m.devices = (await api({ action: 'devices', businessId: loc.businessId, restaurantId: loc.restaurantId })).devices;
+      m.sel = new Set(m.devices.filter(isMovable).map(d => d.serial));
+    } catch (e) { m.error = e.message; }
+    renderMove();
+  }
+
+  async function runBulkMove() {
+    const m = _move;
+    const { from, to } = m;
+    const chosen = m.devices.filter(d => m.sel.has(d.serial) && isMovable(d));
+    if (!chosen.length || !to) return;
+    if (!confirm(`Move ${chosen.length} device${chosen.length !== 1 ? 's' : ''} in the AIO production dashboard\n\nfrom ${from.name} (tenant ${from.businessId}, location ${from.restaurantId})\nto ${to.name} (tenant ${to.businessId}, location ${to.restaurantId})?\n\n` +
+      chosen.map(d => `${d.type} ${d.serial} — ${d.name}`).join('\n'))) return;
+    m.running = true;
+    m.results = {};
+    for (const d of chosen) {
+      m.results[d.serial] = 'moving';
+      renderMove();
+      const r = await api(null, { action: 'move', serial: d.serial, name: d.name, to: { businessId: to.businessId, restaurantId: to.restaurantId } })
+        .catch(e => ({ ok: false, message: e.message }));
+      m.results[d.serial] = r;
+      Activity.log('moveDevice',
+        `AIO dashboard: ${r.ok ? 'moved' : 'FAILED to move'} ${d.serial} from ${from.name} (tenant ${from.businessId}) to ${to.name} (tenant ${to.businessId}) as "${d.name}" (Move restaurant)` +
+          (r.ok ? '' : ` — ${r.message}${r.restored ? ' (put back)' : r.restored === false ? ' (NOT put back)' : ''}`),
+        { serial: d.serial, from, to, name: d.name, result: r }, [d.serial]);
+    }
+    m.running = false;
+    const bad = chosen.filter(d => !m.results[d.serial].ok);
+    UI.showAlert(bad.length
+      ? `${chosen.length - bad.length} moved, ${bad.length} failed: ${bad.map(d => `${d.serial} — ${m.results[d.serial].message}`).join('; ')}`
+      : `${chosen.length} device${chosen.length !== 1 ? 's' : ''} moved to ${to.name}`, bad.length ? 'error' : 'success');
+    _terminals = null;
+    try { await loadOverview(true); } catch (_) {}
+    renderMove();
+  }
+
   // ── Restaurant picker ─────────────────────────────────────────────────────
   function pickLocation({ title, seed = '', exclude = null }, onPick) {
     const overlay = document.createElement('div');
@@ -989,6 +1112,8 @@ const DeviceMap = (() => {
   }
 
   return { render, refresh, open, nudge,
+           churnPreview: customer => api({ action: 'churnPreview', customer }),
+           churn: customer => api(null, { action: 'churn', customer }),
            // exposed for tests
-           _rules: { key, terminalSerial, isTerminal, deviceTypeFor, initials, customerUnits, suggestLocation, buildPlan, buildDiscrepancies, buildUnifi, unifiForCustomer } };
+           _rules: { key, terminalSerial, isTerminal, deviceTypeFor, isMovable, initials, customerUnits, suggestLocation, buildPlan, buildDiscrepancies, buildUnifi, unifiForCustomer } };
 })();

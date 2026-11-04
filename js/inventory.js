@@ -1398,6 +1398,46 @@ const Inventory = (() => {
     );
   }
 
+  function churnCustomer(customer, location, by) {
+    const c = (customer || '').trim();
+    if (!c)        throw new Error('Customer is required.');
+    if (!location) throw new Error('Location is required.');
+    const rows = getDeployedSerialRows().filter(r => (r.customer || '').trim() === c);
+    if (!rows.length) throw new Error(`"${c}" has no units in Stock Deployed.`);
+
+    const { movements } = DB.getData();
+    const groups = {};   // product -> { category, serials, costs }
+    rows.forEach(r => {
+      const s = r.serial.toUpperCase();
+      const origIn = [...movements].reverse().find(m => m.type === 'IN' && m.serials.map(x => x.toUpperCase()).includes(s));
+      if (!origIn) throw new Error(`Cannot find original stock-in record for serial "${s}".`);
+      const g = groups[origIn.product] || (groups[origIn.product] = { category: origIn.category, serials: [], costs: {} });
+      g.serials.push(s);
+      g.costs[s] = DB.getSerialCost(s);
+    });
+
+    const now = Date.now(), date = new Date().toISOString();
+    const entries = Object.entries(groups);
+    DB.addMovements(entries.map(([product, g], i) => ({
+      id:         now + i,
+      type:       'IN',
+      product,
+      category:   g.category,
+      location,
+      supplier:   'Churned: ' + c,
+      receivedBy: by || '',
+      serials:    g.serials,
+      condition:  'needs-testing',
+      used:       true,
+      date,
+    })));
+
+    entries.forEach(([, g]) => Object.entries(g.costs).forEach(([s, cost]) => {
+      if (cost != null) DB.setSerialCost(s, cost);
+    }));
+    return { units: rows.length };
+  }
+
   function recallToServicing(serial, location, condition, recalledBy) {
     const s = serial.trim().toUpperCase();
     if (!s)        throw new Error('Serial number is required.');
@@ -1434,7 +1474,7 @@ const Inventory = (() => {
   }
 
     DB.onReady(() => refreshProducts());
-    return { getInventoryMap, getStockByProduct, getDeployedByProduct, getDeployedByCustomer, getCustomerDetail, getAllSerialRows, getDeployedSerialRows, getRmaTlDispatchedRows, getTotalLossRows, getAvailableSerials, getLowStockItems, getSerialInfo, searchSerials, getSerialKnownProduct, stockIn, getPlaceholderConflicts, createShipment, receiveShipment, receivePartialShipment, closeShipmentWithoutStock, stockOut, stockOutByProduct, dispatchTransfer, receiveTransfer, cancelTransfer, getInFlightTransfers, getTransferInFlightSerials, stagePendingDeployment, confirmDeployment, confirmDeployments, getPendingDeploymentSerials, getLocations, getSuppliers, getProducts, isSerialEditable, getEditableProperties, superEditSerial, getCustomers, getStats, recallToServicing, createOrder, refreshProducts, CATEGORIES, PRODUCTS };
+    return { getInventoryMap, getStockByProduct, getDeployedByProduct, getDeployedByCustomer, getCustomerDetail, getAllSerialRows, getDeployedSerialRows, getRmaTlDispatchedRows, getTotalLossRows, getAvailableSerials, getLowStockItems, getSerialInfo, searchSerials, getSerialKnownProduct, stockIn, getPlaceholderConflicts, createShipment, receiveShipment, receivePartialShipment, closeShipmentWithoutStock, stockOut, stockOutByProduct, dispatchTransfer, receiveTransfer, cancelTransfer, getInFlightTransfers, getTransferInFlightSerials, stagePendingDeployment, confirmDeployment, confirmDeployments, getPendingDeploymentSerials, getLocations, getSuppliers, getProducts, isSerialEditable, getEditableProperties, superEditSerial, getCustomers, getStats, recallToServicing, churnCustomer, createOrder, refreshProducts, CATEGORIES, PRODUCTS };
 
   function createOrder(opts) {
     const { supplier, poNumber, expectedBy, products, taxRate, taxAmount, taxRef } = opts;

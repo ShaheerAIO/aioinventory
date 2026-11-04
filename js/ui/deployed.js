@@ -342,7 +342,10 @@ Items will remain in Stock Holding with no customer attached.`)) return;
 
     document.getElementById('dep-detail-body').innerHTML = `
       <div style="margin-bottom:18px;">
-        <div style="font-size:20px;font-weight:700;margin-bottom:10px;">${esc(d.customer)}</div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
+          <div style="font-size:20px;font-weight:700;">${esc(d.customer)}</div>
+          ${Auth.canEdit() && d.current.length ? '<button class="btn btn-danger" id="dep-churn-btn">Churn restaurant</button>' : ''}
+        </div>
         <div style="display:flex;flex-wrap:wrap;gap:24px;">
           <div>
             <div style="font-size:24px;font-weight:700;">${d.units}</div>
@@ -376,6 +379,8 @@ Items will remain in Stock Holding with no customer attached.`)) return;
       <div class="panel-title" style="margin-top:18px;">Deployment history</div>
       <div>${timelineRows}</div>
     `;
+    const churnBtn = document.getElementById('dep-churn-btn');
+    if (churnBtn) churnBtn.addEventListener('click', () => UI._.showChurnModal(d.customer));
   }
 
   function closeRestaurantDetail() {
