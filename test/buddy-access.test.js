@@ -3,7 +3,8 @@
 //
 //   Run: node test/buddy-access.test.js
 const root = require('path').resolve(__dirname, '..');
-const { withLocations, toUpdateBody, grantLocations, resolveBuddy } = require(root + '/functions/buddyAccess.js');
+const { withLocations, toUpdateBody, grantLocations, resolveBuddy, removeMfa } = require(root + '/functions/buddyAccess.js');
+const { createClient } = require(root + '/functions/aioDashboard.js');
 
 let pass = 0, fail = 0;
 const eq = (name, a, b) => { const good = JSON.stringify(a) === JSON.stringify(b); good ? pass++ : fail++; console.log(`  ${good ? '✓' : '✗'} ${name}${good ? '' : ` (${JSON.stringify(a)} !== ${JSON.stringify(b)})`}`); };
@@ -117,6 +118,31 @@ eq('restaurantId is present (the DTO requires a number)', body.restaurantId, 0);
   eq('a buddy id from the dashboard list resolves', (await resolveBuddy(buddies, 'u2')).email, 'b@x.com');
   await resolveBuddy(buddies, 'someone-else').then(() => eq('should have thrown', 1, 0), e => eq('an id that is not a buddy is rejected', e.message, 'That is not an AIO Buddy account'));
   await resolveBuddy(buddies, undefined).then(() => eq('should have thrown', 1, 0), e => eq('a missing id is rejected', e.message, 'That is not an AIO Buddy account'));
+
+  // Remove MFA: only a buddy's email, matched exactly (case/space-insensitive), and the dashboard's answer is checked
+  const mfaCalls = [];
+  const mfa = (ok = true) => ({ ...buddies, setEmailMfa: async (u, on) => { mfaCalls.push([u, on]); return { ok, message: ok ? '' : 'nope' }; } });
+  eq('a buddy email turns MFA off for that account', (await removeMfa(mfa(), '  B@X.com ')).buddy, { id: 'u2', email: 'b@x.com', name: 'Bo B' });
+  eq('the email sent is the one on the buddy list, with MFA off', mfaCalls.pop(), ['b@x.com', false]);
+  await removeMfa(mfa(), 'b@x').then(() => eq('should have thrown', 1, 0), e => eq('a partial email is rejected', e.message, 'No AIO Buddy account has that email'));
+  await removeMfa(mfa(), 'boss@aioapp.com').then(() => eq('should have thrown', 1, 0), e => eq('a non-buddy email is rejected', e.message, 'No AIO Buddy account has that email'));
+  await removeMfa(mfa(), '').then(() => eq('should have thrown', 1, 0), e => eq('an empty email is rejected', e.message, 'No AIO Buddy account has that email'));
+  eq('nothing was sent for a rejected email', mfaCalls.length, 0);
+  await removeMfa(mfa(false), 'a@x.com').then(() => eq('should have thrown', 1, 0), e => eq('a refusal from the dashboard is an error', e.message, 'nope'));
+
+  // The client call matches the backend's Enable2FaEmailRequestDto
+  const sent = [];
+  const fetchImpl = async (url, opts) => {
+    sent.push({ url, opts });
+    const body = url.endsWith('/user-login')
+      ? { success: true, data: { authChallengeResponse: { AuthenticationResult: { AccessToken: 'A', IdToken: 'I', ExpiresIn: 3600 } } } }
+      : { success: true, message: 'ok' };
+    return { ok: true, status: 200, json: async () => body };
+  };
+  eq('setEmailMfa reports success', await createClient({ username: 'u', password: 'p', fetchImpl }).setEmailMfa('b@x.com', false), { ok: true, message: 'ok' });
+  const call = sent.pop();
+  eq('setEmailMfa posts to 2fa-email-enable', [call.opts.method, call.url.replace(/^https:\/\/[^/]+/, '')], ['POST', '/api/authentication/2fa-email-enable']);
+  eq('setEmailMfa body', JSON.parse(call.opts.body), { username: 'b@x.com', isEmailEnabled: false });
 
   console.log(`\n${pass} passed, ${fail} failed`);
   process.exit(fail ? 1 : 0);

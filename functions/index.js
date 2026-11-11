@@ -419,8 +419,9 @@ exports.aioDevices = onRequest(
 // aiobuddy read/update permissions (a super admin does that once, in the dashboard);
 // no super admin login is stored here. Only an existing buddy can be named (checked
 // against the dashboard's buddy list), and only existing buddies — it creates none.
-// Add-only: it never removes access.
-const { grantLocations, grantedIds, resolveBuddy } = require('./buddyAccess');
+// Add-only: it never removes access. It can also turn off a buddy's dashboard sign-in MFA
+// (action=removeMfa), again only for an email on the dashboard's buddy list.
+const { grantLocations, grantedIds, resolveBuddy, removeMfa } = require('./buddyAccess');
 
 const MAX_GRANT = 50;
 
@@ -462,6 +463,11 @@ exports.aioBuddyAccess = onRequest(
         }
         const target = await resolveBuddy(aio(), p.buddyId);
         res.json(await grantLocations(aio(), target.id, ids, await aio().listLocations()));
+        return;
+      }
+
+      if (isWrite && action === 'removeMfa') {
+        res.json(await removeMfa(aio(), p.email));
         return;
       }
 

@@ -4,6 +4,14 @@
  */
 var CHANGELOG = [
   {
+    version: 'v144',
+    date: '2026-11-04',
+    title: 'Remove MFA for a Buddy Account',
+    changes: [
+      { type: 'new', text: 'Buddy Access (super admins) has a Remove MFA box: type an AIO Buddy account\u2019s email and they can sign in to the AIO dashboard with just their password, without an emailed code. It only works for an email on the dashboard\u2019s buddy list, and each removal is in the Activity Log' },
+    ],
+  },
+  {
     version: 'v143',
     date: '2026-11-04',
     title: 'Move a Restaurant\u2019s Devices in One Go',

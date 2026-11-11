@@ -107,4 +107,21 @@ async function resolveBuddy(client, buddyId) {
   return buddy;
 }
 
-module.exports = { grantedIds, withLocations, toUpdateBody, checkGrant, grantLocations, resolveBuddy };
+// Same rule for an email typed in the browser: it must be an existing AIO Buddy's email
+// (exact, ignoring case and spaces), so this can't reach any other dashboard user.
+async function resolveBuddyByEmail(client, email) {
+  const want = String(email || '').trim().toLowerCase();
+  const buddy = want && (await client.listBuddies()).find(b => String(b.email || '').trim().toLowerCase() === want);
+  if (!buddy) throw new Error('No AIO Buddy account has that email');
+  return buddy;
+}
+
+// Turns off dashboard sign-in MFA for that buddy. Returns { buddy: { id, email, name } }, or throws.
+async function removeMfa(client, email) {
+  const buddy = await resolveBuddyByEmail(client, email);
+  const r = await client.setEmailMfa(buddy.email, false);
+  if (!r.ok) throw new Error(r.message || 'The AIO dashboard refused to turn off MFA');
+  return { buddy: { id: buddy.id, email: buddy.email, name: buddy.fullName } };
+}
+
+module.exports = { grantedIds, withLocations, toUpdateBody, checkGrant, grantLocations, resolveBuddy, resolveBuddyByEmail, removeMfa };

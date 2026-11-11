@@ -182,7 +182,16 @@ function createClient({ username, password, fetchImpl = fetch }) {
     }
   }
 
-  return { listLocations, serialIndex, listDevices, createDevice, deleteDevice, listBuddies, getBuddy, updateBuddy };
+  // Dashboard login MFA. On dashboard sign-in the backend's Cognito define-auth-challenge lambda
+  // asks for an emailed (or SMS) code whenever custom:email_mfa_enabled is "true", and every new
+  // AIO Buddy is created with it on. This endpoint sets that one attribute; it does not touch the
+  // Cognito SMS MFA preference (toggle-mfa), which the dashboard's sign-in doesn't use.
+  async function setEmailMfa(username, enabled) {
+    const r = await call('POST', '/api/authentication/2fa-email-enable', { body: { username, isEmailEnabled: !!enabled } });
+    return { ok: r.success, message: r.message };
+  }
+
+  return { listLocations, serialIndex, listDevices, createDevice, deleteDevice, listBuddies, getBuddy, updateBuddy, setEmailMfa };
 }
 
 // Validates one device the browser asked to create. Returns an error string or null.

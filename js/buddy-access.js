@@ -161,7 +161,35 @@ const BuddyAccess = (() => {
     }
   }
 
+  // ── Remove a buddy's sign-in MFA by email ──────────────────────────────────
+  // The function checks the email against the dashboard's buddy list, so only an
+  // AIO Buddy account can be changed.
+  async function removeMfa() {
+    const input = document.getElementById('ba-mfa-email'), btn = document.getElementById('ba-mfa-go');
+    const email = input.value.trim();
+    if (!email) { UI.showAlert('Type the buddy account\'s email', 'error'); return; }
+    if (!confirm(`Turn off MFA for ${email}?\n\nThey will sign in to the AIO dashboard with just their password — no emailed code.`)) return;
+    btn.disabled = true; btn.textContent = 'Removing…';
+    try {
+      const r = await api({}, { action: 'removeMfa', email });
+      Activity.log('removeBuddyMfa', `AIO dashboard: turned off sign-in MFA for buddy ${r.buddy.name} (${r.buddy.email})`, { buddy: r.buddy });
+      UI.showAlert(`MFA removed for ${r.buddy.name} (${r.buddy.email})`, 'success');
+      input.value = '';
+    } catch (e) {
+      UI.showAlert(e.message, 'error');
+    }
+    btn.disabled = false; btn.textContent = 'Remove MFA';
+  }
+
+  function wireMfa() {
+    const btn = document.getElementById('ba-mfa-go');
+    if (!btn || btn.dataset.wired) return;
+    btn.dataset.wired = '1';
+    btn.addEventListener('click', removeMfa);
+    document.getElementById('ba-mfa-email').addEventListener('keydown', e => { if (e.key === 'Enter') removeMfa(); });
+  }
+
   function refresh() { _buddies = null; _state = null; return load(); }
 
-  return { render: load, refresh };
+  return { render: () => { wireMfa(); return load(); }, refresh };
 })();

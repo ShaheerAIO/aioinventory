@@ -1200,6 +1200,14 @@
       </div>
       <div id="ba-root"></div>
     </div>
+    <div class="panel">
+      <div class="panel-title">Remove MFA</div>
+      <p style="font-size:13px;margin:0 0 10px;">Turn off the sign-in code for an AIO Buddy account, e.g. when they're locked out of their email. Type the account's email exactly.</p>
+      <div style="display:flex;gap:8px;align-items:center;max-width:520px;">
+        <input class="fi" id="ba-mfa-email" type="email" placeholder="buddy@example.com" autocomplete="off" style="flex:1;" />
+        <button class="btn btn-danger btn-sm" id="ba-mfa-go">Remove MFA</button>
+      </div>
+    </div>
   </section>
 
   <section id="v-changelog" class="view" style="display:none;">
@@ -1322,9 +1330,9 @@
 <script src="js/ui/command-palette.js?v=141"></script>
 <script src="js/audit.js?v=131"></script>
 <script src="js/device-map.js?v=143"></script>
-<script src="js/buddy-access.js?v=134"></script>
+<script src="js/buddy-access.js?v=144"></script>
 <script src="js/networking.js?v=141"></script>
-<script src="js/changelog.js?v=143"></script>
+<script src="js/changelog.js?v=144"></script>
 <script src="js/forms/shared.js?v=131"></script>
 <script src="js/forms/stock-in.js?v=131"></script>
 <script src="js/forms/products.js?v=141"></script>
