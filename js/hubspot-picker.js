@@ -187,6 +187,10 @@ const HubspotPicker = (() => {
       </div>`;
   }
 
+  // The panel's open/closed state is remembered per browser
+  const _DOCS_KEY = 'aio_hs_docs_collapsed';
+  function _docsCollapsed() { try { return localStorage.getItem(_DOCS_KEY) === '1'; } catch (e) { return false; } }
+
   function docsHtml({ quotes = [], invoices = [] }) {
     const none = '<div style="font-size:12px;color:var(--text-hint);padding:4px 0;">None</div>';
     const q = quotes.map(d => docRow(
@@ -198,7 +202,7 @@ const HubspotPicker = (() => {
       [_money(d.amount), d.balance ? `${_money(d.balance)} due` : '', _date(d.date), d.due ? `due ${_date(d.due)}` : ''].filter(Boolean).join(' · '),
       d.publicUrl, 'Invoice page', d.hubspotUrl)).join('');
     return `
-      <details open>
+      <details${_docsCollapsed() ? '' : ' open'}>
         <summary class="panel-title" style="cursor:pointer;margin-bottom:4px;">HubSpot quotes &amp; invoices</summary>
         <div class="panel-title" style="margin-bottom:4px;">HubSpot quotes</div>${q || none}
         <div class="panel-title" style="margin:12px 0 4px;">HubSpot invoices</div>${i || none}
@@ -229,6 +233,9 @@ const HubspotPicker = (() => {
       const data = await loadDocs(companyId);
       if (seq !== _docsSeq) return; // customer changed while this was loading
       el.innerHTML = docsHtml(data);
+      el.querySelector('details')?.addEventListener('toggle', e => {
+        try { localStorage.setItem(_DOCS_KEY, e.target.open ? '0' : '1'); } catch (err) {}
+      });
     } catch (e) {
       if (seq !== _docsSeq) return;
       note(`Couldn't load HubSpot quotes &amp; invoices — ${esc(e.message)}.`);
