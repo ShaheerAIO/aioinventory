@@ -44,6 +44,10 @@
         ${info.testedBy ? `<div style="font-size:12px;color:var(--text-muted);margin-top:8px">Tested by <strong>${esc(info.testedBy)}</strong>${info.testedAt?` on ${fmtDateFull(info.testedAt)}`:''}${info.testNotes?` — ${esc(info.testNotes)}`:''}</div>` : ''}
         ${info.status==='dispatched' ? `<div style="font-size:12px;color:var(--text-muted);margin-top:8px">${info.rmaTlType?`<span class="badge b-condition b-cond-${info.rmaTlType}">${_conditionLabel(info.rmaTlType)}</span> `:''}Dispatched to: <strong>${esc(info.deployedTo||'—')}</strong>${info.deployedBy?` · by ${esc(info.deployedBy)}`:''}${info.deployedRef?` · ref ${esc(info.deployedRef)}`:''}${info.deployedDate?` · ${fmtDateFull(info.deployedDate)}`:''}</div>` : ''}
       </div>
+      ${(info.events||[]).length ? `<div class="panel" style="margin-bottom:12px">
+        <div class="panel-title">Edits (super admin)</div>
+        <table><tbody>${info.events.map(e=>`<tr><td style="color:var(--text-hint);width:18%">${fmtDateFull(e.date)}</td><td>Location changed: <span class="loc-badge">${esc(e.from||'—')}</span> → <span class="loc-badge">${esc(e.to||'—')}</span></td><td style="color:var(--text-hint)">${e.by?'by '+esc(e.by):''}</td></tr>`).join('')}</tbody></table>
+      </div>` : ''}
       ${info.history.length ? `<div class="panel" style="margin-bottom:0">
         <div class="panel-title">Movement history</div>
         <table><thead><tr><th style="width:18%">Date</th><th style="width:10%">Type</th><th style="width:22%">Product</th><th style="width:18%">Location</th><th style="width:18%">Party</th><th style="width:14%">Ref</th></tr></thead>

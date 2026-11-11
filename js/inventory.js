@@ -346,7 +346,7 @@ const Inventory = (() => {
       transferInFlight = { id: t.id, from: t.from || '', to: t.to || '', dispatchedAt: t.dispatchedAt || '', by: t.by || '', ref: t.ref || '', expectedBy: t.expectedBy || '' };
     });
 
-    const result = { serial: s, history, status, currentProduct, currentLocation, currentCategory };
+    const result = { serial: s, history, events: DB.getSerialEvents ? DB.getSerialEvents(s) : [], status, currentProduct, currentLocation, currentCategory };
     if (transferInFlight) result.transferInFlight = transferInFlight;
 
     // Pending deployment — a staged serial is still physically in stock, so this

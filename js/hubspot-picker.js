@@ -198,8 +198,11 @@ const HubspotPicker = (() => {
       [_money(d.amount), d.balance ? `${_money(d.balance)} due` : '', _date(d.date), d.due ? `due ${_date(d.due)}` : ''].filter(Boolean).join(' · '),
       d.publicUrl, 'Invoice page', d.hubspotUrl)).join('');
     return `
-      <div class="panel-title" style="margin-bottom:4px;">HubSpot quotes</div>${q || none}
-      <div class="panel-title" style="margin:12px 0 4px;">HubSpot invoices</div>${i || none}`;
+      <details open>
+        <summary class="panel-title" style="cursor:pointer;margin-bottom:4px;">HubSpot quotes &amp; invoices</summary>
+        <div class="panel-title" style="margin-bottom:4px;">HubSpot quotes</div>${q || none}
+        <div class="panel-title" style="margin:12px 0 4px;">HubSpot invoices</div>${i || none}
+      </details>`;
   }
 
   /* renderDocs(el, customer) — fill `el` with the customer's quotes and invoices,

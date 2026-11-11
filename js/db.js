@@ -26,7 +26,7 @@ const DB = (() => {
   function _assignData(d) {
     _auditsSplit    = !!d.auditsSplit;
     _movementsSplit = !!d.movementsSplit;
-    _data = { movements: _movementsSplit ? (_data.movements||[]) : (d.movements||[]), thresholds: d.thresholds||{}, shipments: d.shipments||[], transfers: d.transfers||[], serialCosts: d.serialCosts||{}, serialConditions: d.serialConditions||{}, purchaseOrders: d.purchaseOrders||{}, serialPOs: d.serialPOs||{}, customSuppliers: d.customSuppliers||[], customLocations: d.customLocations||[], orders: d.orders||[], suppliers: d.suppliers||[], productRecords: d.productRecords||[], auditRecords: _auditsSplit ? (_data.auditRecords||[]) : (d.auditRecords||[]), pendingUsers: d.pendingUsers||{}, pendingDeployments: d.pendingDeployments||[], pausedAudits: d.pausedAudits||{}, hubspotCompanyMap: d.hubspotCompanyMap||{}, hubspotIgnored: d.hubspotIgnored||[], deviceLocationMap: d.deviceLocationMap||{} };
+    _data = { movements: _movementsSplit ? (_data.movements||[]) : (d.movements||[]), thresholds: d.thresholds||{}, shipments: d.shipments||[], transfers: d.transfers||[], serialCosts: d.serialCosts||{}, serialConditions: d.serialConditions||{}, purchaseOrders: d.purchaseOrders||{}, serialPOs: d.serialPOs||{}, serialEvents: d.serialEvents||{}, customSuppliers: d.customSuppliers||[], customLocations: d.customLocations||[], orders: d.orders||[], suppliers: d.suppliers||[], productRecords: d.productRecords||[], auditRecords: _auditsSplit ? (_data.auditRecords||[]) : (d.auditRecords||[]), pendingUsers: d.pendingUsers||{}, pendingDeployments: d.pendingDeployments||[], pausedAudits: d.pausedAudits||{}, hubspotCompanyMap: d.hubspotCompanyMap||{}, hubspotIgnored: d.hubspotIgnored||[], deviceLocationMap: d.deviceLocationMap||{} };
   }
 
   // Movements are identified by id; very old records without one fall back to
@@ -101,7 +101,7 @@ const DB = (() => {
   // (arrayUnion) so that concurrent users can never overwrite each other's
   // additions. Ops that legitimately rewrite those arrays (delete/rename serial,
   // confirm/unstage pending) pass them explicitly via _persist().
-  const SAVE_FIELDS = ['thresholds','shipments','transfers','serialCosts','serialConditions','purchaseOrders','serialPOs','customSuppliers','customLocations','orders','suppliers','productRecords','auditRecords','pendingUsers','pausedAudits','hubspotCompanyMap','hubspotIgnored','deviceLocationMap'];
+  const SAVE_FIELDS = ['thresholds','shipments','transfers','serialCosts','serialConditions','purchaseOrders','serialPOs','serialEvents','customSuppliers','customLocations','orders','suppliers','productRecords','auditRecords','pendingUsers','pausedAudits','hubspotCompanyMap','hubspotIgnored','deviceLocationMap'];
 
   // A write that HANGS (no network / blocked webchannel) never rejects — the
   // Firestore SDK just queues it in memory. Without a timeout that is invisible:
@@ -604,6 +604,16 @@ const DB = (() => {
     const lastOut = [...idx].reverse().find(i => mvs[i].type === 'OUT');
     const deployed = lastOut != null && (lastIn == null || lastOut > lastIn);
 
+    // Location edits rewrite the movements in place, so note the change separately for the unit's history
+    if (has('location') && lastIn != null && mvs[lastIn].location !== ch.location) {
+      if (!_data.serialEvents) _data.serialEvents = {};
+      const by = (typeof Auth !== 'undefined' && Auth.getName && Auth.getName()) || '';
+      (_data.serialEvents[s] = _data.serialEvents[s] || []).push({
+        type: 'location', from: mvs[lastIn].location || '', to: ch.location || '',
+        date: new Date().toISOString(), by,
+      });
+    }
+
     const patches = {};
     const add = (i, p) => { if (i != null && Object.keys(p).length) patches[i] = { ...(patches[i] || {}), ...p }; };
 
@@ -665,7 +675,7 @@ const DB = (() => {
       _data.movements = _data.movements.map(mv =>
         mv.serials.some(x => x.toUpperCase() === s)
           ? { ...mv, serials: mv.serials.map(x => x.toUpperCase() === s ? n : x) } : mv);
-      ['serialCosts', 'serialPOs', 'serialConditions'].forEach(f => {
+      ['serialCosts', 'serialPOs', 'serialConditions', 'serialEvents'].forEach(f => {
         const m = _data[f];
         if (m && m[s] !== undefined) { m[n] = m[s]; delete m[s]; }
       });
@@ -817,6 +827,7 @@ const DB = (() => {
     _data.serialPOs[serial.toUpperCase()] = poNumber;
     _save();
   }
+  function getSerialEvents(serial) { return (_data.serialEvents || {})[serial.toUpperCase()] || []; }
   function getSerialPO(serial) { return (_data.serialPOs || {})[serial.toUpperCase()] || null; }
 
   function addCustomSupplier(name) {
@@ -921,7 +932,7 @@ const DB = (() => {
   }
 
   init();
-  return { onReady, getData, save:_save, addMovement, addMovements, setThreshold, getThreshold, addShipment, updateShipment, removeShipment, addTransfer, updateTransfer, getTransfers, setSerialCost, getSerialCost, setProductCost, setHubspotCompanyId, getHubspotCompanyId, getHubspotCompanyMap, setHubspotIgnored, isHubspotIgnored, getHubspotIgnored, setDeviceLocation, getDeviceLocation, getDeviceLocationMap, deleteSerial, deleteSerials, renameSerial, editSerialProperties, renameLocation, updateSerialCondition, updateSerialConditions, getSerialCondition, savePO, getPO, getAllPOs, getPONumbers, getPOUnitCost, setSerialPO, getSerialPO, addCustomSupplier, addCustomLocation, getCustomSuppliers, getCustomLocations, addOrder, updateOrder, removeOrder, getOrders, addSupplier, updateSupplier, removeSupplier, getSupplierRecords, addProductRecord, updateProductRecord, removeProductRecord, getProductRecords, addAuditRecord, saveAuditRecord, deleteAuditRecord, splitStorage, getAuditRecords, setPendingUser, getPendingUser, removePendingUser, addPendingDeployment, getPendingDeployments, removePendingDeployment, updatePendingDeployment, savePausedAudit, getPausedAudit, getAllPausedAudits, clearPausedAudit, exportJSON, importJSON, uploadDocument, addDocumentToShipment, removeDocumentFromShipment, addDocumentToOrder };
+  return { onReady, getData, save:_save, addMovement, addMovements, setThreshold, getThreshold, addShipment, updateShipment, removeShipment, addTransfer, updateTransfer, getTransfers, setSerialCost, getSerialCost, setProductCost, setHubspotCompanyId, getHubspotCompanyId, getHubspotCompanyMap, setHubspotIgnored, isHubspotIgnored, getHubspotIgnored, setDeviceLocation, getDeviceLocation, getDeviceLocationMap, deleteSerial, deleteSerials, renameSerial, editSerialProperties, renameLocation, updateSerialCondition, updateSerialConditions, getSerialCondition, savePO, getPO, getAllPOs, getPONumbers, getPOUnitCost, setSerialPO, getSerialPO, getSerialEvents, addCustomSupplier, addCustomLocation, getCustomSuppliers, getCustomLocations, addOrder, updateOrder, removeOrder, getOrders, addSupplier, updateSupplier, removeSupplier, getSupplierRecords, addProductRecord, updateProductRecord, removeProductRecord, getProductRecords, addAuditRecord, saveAuditRecord, deleteAuditRecord, splitStorage, getAuditRecords, setPendingUser, getPendingUser, removePendingUser, addPendingDeployment, getPendingDeployments, removePendingDeployment, updatePendingDeployment, savePausedAudit, getPausedAudit, getAllPausedAudits, clearPausedAudit, exportJSON, importJSON, uploadDocument, addDocumentToShipment, removeDocumentFromShipment, addDocumentToOrder };
 })();
 
 let _currentView = 'dashboard';
