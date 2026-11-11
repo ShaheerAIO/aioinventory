@@ -21,7 +21,7 @@ const AuthUI = (() => {
       <div class="login-wrap">
         <div class="login-card">
           <div class="login-logo">
-            <img src="logo.png" alt="AIO" class="login-logo-img" />
+            <img src="assets/aio-mark.svg" alt="AIO" class="login-logo-img" />
             <div class="login-logo-label">Inventory System</div>
           </div>
           <div id="login-error" class="login-error" style="display:none;"></div>

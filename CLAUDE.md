@@ -71,7 +71,7 @@ without Firebase.
 - `css/styles.v4.css` — the active stylesheet (referenced by `index.html`), with `css/dashboard.css` (Overview), `css/palette.css` (⌘K palette) and `css/catalog.css` (Products/Suppliers tables) loaded alongside it. `styles.css` and `styles.v2.css` are older/unused versions.
 - `firestore.rules` — Firestore security rules (wired into `firebase.json`). **Gates role escalation** — see Conventions below.
 - `ENTRA-SETUP.md` — Entra app registration + Firebase console setup, and the break-glass admin login.
-- `logo.png` — app/login logo. `.nojekyll` — leftover from an earlier GitHub Pages setup; a stale Pages build still exists at `shaheeraio.github.io/aioinventory` but Vercel is what people use.
+- `assets/` — AIO brand kit assets (source: `/Volumes/Shaheer T7/Projects - AIO/AIO Brand Kit/`, see its `DESIGN-LANGUAGE.md`): `aio-mark.svg` / `aio-mark-white.svg` logos, `favicon.svg`, `apple-touch-icon.png`, and Coolvetica fonts (headings via `--font-display`; Poppins stays the UI font). Electric Blue (`--electric*`) is the secondary colour and backs the `--info-*` tokens. `logo.png` is the old logo and is now unused. `.nojekyll` — leftover from an earlier GitHub Pages setup; a stale Pages build still exists at `shaheeraio.github.io/aioinventory` but Vercel is what people use.
 
 ## Build / Run / Test
 There is **no build step** in this repo, and no test framework/runner — but there is one

@@ -4,6 +4,15 @@
  */
 var CHANGELOG = [
   {
+    version: 'v145',
+    date: '2026-11-11',
+    title: 'AIO Brand Refresh',
+    changes: [
+      { type: 'new', text: 'The app now uses the official AIO brand kit: a proper favicon and logo, Coolvetica headings, and Electric Blue for informational status (Ordered, Needs Testing, Transfers)' },
+      { type: 'new', text: 'Overview tiles and stat cards have the brand\u2019s accent bar, and status badges are fully rounded pills' },
+    ],
+  },
+  {
     version: 'v144',
     date: '2026-11-04',
     title: 'Remove MFA for a Buddy Account',

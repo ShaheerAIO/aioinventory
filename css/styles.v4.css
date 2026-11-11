@@ -1,3 +1,6 @@
+/* Brand headings: Coolvetica (AIO Brandbook v2). Body/UI stays Poppins. */
+@font-face { font-family: "Coolvetica"; src: url("../assets/fonts/coolvetica-rg.otf") format("opentype"); font-weight: 400 700; font-display: swap; }
+@font-face { font-family: "Coolvetica Heavy"; src: url("../assets/fonts/coolvetica-hv-comp.otf") format("opentype"); font-weight: 800 900; font-display: swap; }
 /* ============================================
    AIO Inventory — styles.css
    Brand: AIO App  |  aioapp.com
@@ -10,6 +13,10 @@
   /* AIO Brand — one brand colour, used as a tint far more than a fill */
   --aio-purple:       #F9674E;  /* coral — the one brand colour */
   --aio-purple-rgb:   249,103,78;
+  --electric:         #7A80F6;  /* Electric Blue — secondary (~30%): informational / volume */
+  --electric-dark:    #5A61E8;
+  --electric-light:   #DFE1F2;  /* Arctic Blue tint */
+  --electric-ink:     #3B41B8;  /* text on the tint (AA) */
   --aio-purple-light: #FFDFD7;  /* selected / hover tint */
   --aio-purple-dark:  #E04A30;  /* real primary.dark, so hover works */
   --aio-purple-deep:  #AC1B02;  /* ink on a coral tint */
@@ -21,11 +28,11 @@
   --bg:        #ffffff;  /* cards, header (raised) */
   --bg-2:      #F6F6F6;  /* tiles recessed inside cards */
   --bg-3:      #F3F5F7;  /* page canvas (outermost) */
-  --bg-shell:  #FAFAFA;  /* content shell, row menus */
+  --bg-shell:  #FAFFFC;  /* content shell, row menus */
   --header-bg: #ffffff;
 
   /* Text */
-  --text:        #242528;
+  --text:        #0E1111;
   --text-muted:  #53575D;
   --text-hint:   #888D95;
   --text-placeholder: #B7BAC3;
@@ -40,13 +47,14 @@
   --success-bg: #EDFEEA; --success-text: #4AA37B; --success-border: #4AA37B;
   --danger-bg:  #FAE4E1; --danger-text:  #D5381D; --danger-border:  #D5381D;
   --warning-bg: #FEF7EA; --warning-text: #8A5200; --warning-border: #FFA500;
-  --info-bg:    var(--aio-purple-light); --info-text: var(--aio-purple-deep); --info-border: #FFC8BC;
+  --info-bg:    var(--electric-light); --info-text: var(--electric-ink); --info-border: #B9BDF5;
   --transit-bg: #FEF7EA; --transit-text: #8A5200; --transit-border: #FFA500;
 
-  --r-sm: 8px; --r-md: 8px; --r-btn: 10px; --r-lg: 12px; --r-chip: 16px;
+  --r-sm: 8px; --r-md: 8px; --r-btn: 10px; --r-lg: 12px; --r-chip: 999px;
   --shadow: none;                                /* flat: borders, not elevation */
   --shadow-pop: 0 4px 12px rgba(0,0,0,0.08);     /* dropdowns */
   --shadow-md: 0 8px 24px rgba(0,0,0,0.12);      /* floating panels, modals */
+  --font-display: 'Coolvetica', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
   --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
   --ease: cubic-bezier(0.4,0,0.2,1);
@@ -60,7 +68,7 @@
 
   /* Unit-condition inks (shared by both breakdown tables) */
   --cond-working: #4AA37B;
-  --cond-testing: #2B4FA8;
+  --cond-testing: var(--electric-ink);
   --cond-faulty:  #8A5200;
   --cond-rma:     #AC1B02;
   --cond-tl:      #53575D;
@@ -78,9 +86,9 @@
     --success-bg: #10291C; --success-text: #58C98F; --success-border: #2F6B4C;
     --danger-bg:  #2E1210; --danger-text:  #F08A72; --danger-border:  #8E2917;
     --warning-bg: #2A1F08; --warning-text: #E0B057; --warning-border: #8A6A18;
-    --info-bg:    #1F2D4A; --info-text: #FF8A75; --info-border: #33456B;
+    --info-bg:    #232850; --info-text: #AEB2FF; --info-border: #3A4180;
     --transit-bg: #2A1F08; --transit-text: #E0B057; --transit-border: #8A6A18;
-    --cond-working: #58C98F; --cond-testing: #8FAEF5; --cond-faulty: #E0B057;
+    --cond-working: #58C98F; --cond-testing: #AEB2FF; --cond-faulty: #E0B057;
     --cond-rma: #FF8A75;     --cond-tl: #B8BFD1;
   }
 }
@@ -191,7 +199,7 @@ html, body { font-family: var(--font); font-size: 14px; background: var(--bg-3);
 }
 .topbar-title {
   flex: 1; min-width: 0;
-  font-size: 22px; font-weight: 600; letter-spacing: -0.01em; color: var(--text);
+  font-family: var(--font-display); font-size: 24px; font-weight: 400; letter-spacing: -0.01em; color: var(--text);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .topbar-actions { display: flex; align-items: center; gap: 8px; flex: none; }
@@ -221,7 +229,7 @@ html, body { font-family: var(--font); font-size: 14px; background: var(--bg-3);
   }
   .topbar-menu { display: inline-flex; }
   .topbar { padding: 10px 16px; gap: 8px; }
-  .topbar-title { font-size: 18px; }
+  .topbar-title { font-size: 20px; }
   .topbar-actions .btn { min-height: 36px; padding: 6px 12px; font-size: 13px; }
 }
 
@@ -237,7 +245,7 @@ html, body { font-family: var(--font); font-size: 14px; background: var(--bg-3);
 
 /* ── Stats ──────────────────────────────────────────────────────────── */
 .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 10px; margin-bottom: 1.25rem; }
-.stat { background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 24px; box-shadow: var(--shadow); }
+.stat { background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 24px; box-shadow: inset 4px 0 0 var(--aio-purple); }
 .stat-label { font-size: 14px; color: var(--text-hint); margin-bottom: 5px; font-weight: 400; }
 .stat-val { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; color: var(--text); }
 .stat-val.green    { color: var(--success-text); }
@@ -249,15 +257,15 @@ html, body { font-family: var(--font); font-size: 14px; background: var(--bg-3);
 /* ── Panel ──────────────────────────────────────────────────────────── */
 .panel { background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-lg); padding: 1.25rem; margin-bottom: 1rem; box-shadow: var(--shadow); }
 .panel-title {
-  font-size: 16px; font-weight: 500; color: var(--text);
-  letter-spacing: -0.02em; margin-bottom: 1rem;
+  font-family: var(--font-display); font-size: 18px; font-weight: 400; color: var(--text);
+  letter-spacing: -0.01em; margin-bottom: 1rem;
   display: flex; justify-content: space-between; align-items: center; gap: 8px;
   padding-bottom: 10px; border-bottom: 1px solid var(--border);
 }
 
 /* ── Toolbar ──────────────────────────────────────────────────────────── */
 .panel-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
-.toolbar-title { font-size: 22px; font-weight: 500; letter-spacing: -0.02em; color: var(--text); }
+.toolbar-title { font-family: var(--font-display); font-size: 24px; font-weight: 400; letter-spacing: -0.01em; color: var(--text); }
 
 /* ── Product table on dashboard ──────────────────────────────────────── */
 .product-stock-table { width: 100%; border-collapse: collapse; font-size: 13px; }
@@ -357,7 +365,7 @@ html, body { font-family: var(--font); font-size: 14px; background: var(--bg-3);
 .b-partial { background: var(--warning-bg); color: var(--warning-text); border: 1px solid var(--warning-border); }
 .b-zero    { background: var(--danger-bg);  color: var(--danger-text); }
 .b-transit { background: var(--aio-orange-light); color: var(--aio-orange-dark); border: 1px solid var(--aio-orange); }
-.b-transfer { background: var(--aio-purple-light); color: var(--aio-purple-dark); border: 1px solid var(--aio-purple); }
+.b-transfer { background: var(--electric-light); color: var(--electric-ink); border: 1px solid var(--electric); }
 .loc-badge { display: inline-block; font-size: 12px; padding: 2px 10px; background: var(--bg-2); color: var(--text-muted); border-radius: var(--r-chip); font-family: var(--mono); border: 1px solid var(--border); font-weight: 500; }
 .cat-badge { display: inline-block; font-size: 10px; padding: 2px 8px; background: var(--bg-2); color: var(--text-muted); border-radius: 4px; border: 1px solid var(--border); font-weight: 500; }
 
@@ -391,7 +399,7 @@ tbody tr:hover td { background: var(--bg-3); }
 /* ── Receive modal ────────────────────────────────────────────────────── */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,.25); display: flex; align-items: center; justify-content: center; z-index: 1300; }
 .modal-box { background: var(--bg); border-radius: var(--r-lg); padding: 1.75rem; width: 440px; max-width: 96vw; box-shadow: var(--shadow-md); border: 1px solid var(--border); }
-.modal-title { font-size: 22px; font-weight: 500; letter-spacing: -0.02em; color: var(--text); margin-bottom: 1rem; }
+.modal-title { font-family: var(--font-display); font-size: 24px; font-weight: 400; letter-spacing: -0.01em; color: var(--text); margin-bottom: 1rem; }
 .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 1.5rem; }
 
 /* ── Lookup ────────────────────────────────────────────────────────────── */
@@ -655,14 +663,8 @@ tbody tr:hover td { background: var(--bg-3); }
 }
 .login-logo { text-align: center; margin-bottom: 2rem; }
 .login-logo { position: relative; }
-.login-logo-img { height: 38px; width: 89px; margin: 0 auto 8px; display: block; visibility: hidden; }
-.login-logo::before {
-  content: ''; position: absolute; left: 50%; top: 0; transform: translateX(-50%);
-  width: 89px; height: 38px; background: var(--aio-purple);
-  -webkit-mask: url('../logo.png') no-repeat center / contain;
-  mask: url('../logo.png') no-repeat center / contain;
-}
-.login-logo-label { font-size: 14px; font-weight: 400; color: var(--text-hint); }
+.login-logo-img { height: 38px; width: auto; margin: 0 auto 8px; display: block; }
+.login-logo-label { font-family: var(--font-display); font-size: 16px; font-weight: 400; color: var(--text-hint); }
 .login-error { background: var(--danger-bg); color: var(--danger-text); border: 1px solid var(--danger-border); border-radius: var(--r-md); padding: 9px 12px; font-size: 13px; margin-bottom: 14px; }
 .login-btn { width: 100%; padding: 12px; font-size: 16px; font-weight: 500; min-height: 52px; }
 .login-footer { text-align: center; font-size: 11px; color: var(--text-hint); margin-top: 1.5rem; }
@@ -785,9 +787,10 @@ tbody tr:hover td { background: var(--bg-3); }
   border: 1px solid var(--border);
 }
 .modal-title {
-  font-size: 22px;
-  font-weight: 500;
-  letter-spacing: -0.02em;
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 400;
+  letter-spacing: -0.01em;
   color: var(--text);
 }
 
@@ -795,7 +798,7 @@ tbody tr:hover td { background: var(--bg-3); }
 .b-condition { font-size: 12px; padding: 1px 8px; border-radius: var(--r-chip); font-weight: 500; }
 .b-cond-used         { background: var(--danger-bg); color: var(--danger-text); border: 1px solid var(--danger-border); }
 .b-cond-faulty       { background: var(--warning-bg); color: var(--warning-text); border: 1px solid var(--warning-border); }
-.b-cond-needs-testing { background: #EAF1FF; color: #2B4FA8; border: 1px solid #4D7CFF; }
+.b-cond-needs-testing { background: var(--electric-light); color: var(--electric-ink); border: 1px solid var(--electric); }
 @media (prefers-color-scheme: dark) {
   .b-cond-used          { background: #2a0808; color: #f09090; border-color: #a32020; }
   .b-cond-faulty        { background: #2a1e00; color: #f0c060; border-color: #8c6010; }
@@ -871,7 +874,7 @@ tbody tr:hover td { background: var(--bg-3); }
   font-weight: 500;
   color: var(--aio-purple-deep);
   background: var(--aio-purple-light);
-  border: 1px solid var(--info-border);
+  border: 1px solid #FFC8BC;
   border-radius: var(--r-chip);
   padding: 1px 8px;
   white-space: nowrap;
@@ -882,4 +885,12 @@ tbody tr:hover td { background: var(--bg-3); }
 :where(a, button, input, select, textarea, [tabindex]):focus-visible {
   outline: 2px solid var(--aio-purple);
   outline-offset: 2px;
+}
+
+/* Chrome autofill ignores background/colour; this inset shadow is the only override that works */
+input:-webkit-autofill, input:-webkit-autofill:hover, input:-webkit-autofill:focus,
+select:-webkit-autofill, textarea:-webkit-autofill {
+  -webkit-text-fill-color: var(--text);
+  -webkit-box-shadow: 0 0 0 1000px var(--bg) inset; box-shadow: 0 0 0 1000px var(--bg) inset;
+  transition: background-color 5000s ease-in-out 0s;
 }

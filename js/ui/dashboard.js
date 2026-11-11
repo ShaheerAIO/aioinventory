@@ -36,7 +36,7 @@
     const rmaCount = wkRows.filter(r => r.condition === 'rma').length;
     const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
     const cols = [
-      { label: 'Ordered',    n: orderedUnits,    view: 'orders',     color: 'var(--text-hint)',    hint: plural(openPOs.length, 'open PO') },
+      { label: 'Ordered',    n: orderedUnits,    view: 'orders',     color: 'var(--electric)',     hint: plural(openPOs.length, 'open PO') },
       { label: 'In transit', n: stats.inTransit, view: 'transit',    color: 'var(--aio-orange)',   hint: plural(openShipments.length, 'shipment') + (flights.length ? ` · ${plural(flights.length, 'transfer')}` : '') },
       { label: 'In stock',   n: stats.inStock,   view: 'stock-list', color: 'var(--aio-purple)',   hint: plural(stats.productLines, 'product line') },
       { label: 'Deployed',   n: stats.deployed,  view: 'deployed',   color: 'var(--success-text)', hint: 'with customers' },
@@ -44,7 +44,7 @@
     ];
     const maxN = Math.max(...cols.map(c => c.n), 1);
     document.getElementById('stats-row').innerHTML = `<div class="dash-strip">${cols.map(c => `
-      <a class="dash-col" href="#${c.view}">
+      <a class="dash-col" href="#${c.view}" style="--accent:${c.color}">
         <div class="dash-col-head"><span class="dash-dot" style="background:${c.color}"></span>${esc(c.label)}</div>
         <div class="dash-col-n">${c.n.toLocaleString()}</div>
         <div class="dash-col-hint">${esc(c.hint)}</div>
