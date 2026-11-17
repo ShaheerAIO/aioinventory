@@ -11,7 +11,7 @@
 
 
   // ── Navigation ────────────────────────────────────────────────────────
-  const VIEWS = ['dashboard','products','suppliers','orders','transit','transfers','shipment-history','changelog','in','out','stock-list','deployed','servicing','totalloss','rmatldisp','stocktake','reports','lookup','history','activity','map-devices','networking','buddy-access'];
+  const VIEWS = ['dashboard','products','suppliers','orders','transit','transfers','shipment-history','changelog','in','out','stock-list','deployed','servicing','totalloss','rmatldisp','stocktake','reports','lookup','history','activity','map-devices','networking','buddy-access','forecast'];
 
   function showView(view) {
     VIEWS.forEach(v => { document.getElementById('v-' + v).style.display = v === view ? '' : 'none'; });
@@ -39,6 +39,7 @@
     if (view === 'map-devices') DeviceMap.render();
     if (view === 'networking')  Networking.render();
     if (view === 'buddy-access') BuddyAccess.render();
+    if (view === 'forecast')     Forecast.render();
     if (view === 'shipment-history') UI.renderShipmentHistory();
     if (view === 'changelog')        renderChangelog();
     if (view === 'in')         { UI.populateDataLists(); Forms.showStockIn(); }
@@ -145,13 +146,13 @@
   // Each view gets a #hash history entry, so the browser/mouse Back button
   // steps between views instead of leaving the app.
   const ADMIN_VIEWS = ['activity', 'map-devices', 'networking'];
-  const SUPER_VIEWS = ['buddy-access'];
+  const PERM_VIEWS = { 'buddy-access': 'buddyAccess', forecast: 'forecast' };
   function _viewFromHash() {
     let v = decodeURIComponent(location.hash.slice(1));
     if (v === 'rma') v = 'rmatldisp';
     if (!VIEWS.includes(v)) return null;
     if (ADMIN_VIEWS.includes(v) && !Auth.isAdmin()) return null;
-    if (SUPER_VIEWS.includes(v) && !Auth.isSuperAdmin()) return null;
+    if (PERM_VIEWS[v] && !Auth.can(PERM_VIEWS[v])) return null;
     return v;
   }
 
@@ -192,12 +193,19 @@
       if (Auth.isAdmin()) {
         document.getElementById('nav-activity').style.display = '';
         document.getElementById('nav-integrations').style.display = '';
+        document.getElementById('nav-map-devices').style.display = '';
+        document.getElementById('nav-networking').style.display = '';
         document.getElementById('dm-refresh').addEventListener('click', () => DeviceMap.refresh());
         document.getElementById('net-refresh').addEventListener('click', () => Networking.refresh());
       }
-      if (Auth.isSuperAdmin()) {
+      if (Auth.can('buddyAccess') || Auth.can('forecast')) document.getElementById('nav-integrations').style.display = '';
+      if (Auth.can('buddyAccess')) {
         document.getElementById('nav-buddy-access').style.display = '';
         document.getElementById('ba-refresh').addEventListener('click', () => BuddyAccess.refresh());
+      }
+      if (Auth.can('forecast')) {
+        document.getElementById('nav-forecast').style.display = '';
+        document.getElementById('fc-refresh').addEventListener('click', () => Forecast.refresh());
       }
       UI.initSmartSelects();
       const startView = _viewFromHash() || 'dashboard';

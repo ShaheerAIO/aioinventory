@@ -32,7 +32,7 @@
         <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px;">
           <span style="font-family:var(--mono);font-size:15px;font-weight:600">${esc(info.serial)}</span>${statusBadge}${pendingBadge}${condBadge}${usedBadge}
           ${cost != null ? `<span style="font-size:12px;color:var(--text-muted)">Cost: <strong>${costStr}</strong></span>` : ''}
-          ${Auth.isSuperAdmin() && Inventory.getEditableProperties(info.serial) ? `<button class="btn btn-ghost btn-xs" id="btn-super-edit" style="margin-left:auto;color:var(--danger-text);border-color:var(--danger-border);" title="Super admin: change any property of this unit (logged)">✎ Edit all properties</button>` : ''}
+          ${Auth.can('superEdit') && Inventory.getEditableProperties(info.serial) ? `<button class="btn btn-ghost btn-xs" id="btn-super-edit" style="margin-left:auto;color:var(--danger-text);border-color:var(--danger-border);" title="Change any property of this unit (logged)">✎ Edit all properties</button>` : ''}
         </div>
         <div class="lookup-meta">
           <div><div class="lookup-meta-label">Product</div>${esc(info.currentProduct||'—')}</div>

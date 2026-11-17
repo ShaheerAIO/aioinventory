@@ -66,6 +66,8 @@ eq('admin still reads', accessError('admin', 'overview', false), null);
 eq('admin still cannot map', accessError('admin', 'map', true), SUPER_ONLY);
 eq('admin still cannot move', accessError('admin', 'move', true), SUPER_ONLY);
 eq('admin still cannot POST an unknown action', accessError('admin', '', true), SUPER_ONLY);
+eq('admin given dashboardWrite maps', accessError('admin', 'map', true, { dashboardWrite: true }), null);
+eq('edit given dashboardWrite still cannot map', accessError('edit', 'map', true, { dashboardWrite: true }), FORBIDDEN);
 eq('superadmin still maps', accessError('superadmin', 'map', true), null);
 eq('superadmin still reads', accessError('superadmin', 'terminals', false), null);
 

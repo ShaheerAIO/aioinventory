@@ -33,7 +33,8 @@ const DB = {
   editSerialProperties,
 };
 let role = 'superadmin';
-globalThis.Auth = { isSuperAdmin: () => role === 'superadmin' };
+let perms = {};
+globalThis.Auth = { isSuperAdmin: () => role === 'superadmin', can: k => role === 'superadmin' || perms[k] === true };
 const { Inventory } = new Function('DB', invSrc + '\n; return { Inventory };')(DB);
 
 let pass = 0, fail = 0;
@@ -54,7 +55,10 @@ eq('2 in stock', Inventory.getAvailableSerials().size, 2);
 
 console.log('\nGuards');
 role = 'admin';
-throws('plain admin refused', () => Inventory.superEditSerial('A-1', { cost: 5 }, 'x'), 'super admin');
+throws('plain admin refused', () => Inventory.superEditSerial('A-1', { cost: 5 }, 'x'), 'permission');
+perms = { superEdit: true };
+throws('admin given superEdit gets past the guard', () => Inventory.superEditSerial('A-1', { cost: 5 }, ' '), 'reason');
+perms = {};
 role = 'superadmin';
 throws('reason required', () => Inventory.superEditSerial('A-1', { cost: 5 }, ' '), 'reason');
 throws('duplicate serial refused', () => Inventory.superEditSerial('A-1', { serial: 'a-2' }, 'x'), 'already in use');

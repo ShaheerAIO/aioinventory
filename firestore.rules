@@ -6,7 +6,8 @@ rules_version = '2';
 //   inventory/main       all app data except the movement ledger and audits
 //   inventory/movements  the movement ledger (split out in v107)
 //   audits/{auditId}     one doc per stock audit (split out in v107)
-//   users/{uid}          { name, email, role } — role is 'superadmin' | 'admin' | 'edit' | 'view'
+//   users/{uid}          { name, email, role, perms? } — role is 'superadmin' | 'admin' | 'edit' | 'view';
+//                        perms = super admin features ticked on for this user (super admin writes only)
 //                        (superadmin = admin + may rewrite any unit's properties in the app)
 //   activityLog/{id}     permanent who-did-what log, written by js/activity.js
 //
@@ -102,6 +103,7 @@ service cloud.firestore {
         && request.auth.uid == uid
         && request.auth.token.email != null
         && request.resource.data.email == request.auth.token.email
+        && !request.resource.data.keys().hasAny(['perms'])
         && ( request.resource.data.role == 'view'
           || (request.resource.data.role == pendingRole()
               && request.resource.data.role != 'superadmin')
@@ -109,13 +111,15 @@ service cloud.firestore {
 
       // Role changes, removal and reactivation are admin-only, and anything
       // that touches a super admin — granting it, or changing, removing or
-      // reactivating someone who has it — is super-admin-only. The one
+      // reactivating someone who has it — is super-admin-only, and so is
+      // perms (the super admin features ticked on for a user). The one
       // exception is stamping migratedTo on an old profile that carries the
       // writer's own email, which is how first sign-in retires it.
       allow update: if isSuperAdmin()
         || (isAdmin()
             && resource.data.get('role', '') != 'superadmin'
-            && request.resource.data.get('role', '') != 'superadmin')
+            && request.resource.data.get('role', '') != 'superadmin'
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['perms']))
         || retiringOwnOldProfile();
 
       allow delete: if false;              // removal is a soft delete

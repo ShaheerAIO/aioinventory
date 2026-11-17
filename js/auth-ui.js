@@ -272,6 +272,8 @@ const AuthUI = (() => {
     });
   }
 
+  const permCount = u => Object.keys(Auth.PERMS).filter(k => u.perms?.[k] === true).length;
+
   async function refreshUsersList() {
     const container = document.getElementById('users-list');
     if (!container) return;
@@ -301,12 +303,21 @@ const AuthUI = (() => {
         </td>
         <td style="padding:9px 8px;border-bottom:1px solid var(--border);text-align:right;">
           <div style="display:flex;gap:6px;justify-content:flex-end;white-space:nowrap;">
+            ${isSuper && u.role !== 'superadmin'
+              ? `<button class="btn btn-ghost btn-xs" data-perms-toggle="${esc(u.id)}" title="Super admin features this user can use">Permissions${permCount(u) ? ` (${permCount(u)})` : ''}</button>`
+              : ''}
             ${u.id !== currentUid && (u.role !== 'superadmin' || isSuper)
               ? `<button class="btn btn-ghost btn-xs" data-delete="${esc(u.id)}" data-name="${esc(u.name||u.email)}" style="color:var(--danger-text);border-color:var(--danger-border);">Remove</button>`
               : ''}
           </div>
         </td>
-      </tr>`).join('');
+      </tr>${isSuper && u.role !== 'superadmin' ? `<tr data-perms-row="${esc(u.id)}" style="display:none;">
+        <td colspan="4" style="padding:4px 8px 12px;border-bottom:1px solid var(--border);background:var(--bg-2);">
+          <div style="font-size:11px;color:var(--text-hint);margin:6px 0 8px;">Tick the super admin features ${esc(u.name || u.email)} can use. Saved as you tick; applies on their next page load.</div>
+          ${Object.entries(Auth.PERMS).map(([k, p]) => `<label style="display:flex;gap:8px;align-items:flex-start;font-size:13px;margin-bottom:6px;cursor:pointer;">
+            <input type="checkbox" data-perm-uid="${esc(u.id)}" data-perm="${k}" ${u.perms?.[k] === true ? 'checked' : ''} style="margin-top:3px;">
+            <span><b style="font-weight:600;">${esc(p.label)}</b><br><span style="font-size:11px;color:var(--text-hint);">${esc(p.hint)}</span></span></label>`).join('')}
+        </td></tr>` : ''}`).join('');
 
       const removedRows = removed.length ? removed.map(u => `<tr style="opacity:.65;">
         <td style="padding:9px 8px;border-bottom:1px solid var(--border);font-weight:500;">${esc(u.name || '—')}</td>
@@ -352,6 +363,30 @@ const AuthUI = (() => {
       container.querySelectorAll('select[data-uid]').forEach(sel => {
         sel.addEventListener('change', async () => {
           await UserManager.updateUserRole(sel.dataset.uid, sel.value);
+        });
+      });
+
+      // Wire permission ticks (super admin only; firestore.rules enforces it too)
+      container.querySelectorAll('button[data-perms-toggle]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const row = container.querySelector(`tr[data-perms-row="${CSS.escape(btn.dataset.permsToggle)}"]`);
+          row.style.display = row.style.display === 'none' ? '' : 'none';
+        });
+      });
+      container.querySelectorAll('input[data-perm-uid]').forEach(box => {
+        box.addEventListener('change', async () => {
+          const uid = box.dataset.permUid;
+          const perms = {};
+          container.querySelectorAll(`input[data-perm-uid="${CSS.escape(uid)}"]`).forEach(b => { if (b.checked) perms[b.dataset.perm] = true; });
+          try {
+            await UserManager.updateUserPerms(uid, perms);
+            const btn = container.querySelector(`button[data-perms-toggle="${CSS.escape(uid)}"]`);
+            const n = Object.keys(perms).length;
+            btn.textContent = 'Permissions' + (n ? ` (${n})` : '');
+          } catch(e) {
+            box.checked = !box.checked;
+            alert('Could not save permissions: ' + (e.message || 'Unknown'));
+          }
         });
       });
 

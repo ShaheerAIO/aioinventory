@@ -74,6 +74,7 @@ const Activity = (() => {
     setHubspotCompanyId: (c, id) => ({ text: `HubSpot company for ${c} set to ${id || '(none)'}` }),
     setHubspotIgnored:   (c, ig) => ({ text: `${c} ${ig ? 'marked' : 'unmarked'} as "Not a customer"` }),
     setDeviceLocation:   (c, loc) => ({ text: loc ? `AIO dashboard restaurant for ${c} set to ${loc.name} (tenant ${loc.businessId}, location ${loc.restaurantId})` : `AIO dashboard restaurant for ${c} cleared` }),
+    setForecastSetting: (k, v) => ({ text: `Hardware forecast: ${({ bundleMap: 'HubSpot bundle contents', perDeal: 'hardware per converted deal', conversionPct: 'marketing conversion %', z: 'carry-over (Z)' })[k] || k} updated`, detail: { [k]: v } }),
     deleteSerial:  s  => ({ text: `Serial deleted: ${s}`, serials: [s] }),
     deleteSerials: ss => ({ text: `${n(ss)} serial(s) deleted`, serials: ss }),
     renameSerial:  (a, b) => ({ text: `Serial renamed: ${a} → ${b}`, serials: [a, b] }),
@@ -148,11 +149,17 @@ const Activity = (() => {
     } catch(_) { return {}; }
   }
   const who = u => `${u.name || '?'} (${u.email || '?'})`;
-  const _updateRole = UserManager.updateUserRole, _deleteUser = UserManager.deleteUser, _reactivate = UserManager.reactivateUser;
+  const _updateRole = UserManager.updateUserRole, _deleteUser = UserManager.deleteUser, _reactivate = UserManager.reactivateUser, _updatePerms = UserManager.updateUserPerms;
   UserManager.updateUserRole = async (uid, role) => {
     const u = await _userDoc(uid);
     await _updateRole(uid, role);
     _queue({ action: 'updateUserRole', text: `Role of ${who(u)} changed: ${u.role || '?'} → ${role}`, detail: { uid } });
+  };
+  UserManager.updateUserPerms = async (uid, perms) => {
+    const u = await _userDoc(uid);
+    await _updatePerms(uid, perms);
+    const on = Object.keys(perms).filter(k => perms[k]).map(k => Auth.PERMS[k]?.label || k);
+    _queue({ action: 'updateUserPerms', text: `Permissions of ${who(u)} set to: ${on.join(', ') || 'none'}`, detail: { uid, perms } });
   };
   UserManager.deleteUser = async uid => {
     const u = await _userDoc(uid);

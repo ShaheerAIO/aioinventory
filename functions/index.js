@@ -177,6 +177,34 @@ exports.hubspotCompanyDocs = onRequest(
   }
 );
 
+// ── Quarterly hardware forecast (Integrations → Forecast) ────────────────────
+// Super admin, or anyone given the forecast permission. Deals signed in one quarter with their one-off line items,
+// plus the marketing-only deals sales aims to convert. Read only.
+const { getForecastData } = require('./hardwareForecast');
+
+exports.hardwareForecast = onRequest(
+  { secrets: [HUBSPOT_TOKEN], cors: PICKER_ORIGINS, timeoutSeconds: 120 },
+  async (req, res) => {
+    const caller = await callerProfile(req);
+    if (!caller) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    if (!can(caller, 'forecast')) { res.status(403).json({ error: 'No access to the forecast' }); return; }
+
+    const from = String(req.query.from || ''), to = String(req.query.to || '');
+    const day = /^\d{4}-\d{2}-\d{2}$/;
+    if (!day.test(from) || !day.test(to) || from > to) {
+      res.status(400).json({ error: 'from and to must be YYYY-MM-DD, from on or before to' });
+      return;
+    }
+
+    try {
+      res.json(await getForecastData(HUBSPOT_TOKEN.value(), from, to));
+    } catch (e) {
+      console.error('hardwareForecast failed:', e.message);
+      res.status(502).json({ error: 'HubSpot lookup failed' });
+    }
+  }
+);
+
 // ── Device mapping against the AIO production dashboard ──────────────────────
 // Backs the Map Devices view. Reads (restaurants, each one's devices, and the
 // platform-wide serial index) are open to admins; anything that writes to the
@@ -251,17 +279,22 @@ async function terminalIndex(fresh) {
   return _terminals.data;
 }
 
-async function callerRole(req) {
+// { role, perms } of the signed-in caller, or null. perms are the super admin
+// features a super admin ticked on for this user (users/<uid>.perms).
+async function callerProfile(req) {
   const bearer = /^Bearer (.+)$/.exec(req.get('Authorization') || '');
   if (!bearer) return null;
   try {
     const { uid } = await admin.auth().verifyIdToken(bearer[1]);
     const profile = await admin.firestore().doc(`users/${uid}`).get();
-    return profile.exists && !profile.data().deleted ? profile.data().role : null;
+    if (!profile.exists || profile.data().deleted) return null;
+    return { role: profile.data().role, perms: profile.data().perms || {} };
   } catch {
     return null;
   }
 }
+async function callerRole(req) { return (await callerProfile(req))?.role || null; }
+const can = (p, perm) => p.role === 'superadmin' || p.perms[perm] === true;
 
 // The restaurant a serial is registered to right now, read fresh, plus the device record
 async function findRegistered(serial) {
@@ -282,13 +315,13 @@ async function knownLocation(businessId, restaurantId) {
 exports.aioDevices = onRequest(
   { secrets: [AIO_DASHBOARD_USERNAME, AIO_DASHBOARD_PASSWORD, UNIFI_API_KEY], cors: PICKER_ORIGINS, timeoutSeconds: 300 },
   async (req, res) => {
-    const role = await callerRole(req);
-    if (!role) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    const caller = await callerProfile(req);
+    if (!caller) { res.status(401).json({ error: 'Unauthorized' }); return; }
 
     const isWrite = req.method === 'POST';
     const p = isWrite ? (req.body || {}) : req.query;
     const action = String(p.action || '');
-    const denied = accessError(role, action, isWrite);
+    const denied = accessError(caller.role, action, isWrite, caller.perms);
     if (denied) { res.status(denied.status).json({ error: denied.error }); return; }
 
     try {
@@ -428,9 +461,9 @@ const MAX_GRANT = 50;
 exports.aioBuddyAccess = onRequest(
   { secrets: [AIO_DASHBOARD_USERNAME, AIO_DASHBOARD_PASSWORD], cors: PICKER_ORIGINS, timeoutSeconds: 120 },
   async (req, res) => {
-    const role = await callerRole(req);
-    if (!role) { res.status(401).json({ error: 'Unauthorized' }); return; }
-    if (role !== 'superadmin') { res.status(403).json({ error: 'Super admin only' }); return; }
+    const caller = await callerProfile(req);
+    if (!caller) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    if (!can(caller, 'buddyAccess')) { res.status(403).json({ error: 'No access to Buddy Access' }); return; }
 
     const isWrite = req.method === 'POST';
     const p = isWrite ? (req.body || {}) : req.query;

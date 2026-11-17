@@ -426,13 +426,13 @@ const DeviceMap = (() => {
   const FILTERS = { all: 'All', tomap: 'To map', unlinked: 'Not linked', elsewhere: 'Elsewhere', unifi: 'UniFi issue' };
 
   function renderList() {
-    const isSuperUser = Auth.isSuperAdmin();
+    const isSuperUser = Auth.can('dashboardWrite');
     const showHidden = isSuperUser && _view.filter === 'hidden';
     const rows = listRows();
     const hiddenRows = isSuperUser ? listRows(true) : [];
     const byCustomer = customerUnits();
     const uni = unifiView(byCustomer);
-    const isSuper = Auth.isSuperAdmin();
+    const isSuper = Auth.can('dashboardWrite');
     const tab = isSuper && ['report', 'move'].includes(_view.tab) ? _view.tab : 'list';
     const uniIssue = c => { const u = uni?.perCustomer[c]; return !!u && u.online < u.total; };
     const match = {
@@ -525,7 +525,7 @@ const DeviceMap = (() => {
   // Super admin: "Not a customer" is the same list HubSpot mapping uses, so one
   // mark hides a name from both
   function setNotCustomer(customer, hide) {
-    if (!Auth.isSuperAdmin()) return;
+    if (!Auth.can('dashboardWrite')) return;
     if (hide && !confirm(`Mark "${customer}" as not a customer?\n\nIt disappears from Map Devices, the discrepancy report and HubSpot mapping. Its units stay exactly as they are in inventory. You can restore it under "Not customers".`)) return;
     DB.setHubspotIgnored(customer, hide);
     UI.showAlert(hide ? `"${customer}" marked as not a customer` : `"${customer}" restored as a customer`, 'success');
@@ -564,7 +564,7 @@ const DeviceMap = (() => {
     const invText = i => !i ? '<span class="badge b-zero">Not in inventory</span>'
       : i.state === 'deployed' || i.state === 'staged' ? `${i.state === 'staged' ? 'Staged for' : 'Deployed to'} ${esc(i.customer)}`
       : `${i.state === 'in-transit' ? 'In transit to' : 'In stock at'} ${esc(i.location || '—')}`;
-    const canFix = Auth.isSuperAdmin();
+    const canFix = Auth.can('dashboardWrite');
     return `
       <div class="panel-title" style="margin-top:20px;">UniFi <span style="font-size:12px;color:var(--text-hint);font-weight:400;">${sites.length ? esc(sites.join(' · ')) : 'no site found'} · read only</span></div>
       <div class="table-wrap"><table>
@@ -595,7 +595,7 @@ const DeviceMap = (() => {
     if (!_detail || _detail.customer !== customer) { openCustomer(customer); return; }
     const d = _detail;
     const units = customerUnits()[customer] || [];
-    const canWrite = Auth.isSuperAdmin();
+    const canWrite = Auth.can('dashboardWrite');
     const other = units.filter(u => !isTerminal(u) && !deviceTypeFor(u));
     const header = `
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">

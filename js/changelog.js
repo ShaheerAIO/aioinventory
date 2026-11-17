@@ -4,6 +4,33 @@
  */
 var CHANGELOG = [
   {
+    version: 'v148',
+    date: '2026-11-17',
+    title: 'Forecast: Red & Amber Zones',
+    changes: [
+      { type: 'improved', text: 'Forecast formula is now Needed = (A + M \u00d7 c%) \u00d7 b + Z: A is the number of hardware deals signed last quarter, so both signed and projected deals use the same per-deal bundle' },
+      { type: 'new', text: 'Each product shows its monthly use (the higher of the last 90 days\u2019 deployments and the forecast) and how many weeks stock + in transit covers. Red: runs out inside the product\u2019s lead time (8 weeks unless you set another in the table). Amber: hits zero within 2 weeks after it' },
+    ],
+  },
+  {
+    version: 'v147',
+    date: '2026-11-16',
+    title: 'Per-user Permissions',
+    changes: [
+      { type: 'new', text: 'Super admins can tick super admin features on for anyone in Manage users \u2192 Permissions: the Forecast page, the Buddy Access page, Edit all properties of a unit, and changing the AIO dashboard from Map Devices. Every change is in the Activity Log' },
+      { type: 'improved', text: 'The forecast formula is shown as one equation you fill in, with a key underneath' },
+    ],
+  },
+  {
+    version: 'v146',
+    date: '2026-11-16',
+    title: 'Hardware Forecast',
+    changes: [
+      { type: 'new', text: 'Integrations \u2192 Forecast (super admins): next quarter\u2019s hardware per product, read from HubSpot. Needed = the hardware on deals signed last quarter + open marketing deals \u00d7 a conversion % \u00d7 the hardware in one converted deal + a carry-over (Z) from last quarter\u2019s order' },
+      { type: 'new', text: 'Map each HubSpot bundle (e.g. QSR POS Hardware Bundle) to the inventory products inside it once; unmapped products are flagged. Stock on hand and in transit are shown beside each product so Z can be adjusted for them. Test-account deals are left out' },
+    ],
+  },
+  {
     version: 'v145',
     date: '2026-11-11',
     title: 'AIO Brand Refresh',

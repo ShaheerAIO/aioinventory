@@ -169,6 +169,16 @@ const Auth = (() => {
   function canEdit()    { return isAdmin() || _userProfile?.role === 'edit'; }
   function getName()    { return _userProfile?.name || _currentUser?.email || ''; }
 
+  // Super admin features a super admin can tick on for anyone (users/<uid>.perms).
+  // A super admin has them all. The server and firestore.rules check them too.
+  const PERMS = {
+    forecast:       { label: 'Forecast page',                 hint: 'Integrations → Forecast. Saving its settings needs Editor or higher.' },
+    buddyAccess:    { label: 'Buddy Access page',             hint: 'Integrations → Buddy Access: add restaurants to a buddy, remove MFA.' },
+    superEdit:      { label: 'Edit all properties of a unit', hint: 'Serial Lookup → Edit all properties. Needs Editor or higher.' },
+    dashboardWrite: { label: 'Change the AIO dashboard',      hint: 'Map Devices: map, fix, move and "not a customer". Needs Admin.' },
+  };
+  function can(perm) { return isSuperAdmin() || _userProfile?.perms?.[perm] === true; }
+
   // ── Microsoft Entra ID sign-in ──────────────────────────────────────────
   // Safari never completes the popup handshake — the window opens, the account
   // is picked, and the credential never reaches the opener, so the SDK reports
@@ -222,7 +232,7 @@ const Auth = (() => {
     window.location.reload();
   }
 
-  return { init, onReady, getUser, getProfile, isSuperAdmin, isAdmin, canEdit, getName, getRedirectError, signInWithMicrosoft, signIn, signOut };
+  return { init, onReady, getUser, getProfile, isSuperAdmin, isAdmin, canEdit, can, PERMS, getName, getRedirectError, signInWithMicrosoft, signIn, signOut };
 })();
 
 // ── User Management (admin only) ──────────────────────────────────────────
@@ -266,13 +276,20 @@ const UserManager = (() => {
     });
   }
 
+  // perms: { forecast: true, ... } — super admin only (firestore.rules)
+  async function updateUserPerms(uid, perms) {
+    const { getFirestore, doc, updateDoc } =
+      await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js');
+    await updateDoc(doc(getFirestore(), 'users', uid), { perms });
+  }
+
   function addPendingUser(email, name, role) {
     // Stored in DB (inventory/main). On their first Entra sign-in this is what
     // gives them a role other than view-only.
     DB.setPendingUser(email, name, role);
   }
 
-  return { listUsers, addPendingUser, updateUserRole, deleteUser, reactivateUser };
+  return { listUsers, addPendingUser, updateUserRole, updateUserPerms, deleteUser, reactivateUser };
 })();
 
 // Start auth immediately

@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" />
-  <link rel="stylesheet" href="css/styles.v4.css?v=144" />
+  <link rel="stylesheet" href="css/styles.v4.css?v=148" />
   <link rel="stylesheet" href="css/dashboard.css?v=144" />
   <link rel="stylesheet" href="css/palette.css?v=134" />
   <link rel="stylesheet" href="css/catalog.css?v=141" />
@@ -245,9 +245,10 @@
       </div>
       <div class="nav-group" id="nav-integrations" style="display:none;">
         <div class="nav-group-label">Integrations</div>
-        <button class="nav-item" data-view="map-devices"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg><span class="nav-label">Map Devices</span></button>
-        <button class="nav-item" data-view="networking"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 9a15 15 0 0 1 20 0"/><path d="M5 12.5a10 10 0 0 1 14 0"/><path d="M8.5 16a5 5 0 0 1 7 0"/><path d="M12 20h.01"/></svg><span class="nav-label">Networking</span></button>
+        <button class="nav-item" data-view="map-devices" id="nav-map-devices" style="display:none;"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg><span class="nav-label">Map Devices</span></button>
+        <button class="nav-item" data-view="networking" id="nav-networking" style="display:none;"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 9a15 15 0 0 1 20 0"/><path d="M5 12.5a10 10 0 0 1 14 0"/><path d="M8.5 16a5 5 0 0 1 7 0"/><path d="M12 20h.01"/></svg><span class="nav-label">Networking</span></button>
         <button class="nav-item" data-view="buddy-access" id="nav-buddy-access" style="display:none;"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.3-9.3"/><path d="m16 7 3 3"/><path d="m19 4 2 2"/></svg><span class="nav-label">Buddy Access</span></button>
+        <button class="nav-item" data-view="forecast" id="nav-forecast" style="display:none;"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="m7 15 4-4 3 3 6-6"/><path d="M16 8h4v4"/></svg><span class="nav-label">Forecast</span></button>
       </div>
     </nav>
     <div class="sidebar-foot" id="sidebar-foot">
@@ -1195,6 +1196,17 @@
     </div>
   </section>
 
+  <!-- ══════════════════ FORECAST (super admin, reads HubSpot) ══════════════════ -->
+  <section id="v-forecast" class="view" style="display:none;">
+    <div class="panel">
+      <div class="panel-title">
+        Hardware forecast — next quarter
+        <span><button class="btn btn-ghost btn-sm" id="fc-refresh">Refresh</button></span>
+      </div>
+      <div id="fc-root"></div>
+    </div>
+  </section>
+
   <section id="v-buddy-access" class="view" style="display:none;">
     <div class="panel">
       <div class="panel-title">
@@ -1302,12 +1314,12 @@
 
   </div><!-- /.main -->
 </div>
-<script src="js/auth.js?v=120"></script>
-<script src="js/auth-ui.js?v=144"></script>
-<script src="js/db.js?v=125"></script>
-<script src="js/activity.js?v=124"></script>
+<script src="js/auth.js?v=147"></script>
+<script src="js/auth-ui.js?v=147"></script>
+<script src="js/db.js?v=148"></script>
+<script src="js/activity.js?v=147"></script>
 <script src="js/hubspot-picker.js?v=134"></script>
-<script src="js/inventory.js?v=143"></script>
+<script src="js/inventory.js?v=147"></script>
 <script src="js/reports.js?v=141"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="js/ui/core.js?v=131"></script>
@@ -1323,7 +1335,7 @@
 <script src="js/ui/stock-transfer.js?v=133"></script>
 <script src="js/ui/edit-serial-modal.js?v=131"></script>
 <script src="js/ui/history.js?v=131"></script>
-<script src="js/ui/lookup.js?v=132"></script>
+<script src="js/ui/lookup.js?v=147"></script>
 <script src="js/ui/servicing.js?v=133"></script>
 <script src="js/ui/total-loss.js?v=131"></script>
 <script src="js/ui/rmatl-dispatched.js?v=141"></script>
@@ -1332,10 +1344,11 @@
 <script src="js/ui/transfers.js?v=141"></script>
 <script src="js/ui/command-palette.js?v=141"></script>
 <script src="js/audit.js?v=131"></script>
-<script src="js/device-map.js?v=143"></script>
+<script src="js/device-map.js?v=147"></script>
 <script src="js/buddy-access.js?v=144"></script>
 <script src="js/networking.js?v=141"></script>
-<script src="js/changelog.js?v=145"></script>
+<script src="js/forecast.js?v=148"></script>
+<script src="js/changelog.js?v=148"></script>
 <script src="js/forms/shared.js?v=131"></script>
 <script src="js/forms/stock-in.js?v=131"></script>
 <script src="js/forms/products.js?v=141"></script>
@@ -1343,7 +1356,7 @@
 <script src="js/forms/orders.js?v=131"></script>
 <script src="js/forms/transit.js?v=131"></script>
 <script src="js/forms/stock-out.js?v=132"></script>
-<script src="js/app.js?v=141"></script>
+<script src="js/app.js?v=147"></script>
 </body>
 </html>
 

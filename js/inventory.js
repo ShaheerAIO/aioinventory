@@ -1240,7 +1240,7 @@ const Inventory = (() => {
   // Validates a super-admin edit and applies it. `changes` holds only the
   // fields that differ from getEditableProperties(). Throws on bad input.
   function superEditSerial(serial, changes, reason) {
-    if (typeof Auth === 'undefined' || !Auth.isSuperAdmin()) throw new Error('Only a super admin can do this.');
+    if (typeof Auth === 'undefined' || !Auth.can('superEdit')) throw new Error('You do not have permission to do this.');
     if (!(reason || '').trim()) throw new Error('Give a reason for the change — it goes in the activity log.');
     const cur = getEditableProperties(serial);
     if (!cur) throw new Error('Only units in stock or dispatched can be edited here. Receive in-transit units first.');

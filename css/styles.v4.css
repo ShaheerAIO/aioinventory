@@ -894,3 +894,18 @@ select:-webkit-autofill, textarea:-webkit-autofill {
   -webkit-box-shadow: 0 0 0 1000px var(--bg) inset; box-shadow: 0 0 0 1000px var(--bg) inset;
   transition: background-color 5000s ease-in-out 0s;
 }
+
+/* Hardware forecast — the formula and its key */
+.fc-eq { background: var(--bg-2); border: 1px solid var(--border); border-radius: 12px; padding: 18px 20px; margin-bottom: 14px; }
+.fc-eq-line { font-family: Georgia, 'Times New Roman', serif; font-size: 26px; color: var(--text); display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.fc-eq-line i { font-weight: 600; }
+.fc-op { color: var(--text-hint); }
+.fc-pct { display: inline-flex; align-items: center; gap: 2px; font-size: 20px; }
+.fc-pct input { width: 72px; display: inline-block; font-size: 18px; text-align: center; padding: 4px 6px; }
+.fc-key { display: grid; grid-template-columns: 28px 1fr; gap: 6px 10px; margin: 14px 0 0; padding-top: 12px; border-top: 1px solid var(--border); font-size: 13px; }
+.fc-key dt { font-family: Georgia, 'Times New Roman', serif; font-style: italic; font-weight: 600; font-size: 15px; color: var(--text); }
+.fc-key dd { margin: 0; color: var(--text-muted); align-self: center; }
+.fc-note { margin-top: 10px; font-size: 12px; color: var(--text-hint); }
+.fc-zone { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--bg-2); color: var(--text-muted); }
+.fc-zone-red { background: var(--danger-bg); color: var(--danger-text); }
+.fc-zone-amber { background: var(--warning-bg); color: var(--warning-text); }

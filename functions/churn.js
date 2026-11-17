@@ -10,12 +10,13 @@ const CHURN_ROLES = ['superadmin', 'admin', 'edit'];
 
 // The aioDevices role gate. null = allowed, else { status, error } to send.
 // Churn is the only thing an editor may call; everything else is unchanged:
-// admins read, only a super admin writes.
-function accessError(role, action, isWrite) {
+// admins read, and only a super admin — or an admin a super admin gave the
+// dashboardWrite permission (users/<uid>.perms) — writes.
+function accessError(role, action, isWrite, perms = {}) {
   const churn = (!isWrite && action === 'churnPreview') || (isWrite && action === 'churn');
   if (churn) return CHURN_ROLES.includes(role) ? null : { status: 403, error: 'Forbidden' };
   if (!['superadmin', 'admin'].includes(role)) return { status: 403, error: 'Forbidden' };
-  if (isWrite && role !== 'superadmin') return { status: 403, error: 'Only a super admin can change the AIO dashboard' };
+  if (isWrite && role !== 'superadmin' && perms.dashboardWrite !== true) return { status: 403, error: 'Only a super admin can change the AIO dashboard' };
   return null;
 }
 
