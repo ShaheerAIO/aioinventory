@@ -25,7 +25,7 @@ const Forms = { _: {} };
       <div class="form-grid g3" style="margin-bottom:10px;">
         <div class="form-group" style="grid-column:span 2;">
           <label class="form-label">Product *</label>
-          <select class="fi" id="${row.id}-product-select" data-rowid="${row.id}">
+          <select class="fi" data-search id="${row.id}-product-select" data-rowid="${row.id}">
             <option value="">Select product...</option>
             ${productOptions}
           </select>

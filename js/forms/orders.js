@@ -24,7 +24,7 @@
       <div class="form-grid g3" style="margin-bottom:10px;">
         <div class="form-group" style="grid-column:span 2;">
           <label class="form-label">Product *</label>
-          <select class="fi" id="${row.id}-ord-product">
+          <select class="fi" data-search id="${row.id}-ord-product">
             <option value="">Select product...</option>
             ${productOptions}
           </select>
@@ -158,7 +158,7 @@
         <div class="form-grid g2" style="margin-bottom:12px;">
           <div class="form-group">
             <label class="form-label">Destination location *</label>
-            <select class="fi" id="arrange-loc">
+            <select class="fi" data-search id="arrange-loc">
               <option value="">Select location...</option>
               ${locationOpts}
               <option value="__new__">＋ Enter new location...</option>
@@ -400,7 +400,7 @@
         '<div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--text-hint);margin-bottom:8px;">Destination</div>' +
         '<div class="form-grid g2" style="margin-bottom:14px;">' +
           '<div class="form-group"><label class="form-label">Destination location *</label>' +
-            '<select class="fi" id="split-loc"><option value="">Select location...</option>' + locationOpts + '<option value="__new__">+ Enter new location...</option></select>' +
+            '<select class="fi" data-search id="split-loc"><option value="">Select location...</option>' + locationOpts + '<option value="__new__">+ Enter new location...</option></select>' +
             '<input class="fi" id="split-loc-custom" placeholder="Type new location name" style="margin-top:6px;display:none;" />' +
           '</div>' +
           '<div class="form-group"><label class="form-label">Expected by</label>' +

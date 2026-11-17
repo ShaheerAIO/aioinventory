@@ -268,6 +268,7 @@ const Audit = (() => {
           const qty  = c.ns > 0 && c.serial === 0 ? c.ns : c.serial + (c.ns > 0 ? `+${c.ns}NS` : '');
           return `<option value="${_esc(c.product + '||' + c.location)}">${_esc(c.product)}${c.location?' @ '+c.location:''} · ${type} · ${qty}</option>`;
         }).join('');
+    sel.tomselect?.sync();
   }
 
   function _wireSetupButtons() {

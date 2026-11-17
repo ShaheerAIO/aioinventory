@@ -4,6 +4,14 @@
  */
 var CHANGELOG = [
   {
+    version: 'v149',
+    date: '2026-11-17',
+    title: 'Searchable Product Dropdowns',
+    changes: [
+      { type: 'improved', text: 'Product dropdowns on Stock In, In Transit, Orders, Stock Out, Stock Audit, Forecast and Edit all properties, plus every supplier and location dropdown, now have a search box \u2014 type any part of the name to filter. The list is sorted A\u2013Z, with Other and \u201cAdd new\u201d at the bottom' },
+    ],
+  },
+  {
     version: 'v148',
     date: '2026-11-17',
     title: 'Forecast: Red & Amber Zones',

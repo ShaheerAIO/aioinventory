@@ -84,7 +84,7 @@
     const val  = id => document.getElementById('se-' + id).value.trim();
     const F = {
       serial:       ['Serial number', txt('serial', cur.serial, 'style="font-family:var(--mono)"'), () => val('serial').toUpperCase()],
-      product:      ['Product', `<select class="fi" id="se-product">${products.map(p => `<option${p === cur.product ? ' selected' : ''}>${esc(p)}</option>`).join('')}</select>`, () => val('product')],
+      product:      ['Product', `<select class="fi" data-search id="se-product">${products.map(p => `<option${p === cur.product ? ' selected' : ''}>${esc(p)}</option>`).join('')}</select>`, () => val('product')],
       location:     [deployed ? 'Location (dispatched from)' : 'Location', sel('location', cur.location, Inventory.getLocations()), () => val('location')],
       receivedDate: ['Received date', day('receivedDate', cur.receivedDate), () => fromDay(val('receivedDate'))],
       supplier:     ['Supplier', sel('supplier', cur.supplier, Inventory.getSuppliers(), '— None —'), () => val('supplier')],

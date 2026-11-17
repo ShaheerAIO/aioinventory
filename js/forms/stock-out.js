@@ -54,14 +54,14 @@
       <div class="form-grid g3" style="margin-bottom:12px;">
         <div class="form-group" style="grid-column:span 2;">
           <label class="form-label">Product *</label>
-          <select class="fi" id="${row.id}-out-product">
+          <select class="fi" data-search id="${row.id}-out-product">
             <option value="">Select product from stock...</option>
             ${productOptions}
           </select>
         </div>
         <div class="form-group">
           <label class="form-label">Location *</label>
-          <select class="fi" id="${row.id}-out-location" ${!row.product ? 'disabled' : ''}>
+          <select class="fi" data-search id="${row.id}-out-location" ${!row.product ? 'disabled' : ''}>
             <option value="">Select location...</option>
             ${locationOptions}
           </select>

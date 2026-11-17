@@ -909,3 +909,25 @@ select:-webkit-autofill, textarea:-webkit-autofill {
 .fc-zone { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--bg-2); color: var(--text-muted); }
 .fc-zone-red { background: var(--danger-bg); color: var(--danger-text); }
 .fc-zone-amber { background: var(--warning-bg); color: var(--warning-text); }
+
+/* ── Searchable selects (Tom Select on <select data-search>) ───────────── */
+/* The wrapper inherits .fi (border, radius, size); the inner control is bare. */
+.ts-wrapper.fi { padding: 0; display: block; }
+.ts-wrapper.fi.focus { border-color: var(--aio-purple); }
+.ts-wrapper.fi .ts-control,
+.ts-wrapper.fi.single.input-active .ts-control {
+  border: none; border-radius: var(--r-md); background: transparent; box-shadow: none;
+  min-height: 42px; padding: 11px 32px 11px 14px; color: var(--text); cursor: pointer;
+}
+.ts-wrapper.fi .ts-control,
+.ts-wrapper.fi .ts-control input { font: inherit; color: var(--text); }
+.ts-wrapper.fi .ts-control input::placeholder { color: var(--text-placeholder); }
+.ts-dropdown {
+  z-index: 2000; margin-top: 4px; background: var(--bg); color: var(--text);
+  border: 1px solid var(--border-md); border-radius: var(--r-md); box-shadow: var(--shadow-pop);
+  font-family: var(--font); font-size: 14px;
+}
+.ts-dropdown .option { padding: 8px 14px; }
+.ts-dropdown .active { background: var(--bg-2); color: var(--text); }
+.ts-dropdown [data-selectable] .highlight { background: rgba(249, 103, 78, .2); color: inherit; }
+.ts-dropdown .no-results { padding: 8px 14px; color: var(--text-muted); }

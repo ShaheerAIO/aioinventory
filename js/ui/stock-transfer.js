@@ -281,7 +281,7 @@
         </div>
         <div class="form-group" style="margin-bottom:1rem;">
           <label class="form-label">Location *</label>
-          <select class="fi" id="rename-loc-select">
+          <select class="fi" data-search id="rename-loc-select">
             ${locations.map(l => `<option value="${esc(l)}"${l === preselect ? ' selected' : ''}>${esc(l)}</option>`).join('')}
           </select>
         </div>

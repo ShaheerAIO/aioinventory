@@ -75,6 +75,7 @@ const UI = { _: {} };
 
     const select = document.createElement('select');
     select.className = 'fi ss-select';
+    select.dataset.search = '';
     wrap.appendChild(select);
 
     const addRow = document.createElement('div');
@@ -104,6 +105,7 @@ const UI = { _: {} };
         select.value = cur;
         input.value  = cur;
       }
+      syncSearchable(select);
     }
 
     refresh();
@@ -177,10 +179,45 @@ const UI = { _: {} };
             opts.map(o => `<option value="${esc(o)}"${o === cur ? ' selected' : ''}>${esc(o)}</option>`).join('') +
             `<option value="__add__">＋ Add new...</option>`;
           if (cur) select.value = cur;
+          syncSearchable(select);
         }
       }
     });
   }
+
+  // ── Searchable selects ─────────────────────────────────────────────────
+  // Any <select data-search> becomes a type-to-filter dropdown (Tom Select), options
+  // sorted A–Z with the blank placeholder first, then "Other", then any "__add__" /
+  // "__new__" action last. The original <select> keeps its value and still fires
+  // 'change'. Rows re-render via innerHTML, so an observer enhances new ones; a select
+  // that stays in the page and has its options rebuilt must call syncSearchable().
+  // Tom Select reads each option's data-* into its data, so data-rank drives the sort.
+  function rankOptions(sel) {
+    [...sel.options].forEach(o => {
+      o.dataset.rank = o.value === '' ? 0 : o.value === 'Other' ? 2 : o.value.startsWith('__') ? 3 : 1;
+    });
+  }
+  function makeSearchable(sel) {
+    if (sel.tomselect || typeof TomSelect === 'undefined') return;
+    rankOptions(sel);
+    new TomSelect(sel, {
+      maxOptions: null, dropdownParent: 'body',
+      sortField: [{ field: 'rank' }, { field: 'text' }],
+      refreshThrottle: 0,  // no filter delay, so type + Enter picks the match
+    });
+  }
+  function syncSearchable(sel) {
+    if (!sel.tomselect) return;
+    rankOptions(sel);
+    sel.tomselect.sync();
+  }
+  const enhanceIn = root => {
+    if (root.matches?.('select[data-search]')) makeSearchable(root);
+    root.querySelectorAll?.('select[data-search]').forEach(makeSearchable);
+  };
+  enhanceIn(document.body);
+  new MutationObserver(muts => muts.forEach(m => m.addedNodes.forEach(n => n.nodeType === 1 && enhanceIn(n))))
+    .observe(document.body, { childList: true, subtree: true });
 
   Object.assign(UI, { showAlert, hideAlert, populateDataLists, downloadBackup, initSmartSelects, refreshSmartSelects });
   Object.assign(UI._, { showAlert, populateDataLists, _dlCSV, esc, fmtDate, fmtDateFull, fmtDateTimeISO, _conditionLabel, SmartSelect, refreshSmartSelects });

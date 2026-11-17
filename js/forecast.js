@@ -160,7 +160,7 @@ const Forecast = (() => {
       <div ${_draft.ignore ? 'style="display:none;"' : ''}>
         ${_draft.parts.map(([p, n], i) => `<div style="display:flex;gap:6px;margin-bottom:6px;">
           <input class="fi fc-part-qty" data-i="${i}" type="number" min="0" step="1" value="${esc(n)}" style="width:80px;">
-          <select class="fi fc-part-prod" data-i="${i}"><option value="">Pick a product…</option>${productOptions(p)}</select>
+          <select class="fi fc-part-prod" data-search data-i="${i}"><option value="">Pick a product…</option>${productOptions(p)}</select>
           <button class="btn btn-ghost btn-sm fc-part-del" data-i="${i}">Remove</button></div>`).join('')}
         <button class="btn btn-ghost btn-sm" id="fc-part-add">+ Add product</button>
       </div>
