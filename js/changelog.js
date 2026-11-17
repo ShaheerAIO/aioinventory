@@ -4,6 +4,15 @@
  */
 var CHANGELOG = [
   {
+    version: 'v150',
+    date: '2026-11-17',
+    title: 'Import a PO From File',
+    changes: [
+      { type: 'new', text: 'Purchase Orders has an \u201cImport from file\u201d button: upload a supplier\u2019s PO, pro-forma or packing list (PDF, photo, Excel or CSV) and the form fills itself \u2014 supplier, PO number, expected date, tax, and each product with its quantity, unit cost and serial numbers. Check it against the document, then place the order as usual' },
+      { type: 'new', text: 'Serial numbers imported with an order are filled in automatically when you arrange or split its shipment, instead of placeholder IDs' },
+    ],
+  },
+  {
     version: 'v149',
     date: '2026-11-17',
     title: 'Searchable Product Dropdowns',

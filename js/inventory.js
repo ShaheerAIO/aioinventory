@@ -1483,6 +1483,7 @@ const Inventory = (() => {
     products.forEach(p => {
       if (!p.product) throw new Error('Select a product for each row.');
       if (!p.qty || parseInt(p.qty) < 1) throw new Error(`Enter a quantity for "${p.product || 'product'}".`);
+      if ((p.serials || []).length > parseInt(p.qty)) throw new Error(`"${p.product}" has ${p.serials.length} serial numbers but a quantity of ${parseInt(p.qty)}.`);
     });
 
     const id = Date.now();
@@ -1510,6 +1511,8 @@ const Inventory = (() => {
         taxShare:      parseFloat(taxShare.toFixed(4)),
         taxPerUnit:    parseFloat(taxPerUnit.toFixed(4)),
         landedUnitCost: parseFloat(landedUnitCost.toFixed(4)),
+        // Serials imported from the supplier's document; used when the shipment is arranged
+        ...((p.serials || []).length ? { serials: p.serials.map(x => String(x).trim().toUpperCase()) } : {}),
       };
     });
 

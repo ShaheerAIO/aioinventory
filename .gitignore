@@ -7,3 +7,4 @@ __pycache__/
 *.log
 *.local
 AIO-DASHBOARD-API-GUIDE.md
+local.env

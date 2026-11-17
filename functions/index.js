@@ -205,6 +205,41 @@ exports.hardwareForecast = onRequest(
   }
 );
 
+// ── Import a supplier PO into the Orders form ────────────────────────────────
+// Editors and up. The browser sends the file (PDF/image as base64, or a
+// spreadsheet already turned into CSV text) plus the product and supplier lists; Claude
+// reads it and the result fills the form for the person to check. Writes nothing.
+const ANTHROPIC_API_KEY = defineSecret('ANTHROPIC_API_KEY');
+const { extractPurchaseOrder } = require('./poImport');
+
+exports.poImport = onRequest(
+  { secrets: [ANTHROPIC_API_KEY], cors: PICKER_ORIGINS, timeoutSeconds: 300, memory: '512MiB' },
+  async (req, res) => {
+    const caller = await callerProfile(req);
+    if (!caller) { res.status(401).json({ error: 'Unauthorized' }); return; }
+    if (!['superadmin', 'admin', 'edit'].includes(caller.role)) { res.status(403).json({ error: 'Forbidden' }); return; }
+    if (req.method !== 'POST') { res.status(405).json({ error: 'POST only' }); return; }
+
+    const { fileName, mediaType, data, text, products, suppliers } = req.body || {};
+    const input = {
+      fileName: String(fileName || '').slice(0, 200),
+      mediaType: String(mediaType || ''),
+      data: typeof data === 'string' ? data : '',
+      text: typeof text === 'string' ? text.slice(0, 500000) : '',
+    };
+    const names = a => (Array.isArray(a) ? a : []).map(String).filter(Boolean).slice(0, 1000);
+
+    try {
+      const Anthropic = require('@anthropic-ai/sdk').default;
+      const client = new Anthropic({ apiKey: ANTHROPIC_API_KEY.value() });
+      res.json(await extractPurchaseOrder(client, input, { products: names(products), suppliers: names(suppliers) }));
+    } catch (e) {
+      console.error('poImport failed:', e.message);
+      res.status(e.expose ? e.status : 502).json({ error: e.expose ? e.message : 'The PO reader failed — try again' });
+    }
+  }
+);
+
 // ── Device mapping against the AIO production dashboard ──────────────────────
 // Backs the Map Devices view. Reads (restaurants, each one's devices, and the
 // platform-wide serial index) are open to admins; anything that writes to the

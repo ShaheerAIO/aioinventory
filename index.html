@@ -578,7 +578,12 @@
       <button class="btn btn-primary" id="btn-submit-order">Place order</button>
     </div>
     <div class="panel" style="margin-bottom:1rem;">
-      <div class="panel-title">New order</div>
+      <div class="panel-title">New order
+        <label class="btn btn-ghost btn-sm" id="btn-import-po" style="cursor:pointer;" title="Fill this form from a supplier PO, pro-forma or packing list (PDF, image, Excel or CSV)">
+          <input type="file" id="ord-import-file" style="display:none;" accept=".pdf,.png,.jpg,.jpeg,.webp,.xlsx,.xls,.csv" />Import from file
+        </label>
+      </div>
+      <div id="ord-import-status" class="hint" style="display:none;margin:-4px 0 12px;"></div>
       <div class="form-grid g3">
         <div class="form-group">
           <label class="form-label" for="ord-supplier">Manufacturer / Supplier *</label>
@@ -1320,7 +1325,7 @@
 <script src="js/db.js?v=148"></script>
 <script src="js/activity.js?v=147"></script>
 <script src="js/hubspot-picker.js?v=134"></script>
-<script src="js/inventory.js?v=147"></script>
+<script src="js/inventory.js?v=150"></script>
 <script src="js/reports.js?v=141"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tom-select@2.4.3/dist/js/tom-select.complete.min.js"></script>
@@ -1350,12 +1355,12 @@
 <script src="js/buddy-access.js?v=144"></script>
 <script src="js/networking.js?v=141"></script>
 <script src="js/forecast.js?v=149"></script>
-<script src="js/changelog.js?v=149"></script>
+<script src="js/changelog.js?v=150"></script>
 <script src="js/forms/shared.js?v=149"></script>
 <script src="js/forms/stock-in.js?v=131"></script>
 <script src="js/forms/products.js?v=141"></script>
 <script src="js/forms/suppliers.js?v=141"></script>
-<script src="js/forms/orders.js?v=149"></script>
+<script src="js/forms/orders.js?v=150"></script>
 <script src="js/forms/transit.js?v=131"></script>
 <script src="js/forms/stock-out.js?v=149"></script>
 <script src="js/app.js?v=147"></script>

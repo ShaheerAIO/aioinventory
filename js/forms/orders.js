@@ -7,13 +7,14 @@
   // ── Orders ────────────────────────────────────────────────────────────
   let ordRows = [];
   let _ordCounter = 0;
-  function newOrdRow() { return { id: 'ord' + (++_ordCounter), product: '', category: '', qty: '', unitCost: null }; }
+  function newOrdRow() { return { id: 'ord' + (++_ordCounter), product: '', category: '', qty: '', unitCost: null, serials: [] }; }
+  const parseSerials = text => [...new Set(text.split(/[\n,\t]+/).map(v => v.trim().toUpperCase()).filter(Boolean))];
 
   function buildOrderRowCard(row, idx, total) {
-    const productOptions = Inventory.PRODUCTS.map(p =>
-      `<option value="${esc(p.name)}"${row.product === p.name ? ' selected' : ''}>${esc(p.name)}</option>`
-    ).join('');
     const isOther = row.product === 'Other' || (row.product && !Inventory.PRODUCTS.find(p => p.name === row.product));
+    const productOptions = Inventory.PRODUCTS.map(p =>
+      `<option value="${esc(p.name)}"${row.product === p.name || (isOther && p.name === 'Other') ? ' selected' : ''}>${esc(p.name)}</option>`
+    ).join('');
     const autoCategory = Inventory.PRODUCTS.find(p => p.name === row.product)?.category || row.category || '';
     return `
     <div class="product-row-card" id="ord-rowcard-${row.id}">
@@ -56,6 +57,12 @@
           </div>
         </div>
       </div>
+      ${row.serials.length ? `
+      <div class="form-group" style="margin-top:10px;">
+        <label class="form-label">Serial numbers <span style="font-weight:400;color:var(--text-hint)">(from the imported file — one per line, filled in when you arrange the shipment)</span></label>
+        <textarea class="fi fi-mono" id="${row.id}-ord-serials" rows="4">${esc(row.serials.join('\n'))}</textarea>
+        <div class="hint" id="${row.id}-ord-serial-count">${row.serials.length} serial${row.serials.length !== 1 ? 's' : ''}</div>
+      </div>` : ''}
     </div>`;
   }
 
@@ -65,6 +72,13 @@
     const catEl  = document.getElementById(`${rowId}-ord-category`);
     const qtyEl  = document.getElementById(`${rowId}-ord-qty`);
     const costEl = document.getElementById(`${rowId}-ord-cost`);
+    const serEl  = document.getElementById(`${rowId}-ord-serials`);
+    if (serEl) serEl.addEventListener('input', () => {
+      const row = ordRows.find(r => r.id === rowId); if (!row) return;
+      row.serials = parseSerials(serEl.value);
+      const n = row.serials.length, c = document.getElementById(`${rowId}-ord-serial-count`);
+      if (c) c.textContent = `${n} serial${n !== 1 ? 's' : ''}`;
+    });
     if (sel) {
       sel.addEventListener('change', () => {
         const row = ordRows.find(r => r.id === rowId);
@@ -97,6 +111,7 @@
   function clearOrderForm() {
     ['ord-supplier','ord-po','ord-expected'].forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
     ordRows = [newOrdRow()]; renderOrdRows();
+    setImportStatus('');
   }
 
   function submitOrder() {
@@ -106,7 +121,9 @@
       const costEl   = document.getElementById(`${row.id}-ord-cost`);
       const selEl    = document.getElementById(`${row.id}-ord-product`);
       const customEl = document.getElementById(`${row.id}-ord-product-custom`);
+      const serEl    = document.getElementById(`${row.id}-ord-serials`);
       if (selEl)   row.product  = selEl.value === 'Other' ? (customEl?.value.trim()||'Other') : selEl.value;
+      if (serEl)   row.serials  = parseSerials(serEl.value);
       if (qtyEl)   row.qty      = parseInt(qtyEl.value) || '';
       if (costEl)  row.unitCost = costEl.value !== '' ? parseFloat(costEl.value) : null;
     });
@@ -263,7 +280,8 @@
         const landedPerUnit  = parseFloat((baseCost + freightPerUnit).toFixed(4));
 
         const tag     = (p.product || 'ITEM').replace(/[^A-Z0-9]/gi,'').toUpperCase().slice(0,8);
-        const serials = Array.from({ length: p.qty }, (_, i) => `NS-${tag}-${ts + pi}-${i + 1}`);
+        const given   = (p.serials || []).slice(0, p.qty);  // serials imported with the PO
+        const serials = [...given, ...Array.from({ length: p.qty - given.length }, (_, i) => `NS-${tag}-${ts + pi}-${given.length + i + 1}`)];
 
         // Stamp landed cost on every serial right now
         serials.forEach(s => DB.setSerialCost(s, landedPerUnit));
@@ -326,7 +344,8 @@
     const knownLocations = Inventory.getLocations();
     const locationOpts = knownLocations.map(l => '<option value="' + esc(l) + '">' + esc(l) + '</option>').join('');
     const rowSerials = {};
-    remainingProducts.forEach((p, i) => { rowSerials[i] = []; });
+    const shippedSerials = new Set(allShipments.flatMap(s => s.products.flatMap(p => p.serials)));
+    remainingProducts.forEach((p, i) => { rowSerials[i] = (p.serials || []).filter(s => !shippedSerials.has(s)).slice(0, p.remaining); });
 
     function _usesNS(p) {
       for (const s of allShipments) {
@@ -615,7 +634,113 @@
     }
   }
 
+  // ── Import from file ──────────────────────────────────────────────────
+  // The poImport Cloud Function reads a supplier PO / pro-forma / packing list
+  // with Claude and returns the order; this fills the form for the person to check.
+  // Nothing is saved until they press Place order.
+  const PO_IMPORT_ENDPOINT = 'https://us-central1-aio-inventory-b9b29.cloudfunctions.net/poImport';
+
+  function setImportStatus(html) {
+    const el = document.getElementById('ord-import-status');
+    if (!el) return;
+    el.style.display = html ? '' : 'none';
+    el.innerHTML = html || '';
+  }
+
+  async function readPOFile(file) {
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    if (['xlsx', 'xls', 'csv'].includes(ext)) {
+      const wb = XLSX.read(await file.arrayBuffer());
+      return { text: wb.SheetNames.map(n => `--- Sheet: ${n} ---\n` + XLSX.utils.sheet_to_csv(wb.Sheets[n])).join('\n\n') };
+    }
+    const mediaType = ext === 'pdf' ? 'application/pdf' : file.type;
+    const data = await new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(String(r.result).split(',')[1] || '');
+      r.onerror = () => reject(new Error('Could not read the file'));
+      r.readAsDataURL(file);
+    });
+    return { mediaType, data };
+  }
+
+  function setOrderSupplier(name) {
+    const input = document.getElementById('ord-supplier');
+    if (!input || !name) return;
+    input.value = name;
+    const select = input.parentNode.querySelector('.ss-select');
+    if (!select) return;
+    if (![...select.options].some(o => o.value === name)) select.add(new Option(name, name), select.options[select.options.length - 1]);
+    select.value = name;
+    select.tomselect?.sync();
+  }
+
+  function fillOrderFromImport(r) {
+    document.getElementById('ord-po').value = r.poNumber || '';
+    document.getElementById('ord-expected').value = r.expectedBy || '';
+    setOrderSupplier(r.supplier);
+    const taxEl = document.getElementById('ord-tax-amount');
+    if (taxEl) taxEl.value = r.taxAmount > 0 ? r.taxAmount : '';
+    ordRows = r.lines.map(l => {
+      const def = Inventory.PRODUCTS.find(p => p.name === l.matchedProduct);
+      return { ...newOrdRow(), product: def ? def.name : (l.description || 'Other'), category: def?.category || '',
+        qty: l.qty, unitCost: l.unitCost, serials: l.serials || [] };
+    });
+    if (!ordRows.length) ordRows = [newOrdRow()];
+    renderOrdRows();
+  }
+
+  async function importPOFile(file) {
+    if (!file) return;
+    if (file.size > 15 * 1024 * 1024) { UI.showAlert('That file is over 15 MB — export a smaller PDF or the spreadsheet instead.', 'error'); return; }
+    if (ordRows.some(r => r.product) && !confirm('Replace what is in the order form with the imported order?')) return;
+    const btn = document.getElementById('btn-import-po');
+    btn?.classList.add('disabled');
+    setImportStatus(`Reading <strong>${esc(file.name)}</strong>… this can take up to a minute.`);
+    try {
+      const body = {
+        fileName: file.name,
+        ...(await readPOFile(file)),
+        products: Inventory.PRODUCTS.map(p => p.name).filter(n => n !== 'Other'),
+        suppliers: Inventory.getSuppliers(),
+      };
+      const { getAuth } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
+      const user = getAuth().currentUser;
+      if (!user) throw new Error('Not signed in');
+      const res = await fetch(PO_IMPORT_ENDPOINT, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${await user.getIdToken()}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      }).catch(() => { throw new Error('the poImport Cloud Function did not respond — check it is deployed'); });
+      const r = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(r.error || `Import failed (${res.status})`);
+      if (!r.lines?.length) throw new Error('No products were found in that file.');
+
+      fillOrderFromImport(r);
+      const units = r.lines.reduce((a, l) => a + l.qty, 0);
+      const serials = r.lines.reduce((a, l) => a + l.serials.length, 0);
+      const unmatched = r.lines.filter(l => !l.matchedProduct).map(l => l.description);
+      const notes = [...r.warnings];
+      if (r.currency && r.currency !== 'USD') notes.unshift(`Prices on the document are in ${r.currency} — convert the unit costs to USD.`);
+      if (unmatched.length) notes.unshift(`Not in the product catalog, entered as Other: ${unmatched.join(', ')}. Pick the right product or add it under Products.`);
+      setImportStatus(
+        `Imported <strong>${esc(file.name)}</strong>: ${r.lines.length} line${r.lines.length !== 1 ? 's' : ''}, ${units} unit${units !== 1 ? 's' : ''}` +
+        (serials ? `, ${serials} serial${serials !== 1 ? 's' : ''}` : '') + '. Check everything against the document before placing the order.' +
+        (notes.length ? `<ul style="margin:6px 0 0 18px;padding:0;color:var(--warning-text,#8A5200);">${notes.map(n => `<li>${esc(n)}</li>`).join('')}</ul>` : ''));
+    } catch (e) {
+      setImportStatus('');
+      UI.showAlert(`Couldn't import ${file.name}: ${e.message}`, 'error');
+    } finally {
+      btn?.classList.remove('disabled');
+    }
+  }
+
   function showOrderForm() { if (!ordRows.length) ordRows=[newOrdRow()]; renderOrdRows(); }
+
+  document.getElementById('ord-import-file')?.addEventListener('change', e => {
+    const file = e.target.files[0];
+    e.target.value = '';  // so picking the same file again still fires
+    importPOFile(file);
+  });
 
   bind('btn-add-order-product', 'click', () => { ordRows.push(newOrdRow()); renderOrdRows(); });
   bind('btn-submit-order',      'click', submitOrder);
