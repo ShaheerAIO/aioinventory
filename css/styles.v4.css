@@ -909,6 +909,45 @@ select:-webkit-autofill, textarea:-webkit-autofill {
 .fc-zone { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; background: var(--bg-2); color: var(--text-muted); }
 .fc-zone-red { background: var(--danger-bg); color: var(--danger-text); }
 .fc-zone-amber { background: var(--warning-bg); color: var(--warning-text); }
+.fc-zone-ok { background: var(--success-bg); color: var(--success-text); }
+
+/* Hardware forecast — dashboard: KPI tiles, tabs, product cards */
+.fc-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+.fc-banner { display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 10px 14px; margin-bottom: 14px; border: 1px solid var(--warning-border); background: var(--warning-bg); color: var(--warning-text); border-radius: var(--r-lg); font-size: 13px; }
+.fc-kpis { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }
+.fc-kpi { --accent: var(--aio-purple); background: var(--bg); border: 1px solid var(--border); border-radius: var(--r-lg); box-shadow: inset 4px 0 0 var(--accent); padding: 14px 16px; min-width: 0; }
+.fc-kpi-label { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fc-kpi-n { font-size: clamp(1.5rem, 2.2vw, 2rem); font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); line-height: 1.2; margin: 4px 0 2px; }
+.fc-kpi-hint { font-size: 11.5px; color: var(--text-hint); }
+.fc-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 16px; overflow-x: auto; }
+.fc-tab { background: none; border: 0; border-bottom: 2px solid transparent; padding: 8px 14px; font: inherit; font-size: 13px; color: var(--text-muted); cursor: pointer; white-space: nowrap; margin-bottom: -1px; }
+.fc-tab:hover { color: var(--text); }
+.fc-tab.active { color: var(--text); font-weight: 600; border-bottom-color: var(--aio-purple); }
+.fc-tab-n { display: inline-block; min-width: 18px; padding: 0 6px; border-radius: 999px; background: var(--warning-bg); color: var(--warning-text); font-size: 11px; font-weight: 600; text-align: center; }
+.fc-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(260px, 100%), 1fr)); gap: 12px; }
+.fc-card { border: 1px solid var(--border); border-radius: var(--r-lg); padding: 14px 16px; background: var(--bg); display: flex; flex-direction: column; gap: 6px; }
+.fc-card-red { border-color: var(--danger-border); }
+.fc-card-amber { border-color: var(--warning-border); }
+.fc-card-head { display: flex; gap: 8px; align-items: flex-start; justify-content: space-between; }
+.fc-card-name { font-size: 14px; font-weight: 600; color: var(--text); overflow-wrap: anywhere; }
+.fc-card-head .fc-zone { flex: none; font-size: 11px; }
+.fc-card-need { font-size: 13px; color: var(--text-muted); }
+.fc-big { font-size: 28px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; margin-right: 4px; }
+.fc-card-math { font-size: 12px; color: var(--text-hint); }
+.fc-cover { position: relative; height: 8px; border-radius: 999px; background: var(--bg-2); margin-top: 6px; }
+.fc-cover-fill { height: 100%; border-radius: 999px; background: var(--success-text); }
+.fc-card-red .fc-cover-fill { background: var(--danger-text); }
+.fc-card-amber .fc-cover-fill { background: var(--aio-orange); }
+.fc-cover-lead { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--text); border-radius: 1px; }
+.fc-cover-cap { display: flex; justify-content: space-between; font-size: 11.5px; color: var(--text-hint); }
+.fc-cover-cap b { color: var(--text); font-weight: 600; }
+.fc-card-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 6px; padding-top: 10px; border-top: 1px solid var(--border); }
+.fc-card-stats b { display: block; font-size: 15px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.fc-card-stats span { font-size: 11px; color: var(--text-hint); }
+.fc-legend { display: flex; flex-direction: column; gap: 4px; margin-top: 14px; font-size: 12px; color: var(--text-hint); }
+.fc-sub { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+@media (max-width: 900px) { .fc-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 600px) { .fc-head #fc-rfq { margin-left: 0 !important; } }
 
 /* ── Searchable selects (Tom Select on <select data-search>) ───────────── */
 /* The wrapper inherits .fi (border, radius, size); the inner control is bare. */

@@ -4,11 +4,30 @@
  */
 var CHANGELOG = [
   {
+    version: 'v153',
+    date: '2026-11-19',
+    title: 'Forecast Dashboard',
+    changes: [
+      { type: 'improved', text: 'Forecast is now a dashboard: headline tiles for units to order, products that will run out or need ordering now, hardware deals signed and projected conversions, then one card per product, most urgent first, with a bar showing how many weeks its stock lasts against its lead time' },
+      { type: 'improved', text: 'The inputs (conversion %, units per deal, carry-over, lead time), the HubSpot bundle mapping and the deal lists each have their own tab, and unmapped HubSpot products get a \u201cMap now\u201d shortcut' },
+    ],
+  },
+  {
     version: 'v152',
     date: '2026-11-18',
     title: 'Units Owned by Product',
     changes: [
       { type: 'new', text: 'Overview has a \u201cUnits owned by product\u201d table: for each product, how many are in stock, how many are deployed with customers, and the total of the two' },
+    ],
+  },
+  {
+    version: 'v151',
+    date: '2026-11-18',
+    title: 'RFQs From the Forecast',
+    changes: [
+      { type: 'new', text: 'Forecast has a \u201cSubmit for RFQ\u201d button: send the Needed quantities (untick or change any) to an admin for approval' },
+      { type: 'new', text: 'New Orders \u2192 RFQs page. Admins approve or reject submitted counts; once approved, an editor opens the RFQ and fills it in directly on the page \u2014 vendor, dates, currency, terms, lines and notes \u2014 then issues it. The PDF is saved there for everyone to open and download' },
+      { type: 'improved', text: 'Overview lists RFQ counts waiting for your approval or ready to issue' },
     ],
   },
   {

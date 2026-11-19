@@ -57,6 +57,7 @@
       truck: '<path d="M2 6h11v10H2zM13 10h4l3 3v3h-7"/><circle cx="6" cy="18" r="1.6"/><circle cx="17" cy="18" r="1.6"/>',
       check: '<path d="M5 12l5 5 9-10"/>',
       swap:  '<path d="M4 8h14l-3-3M20 16H6l3 3"/>',
+      doc:   '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/>',
     };
     const svg = k => `<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ic[k]}</svg>`;
     const today = new Date().toISOString().slice(0, 10);
@@ -72,6 +73,12 @@
     pendingDeployments.forEach(d => {
       const n = (d.serials || []).length;
       att.push({ k: 'check', tint: 'dep', title: d.customer || 'Pending deployment', hint: `${n} × ${d.product || 'unit'} staged${d.location ? ' · ' + d.location : ''}`, pill: 'Confirm', href: 'deployed' });
+    });
+    DB.getRfqs().forEach(r => {
+      if (r.status === 'pending' && RFQ.canTransition('pending', 'approve', Auth.getProfile()?.role))
+        att.push({ k: 'doc', tint: 'dep', title: `RFQ count for ${(r.quarter || '').replace('-', ' ')}`, hint: `${plural(r.lines.length, 'product')} · by ${r.submittedBy?.name || 'someone'}`, pill: 'Approve', href: 'rfqs' });
+      if (r.status === 'approved' && RFQ.canTransition('approved', 'issue', Auth.getProfile()?.role))
+        att.push({ k: 'doc', tint: 'dep', title: `RFQ ready to issue (${(r.quarter || '').replace('-', ' ')})`, hint: `${plural(r.lines.length, 'product')} approved`, pill: 'Issue', href: 'rfqs' });
     });
     flights.forEach(t => {
       const n = (t.products || []).reduce((a, p) => a + (p.serials || []).length, 0);

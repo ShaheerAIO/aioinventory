@@ -11,7 +11,7 @@
 
 
   // ── Navigation ────────────────────────────────────────────────────────
-  const VIEWS = ['dashboard','products','suppliers','orders','transit','transfers','shipment-history','changelog','in','out','stock-list','deployed','servicing','totalloss','rmatldisp','stocktake','reports','lookup','history','activity','map-devices','networking','buddy-access','forecast'];
+  const VIEWS = ['dashboard','products','suppliers','orders','transit','transfers','shipment-history','changelog','in','out','stock-list','deployed','servicing','totalloss','rmatldisp','stocktake','reports','lookup','history','activity','map-devices','networking','buddy-access','forecast','rfqs'];
 
   function showView(view) {
     VIEWS.forEach(v => { document.getElementById('v-' + v).style.display = v === view ? '' : 'none'; });
@@ -40,6 +40,7 @@
     if (view === 'networking')  Networking.render();
     if (view === 'buddy-access') BuddyAccess.render();
     if (view === 'forecast')     Forecast.render();
+    if (view === 'rfqs')         RFQ.render();
     if (view === 'shipment-history') UI.renderShipmentHistory();
     if (view === 'changelog')        renderChangelog();
     if (view === 'in')         { UI.populateDataLists(); Forms.showStockIn(); }
@@ -208,6 +209,7 @@
         document.getElementById('fc-refresh').addEventListener('click', () => Forecast.refresh());
       }
       UI.initSmartSelects();
+      RFQ.updateBadge();
       const startView = _viewFromHash() || 'dashboard';
       history.replaceState(null, '', '#' + startView);
       showViewTracked(startView, true);

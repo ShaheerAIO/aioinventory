@@ -12,7 +12,7 @@ const DB_CONFIG = {
 
 const DB = (() => {
   let _pendingWrite = false;
-  let _data  = { movements: [], thresholds: {}, shipments: [], transfers: [], serialCosts: {}, serialConditions: {}, customSuppliers: [], customLocations: [], orders: [], suppliers: [], productRecords: [], auditRecords: [], pendingUsers: {}, pendingDeployments: [], pausedAudits: {}, hubspotCompanyMap: {}, hubspotIgnored: [], deviceLocationMap: {}, forecastSettings: {} };
+  let _data  = { movements: [], thresholds: {}, shipments: [], transfers: [], serialCosts: {}, serialConditions: {}, customSuppliers: [], customLocations: [], orders: [], suppliers: [], productRecords: [], auditRecords: [], pendingUsers: {}, pendingDeployments: [], rfqs: [], pausedAudits: {}, hubspotCompanyMap: {}, hubspotIgnored: [], deviceLocationMap: {}, forecastSettings: {} };
   // Split storage — the escape hatch from the 1MB per-document limit.
   // When main doc has `auditsSplit: true`, audit records live in the `audits`
   // collection (one doc per count). When it has `movementsSplit: true`, the
@@ -26,7 +26,7 @@ const DB = (() => {
   function _assignData(d) {
     _auditsSplit    = !!d.auditsSplit;
     _movementsSplit = !!d.movementsSplit;
-    _data = { movements: _movementsSplit ? (_data.movements||[]) : (d.movements||[]), thresholds: d.thresholds||{}, shipments: d.shipments||[], transfers: d.transfers||[], serialCosts: d.serialCosts||{}, serialConditions: d.serialConditions||{}, purchaseOrders: d.purchaseOrders||{}, serialPOs: d.serialPOs||{}, serialEvents: d.serialEvents||{}, customSuppliers: d.customSuppliers||[], customLocations: d.customLocations||[], orders: d.orders||[], suppliers: d.suppliers||[], productRecords: d.productRecords||[], auditRecords: _auditsSplit ? (_data.auditRecords||[]) : (d.auditRecords||[]), pendingUsers: d.pendingUsers||{}, pendingDeployments: d.pendingDeployments||[], pausedAudits: d.pausedAudits||{}, hubspotCompanyMap: d.hubspotCompanyMap||{}, hubspotIgnored: d.hubspotIgnored||[], deviceLocationMap: d.deviceLocationMap||{}, forecastSettings: d.forecastSettings||{} };
+    _data = { movements: _movementsSplit ? (_data.movements||[]) : (d.movements||[]), thresholds: d.thresholds||{}, shipments: d.shipments||[], transfers: d.transfers||[], serialCosts: d.serialCosts||{}, serialConditions: d.serialConditions||{}, purchaseOrders: d.purchaseOrders||{}, serialPOs: d.serialPOs||{}, serialEvents: d.serialEvents||{}, customSuppliers: d.customSuppliers||[], customLocations: d.customLocations||[], orders: d.orders||[], suppliers: d.suppliers||[], productRecords: d.productRecords||[], auditRecords: _auditsSplit ? (_data.auditRecords||[]) : (d.auditRecords||[]), pendingUsers: d.pendingUsers||{}, pendingDeployments: d.pendingDeployments||[], rfqs: d.rfqs||[], pausedAudits: d.pausedAudits||{}, hubspotCompanyMap: d.hubspotCompanyMap||{}, hubspotIgnored: d.hubspotIgnored||[], deviceLocationMap: d.deviceLocationMap||{}, forecastSettings: d.forecastSettings||{} };
   }
 
   // Movements are identified by id; very old records without one fall back to
@@ -884,6 +884,14 @@ const DB = (() => {
   function addPendingDeployment(pd)   { if(!_data.pendingDeployments) _data.pendingDeployments=[]; _data.pendingDeployments.push(pd); _appendArray('pendingDeployments', [pd]); }
   function getPendingDeployments()    { return _data.pendingDeployments || []; }
   function removePendingDeployment(id){ _data.pendingDeployments = (_data.pendingDeployments||[]).filter(p => p.id !== id); _persist([...SAVE_FIELDS, 'pendingDeployments']); }
+  // RFQ requests (js/rfq.js). Like pendingDeployments, kept out of SAVE_FIELDS: new
+  // requests are appended with arrayUnion so two people submitting at once both land.
+  function addRfq(r)            { if(!_data.rfqs) _data.rfqs=[]; _data.rfqs.push(r); _appendArray('rfqs', [r]); }
+  function getRfqs()            { return _data.rfqs || []; }
+  function updateRfq(id, changes) {
+    const idx = (_data.rfqs||[]).findIndex(r => r.id === id);
+    if (idx > -1) { _data.rfqs[idx] = { ..._data.rfqs[idx], ...changes }; _persist(['rfqs']); }
+  }
   function updatePendingDeployment(id, changes) {
     const idx = (_data.pendingDeployments||[]).findIndex(p => p.id === id);
     if (idx > -1) { _data.pendingDeployments[idx] = { ..._data.pendingDeployments[idx], ...changes }; _persist([...SAVE_FIELDS, 'pendingDeployments']); }
@@ -939,11 +947,12 @@ const DB = (() => {
   }
 
   init();
-  return { onReady, getData, save:_save, addMovement, addMovements, setThreshold, getThreshold, addShipment, updateShipment, removeShipment, addTransfer, updateTransfer, getTransfers, setSerialCost, getSerialCost, setProductCost, setHubspotCompanyId, getHubspotCompanyId, getHubspotCompanyMap, setHubspotIgnored, isHubspotIgnored, getHubspotIgnored, setDeviceLocation, getDeviceLocation, getDeviceLocationMap, setForecastSetting, getForecastSettings, deleteSerial, deleteSerials, renameSerial, editSerialProperties, renameLocation, updateSerialCondition, updateSerialConditions, getSerialCondition, savePO, getPO, getAllPOs, getPONumbers, getPOUnitCost, setSerialPO, getSerialPO, getSerialEvents, addCustomSupplier, addCustomLocation, getCustomSuppliers, getCustomLocations, addOrder, updateOrder, removeOrder, getOrders, addSupplier, updateSupplier, removeSupplier, getSupplierRecords, addProductRecord, updateProductRecord, removeProductRecord, getProductRecords, addAuditRecord, saveAuditRecord, deleteAuditRecord, splitStorage, getAuditRecords, setPendingUser, getPendingUser, removePendingUser, addPendingDeployment, getPendingDeployments, removePendingDeployment, updatePendingDeployment, savePausedAudit, getPausedAudit, getAllPausedAudits, clearPausedAudit, exportJSON, importJSON, uploadDocument, addDocumentToShipment, removeDocumentFromShipment, addDocumentToOrder };
+  return { onReady, getData, save:_save, addMovement, addMovements, setThreshold, getThreshold, addShipment, updateShipment, removeShipment, addTransfer, updateTransfer, getTransfers, setSerialCost, getSerialCost, setProductCost, setHubspotCompanyId, getHubspotCompanyId, getHubspotCompanyMap, setHubspotIgnored, isHubspotIgnored, getHubspotIgnored, setDeviceLocation, getDeviceLocation, getDeviceLocationMap, setForecastSetting, getForecastSettings, deleteSerial, deleteSerials, renameSerial, editSerialProperties, renameLocation, updateSerialCondition, updateSerialConditions, getSerialCondition, savePO, getPO, getAllPOs, getPONumbers, getPOUnitCost, setSerialPO, getSerialPO, getSerialEvents, addCustomSupplier, addCustomLocation, getCustomSuppliers, getCustomLocations, addOrder, updateOrder, removeOrder, getOrders, addSupplier, updateSupplier, removeSupplier, getSupplierRecords, addProductRecord, updateProductRecord, removeProductRecord, getProductRecords, addAuditRecord, saveAuditRecord, deleteAuditRecord, splitStorage, getAuditRecords, setPendingUser, getPendingUser, removePendingUser, addPendingDeployment, getPendingDeployments, removePendingDeployment, updatePendingDeployment, addRfq, getRfqs, updateRfq, savePausedAudit, getPausedAudit, getAllPausedAudits, clearPausedAudit, exportJSON, importJSON, uploadDocument, addDocumentToShipment, removeDocumentFromShipment, addDocumentToOrder };
 })();
 
 let _currentView = 'dashboard';
 function _refreshView() {
+  try { RFQ.updateBadge(); } catch(e) {}
   try {
     if      (_currentView==='dashboard')  UI.renderDashboard();
     else if (_currentView==='stock-list') { UI.populateStockListFilters(); UI.renderStockList(); }
@@ -953,5 +962,6 @@ function _refreshView() {
     else if (_currentView==='transfers')  UI.renderTransferList();
     else if (_currentView==='orders')     UI.renderOrderList();
     else if (_currentView==='shipment-history') UI.renderShipmentHistory();
+    else if (_currentView==='rfqs')       RFQ.render();
   } catch(e) {}
 }

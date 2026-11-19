@@ -107,6 +107,7 @@ const Forecast = (() => {
   let _loading = false, _error = '';
   let _editing = null;     // HubSpot product key whose contents are being edited
   let _draft = null;       // { ignore, parts: [[product, qty]] }
+  let _tab = 'overview';   // overview | assumptions | mapping | deals
 
   const root = () => document.getElementById('fc-root');
   const settings = () => DB.getForecastSettings();
@@ -168,107 +169,150 @@ const Forecast = (() => {
     </td></tr>`;
   }
 
-  function draw() {
-    const el = root();
-    if (!el) return;
-    const quarters = recentQuarters();
-    const head = `<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px;">
-      <label style="font-size:13px;">Base quarter
-        <select class="fi" id="fc-quarter" style="width:auto;display:inline-block;margin-left:6px;">
-          ${quarters.map((q, i) => `<option value="${q}"${q === _quarter ? ' selected' : ''}>${q.replace('-', ' ')}${i === 0 ? ' (so far)' : ''}</option>`).join('')}
-        </select></label>
-      <span style="font-size:13px;color:var(--text-muted);">→ forecast for <b>${nextQ(_quarter).replace('-', ' ')}</b></span>
-      <span style="font-size:12px;color:var(--text-hint);">${_loading ? 'Reading HubSpot…' : _error ? `<span style="color:var(--danger-text);">${esc(_error)}</span>` : ''}</span>
+  // ── dashboard ──
+  const ZONE_RANK = { red: 0, amber: 1, ok: 2, '': 3 };
+  const ZONE_LABEL = { red: 'Will run out', amber: 'Order now', ok: 'Covered', '': 'No recent use' };
+  const qLabel = q => q.replace('-', ' ');
+  const signed = n => (n < 0 ? '−' : '+') + fmt(Math.abs(n));
+
+  function kpi(accent, label, value, hint) {
+    return `<div class="fc-kpi" style="--accent:${accent};"><div class="fc-kpi-label">${label}</div><div class="fc-kpi-n">${value}</div><div class="fc-kpi-hint">${hint}</div></div>`;
+  }
+
+  function productCard(x) {
+    const scale = Math.max(26, (x.lead + AMBER_WEEKS) * 2);   // weeks shown on the cover bar
+    const cover = x.cover == null ? null : Math.min(x.cover, scale);
+    const parts = [x.a && `${fmt(x.a)} signed`, x.b && `${fmt(x.b)} projected`, x.z && `${signed(x.z)} carry-over`].filter(Boolean);
+    return `<div class="fc-card fc-card-${x.zone || 'none'}">
+      <div class="fc-card-head"><span class="fc-card-name">${esc(x.product)}</span><span class="fc-zone fc-zone-${x.zone || 'none'}">${ZONE_LABEL[x.zone]}</span></div>
+      <div class="fc-card-need"><span class="fc-big">${x.needed}</span> to order</div>
+      <div class="fc-card-math">${parts.join(' · ') || 'Nothing forecast — set units per deal in Assumptions'}</div>
+      ${cover == null ? '' : `<div class="fc-cover" title="Stock + in transit lasts ${x.cover >= 52 ? '52+' : fmt(x.cover)} weeks; lead time ${x.lead} weeks">
+        <div class="fc-cover-fill" style="width:${(cover / scale * 100).toFixed(1)}%;"></div>
+        <div class="fc-cover-lead" style="left:${(x.lead / scale * 100).toFixed(1)}%;"></div></div>
+      <div class="fc-cover-cap"><span>Lasts <b>${x.cover >= 52 ? '52+' : fmt(x.cover)} wk</b></span><span>Lead time ${x.lead} wk</span></div>`}
+      <div class="fc-card-stats">
+        <div><b>${x.inStock}</b><span>In stock</span></div>
+        <div><b>${x.inTransit}</b><span>In transit</span></div>
+        <div title="Deployed: ${fmt(x.hist)}/mo · forecast: ${fmt(x.fcst)}/mo"><b>${fmt(x.perMonth)}</b><span>Use / month</span></div>
+      </div>
     </div>`;
-    const data = _cache[_quarter];
-    if (!data) { el.innerHTML = head + `<div class="empty">${_loading ? 'Reading deals and line items from HubSpot…' : 'No data yet.'}</div>`; bindHead(el); return; }
+  }
 
-    const s = settings();
-    const r = compute(data, s, stockByProduct(), usedPerMonth());
-    const map = s.bundleMap || {};
-    const total = r.rows.reduce((a, x) => a + x.needed, 0);
+  function overviewTab(r) {
+    const rows = [...r.rows].sort((p, q) => ZONE_RANK[p.zone] - ZONE_RANK[q.zone] || q.needed - p.needed || p.product.localeCompare(q.product));
+    if (!rows.length) return `<div class="empty">Map the HubSpot products in Bundle mapping to see the forecast.</div>`;
+    return `<div class="fc-cards">${rows.map(productCard).join('')}</div>
+      <div class="fc-legend">
+        <span><span class="fc-zone fc-zone-red">Red</span> stock runs out inside the lead time, so an order placed today lands too late.</span>
+        <span><span class="fc-zone fc-zone-amber">Amber</span> it runs out within ${AMBER_WEEKS} weeks after the lead time, so order now.</span>
+        <span>The bar shows how many weeks stock + in transit lasts; the tick marks the lead time.</span></div>`;
+  }
 
-    el.innerHTML = head + `
-      ${r.unmapped.length ? `<div class="alert alert-error show" style="margin:0 0 12px;">${r.unmapped.length} HubSpot product${r.unmapped.length !== 1 ? 's are' : ' is'} not mapped yet, so ${r.unmapped.length !== 1 ? 'they are' : 'it is'} left out of A: ${esc(r.unmapped.map(h => h.name).join(', '))}. Set ${r.unmapped.length !== 1 ? 'them' : 'it'} in HubSpot bundle contents below.</div>` : ''}
-
-      <div class="fc-eq">
+  function assumptionsTab(r, s, data) {
+    return `<div class="fc-eq">
         <div class="fc-eq-line">Needed <span class="fc-op">=</span> ( <i>A</i> <span class="fc-op">+</span>
           <i>M</i> <span class="fc-op">×</span> <span class="fc-pct"><input class="fi" id="fc-pct" type="number" min="0" max="100" step="1" value="${esc(s.conversionPct ?? '')}" placeholder="c" aria-label="Conversion %">%</span> )
           <span class="fc-op">×</span> <i>b</i> <span class="fc-op">+</span> <i>Z</i></div>
         <dl class="fc-key">
-          <dt>A</dt><dd>Deals with hardware signed in ${esc(_quarter.replace('-', ' '))} — <b>${r.hwDeals}</b> of ${data.signed.length} signed${r.unmapped.length
-            ? ` so far (${r.unmapped.length} HubSpot product${r.unmapped.length !== 1 ? 's' : ''} still to map below)` : ''}</dd>
-          <dt>M</dt><dd>Open marketing-only deals — <b>${data.pool.length}</b></dd>
-          <dt>c</dt><dd>Share of them expected to convert to a hardware deal — <b>${r.B}</b> projected deals</dd>
-          <dt>b</dt><dd>Units of the product in one hardware deal (table below)</dd>
-          <dt>Z</dt><dd>Carry-over from last quarter's order, + or −, per product (table below)</dd>
+          <dt>A</dt><dd>Deals with hardware signed in ${esc(qLabel(_quarter))}: <b>${r.hwDeals}</b> of ${data.signed.length} signed</dd>
+          <dt>M</dt><dd>Open marketing-only deals: <b>${data.pool.length}</b></dd>
+          <dt>c</dt><dd>Share of them expected to convert to a hardware deal: <b>${r.B}</b> projected deals</dd>
+          <dt>b</dt><dd>Units of the product in one hardware deal (below)</dd>
+          <dt>Z</dt><dd>Carry-over from last quarter's order, + or −, per product (below)</dd>
         </dl>
-        <div class="fc-note">Read from HubSpot; nothing is changed there. Stock and in-transit aren't subtracted from Needed; they set the zone.</div>
+        <div class="fc-note">Stock and in transit aren't subtracted from Needed; they set the zone. Adjust Z for them.</div>
       </div>
-
       <div class="table-wrap"><table>
-        <thead><tr><th>Product</th><th title="Units in one hardware deal">b · per deal</th><th title="Signed hardware deals × b">A × b</th><th title="Projected deals × b">M × c × b</th><th title="Carry-over from last quarter's order; negative if we over-ordered">Z · carry-over</th><th>Needed</th><th title="The higher of the last 90 days' deployments and Needed ÷ 3 (before Z)">Use / month</th><th>In stock</th><th>In transit</th><th title="Weeks from ordering to having it on the shelf; blank = ${DEFAULT_LEAD_WEEKS}">Lead time</th><th title="How long stock + in transit lasts at that use">Cover</th></tr></thead>
-        <tbody>
-          ${r.rows.map(x => `<tr>
-            <td>${esc(x.product)}</td>
-            <td><input class="fi fc-perdeal" data-p="${esc(x.product)}" type="number" min="0" step="0.1" value="${x.perDeal || ''}" placeholder="0" style="width:80px;"></td>
-            <td>${fmt(x.a)}</td>
-            <td>${fmt(x.b)}</td>
-            <td><input class="fi fc-z" data-p="${esc(x.product)}" type="number" step="1" value="${x.z || ''}" placeholder="0" style="width:80px;"></td>
-            <td><b>${x.needed}</b></td>
-            <td title="Deployed: ${fmt(x.hist)}/mo · forecast: ${fmt(x.fcst)}/mo">${fmt(x.perMonth)}</td>
-            <td>${x.inStock}</td>
-            <td>${x.inTransit}</td>
-            <td><input class="fi fc-lead" data-p="${esc(x.product)}" type="number" min="1" step="1" value="${x.leadSet ? x.lead : ''}" placeholder="${DEFAULT_LEAD_WEEKS}" style="width:64px;"> wk</td>
-            <td>${x.zone ? `<span class="fc-zone fc-zone-${x.zone}">${x.cover >= 52 ? '52+' : fmt(x.cover)} wk</span>` : '—'}</td>
-          </tr>`).join('') || `<tr><td colspan="11" class="empty">Map the HubSpot products below to see the forecast.</td></tr>`}
-        </tbody>
-        ${r.rows.length ? `<tfoot><tr><td><b>Total</b></td><td></td><td>${fmt(r.rows.reduce((a, x) => a + x.a, 0))}</td><td>${fmt(r.rows.reduce((a, x) => a + x.b, 0))}</td><td>${fmt(r.rows.reduce((a, x) => a + x.z, 0))}</td><td><b>${total}</b></td><td></td><td>${r.rows.reduce((a, x) => a + x.inStock, 0)}</td><td>${r.rows.reduce((a, x) => a + x.inTransit, 0)}</td><td></td><td></td></tr></tfoot>` : ''}
+        <thead><tr><th>Product</th><th title="Units in one hardware deal">Units per deal · b</th><th title="Carry-over from last quarter's order; negative if we over-ordered">Carry-over · Z</th><th title="Weeks from ordering to having it on the shelf; blank = ${DEFAULT_LEAD_WEEKS}">Lead time</th><th>Needed</th></tr></thead>
+        <tbody>${r.rows.map(x => `<tr>
+          <td>${esc(x.product)}</td>
+          <td><input class="fi fc-perdeal" data-p="${esc(x.product)}" type="number" min="0" step="0.1" value="${x.perDeal || ''}" placeholder="0" style="width:90px;"></td>
+          <td><input class="fi fc-z" data-p="${esc(x.product)}" type="number" step="1" value="${x.z || ''}" placeholder="0" style="width:90px;"></td>
+          <td><input class="fi fc-lead" data-p="${esc(x.product)}" type="number" min="1" step="1" value="${x.leadSet ? x.lead : ''}" placeholder="${DEFAULT_LEAD_WEEKS}" style="width:70px;"> wk</td>
+          <td><b>${x.needed}</b></td></tr>`).join('') || `<tr><td colspan="5" class="empty">Map the HubSpot products in Bundle mapping first.</td></tr>`}</tbody>
       </table></div>
-      <div style="font-size:12px;color:var(--text-hint);margin-top:6px;">
-        <span class="fc-zone fc-zone-red">Red</span> runs out inside its lead time (${DEFAULT_LEAD_WEEKS} weeks unless set) — order now and it still won't arrive in time.
-        <span class="fc-zone fc-zone-amber">Amber</span> hits zero around the time an order placed today lands (within ${AMBER_WEEKS} weeks after) — order now.
-        Use / month is the higher of the last 90 days' deployments and the forecast.</div>
-      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0 20px;">
-        <button class="btn btn-ghost btn-sm" id="fc-fill" ${r.hwDeals ? '' : 'disabled'}>Fill per-deal from ${esc(_quarter.replace('-', ' '))} average</button>
-        <span style="font-size:12px;color:var(--text-hint);">Average units per signed deal with hardware (${r.hwDeals} deals). Stock isn't subtracted — adjust Z for it.</span>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:10px;">
+        <button class="btn btn-ghost btn-sm" id="fc-fill" ${r.hwDeals ? '' : 'disabled'}>Fill units per deal from ${esc(qLabel(_quarter))} average</button>
+        <span style="font-size:12px;color:var(--text-hint);">Average units per signed deal with hardware (${r.hwDeals} deals).</span>
+      </div>`;
+  }
+
+  function mappingTab(r, map) {
+    return `<p style="font-size:13px;color:var(--text-muted);margin:0 0 10px;">HubSpot sells bundles. Say once what each one contains in inventory products; unmapped products are left out of A.</p>
+      <div class="table-wrap"><table>
+        <thead><tr><th>HubSpot product</th><th>Qty in ${esc(qLabel(_quarter))}</th><th>Contains</th><th></th></tr></thead>
+        <tbody>${r.hsItems.map(h => `<tr>
+          <td>${esc(h.name)}</td><td>${fmt(h.qty)} <span style="color:var(--text-hint);font-size:12px;">on ${h.deals} deal${h.deals !== 1 ? 's' : ''}</span></td>
+          <td style="font-size:12px;">${partsText(map[h.key])}</td>
+          <td><button class="btn btn-ghost btn-sm fc-map-edit" data-k="${esc(h.key)}">Edit</button></td>
+        </tr>${_editing === h.key ? editorHtml(h) : ''}`).join('') || `<tr><td colspan="4" class="empty">No hardware line items on deals signed in ${esc(qLabel(_quarter))}.</td></tr>`}</tbody>
+      </table></div>`;
+  }
+
+  function dealsTab(data) {
+    return `<div class="fc-sub">Signed deals in ${esc(qLabel(_quarter))} (${data.signed.length})</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Deal</th><th>Signed</th><th>Stage</th><th>One-off line items</th></tr></thead>
+        <tbody>${data.signed.map(d => `<tr><td><a href="${esc(data.dealUrl + d.id)}" target="_blank" rel="noopener">${esc(d.name)}</a></td><td>${esc(d.signedDate.slice(0, 10))}</td><td>${esc(d.stage)}</td>
+          <td style="font-size:12px;">${d.items.map(i => `${fmt(i.qty)} × ${esc(i.name)}`).join('<br>') || '—'}</td></tr>`).join('')}</tbody>
+      </table></div>
+      <div class="fc-sub" style="margin-top:18px;">Open marketing deals (${data.pool.length})</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Deal</th><th>Stage</th><th>Modules</th></tr></thead>
+        <tbody>${data.pool.map(d => `<tr><td><a href="${esc(data.dealUrl + d.id)}" target="_blank" rel="noopener">${esc(d.name)}</a></td><td>${esc(d.stage)}</td><td>${esc(d.modules.join(', '))}</td></tr>`).join('')}</tbody>
+      </table></div>
+      <p style="font-size:12px;color:var(--text-hint);margin-top:12px;">${data.excludedTests} test-account deals left out · marketing deal = Modules Used without POS/Payments, not lost, churned or cancelled.</p>`;
+  }
+
+  function draw() {
+    const el = root();
+    if (!el) return;
+    const quarters = recentQuarters();
+    const data = _cache[_quarter];
+    const s = settings();
+    const r = data && compute(data, s, stockByProduct(), usedPerMonth());
+    const total = r ? r.rows.reduce((a, x) => a + x.needed, 0) : 0;
+
+    const head = `<div class="fc-head">
+      <label style="font-size:13px;">Base quarter
+        <select class="fi" id="fc-quarter" style="width:auto;display:inline-block;margin-left:6px;">
+          ${quarters.map((q, i) => `<option value="${q}"${q === _quarter ? ' selected' : ''}>${qLabel(q)}${i === 0 ? ' (so far)' : ''}</option>`).join('')}
+        </select></label>
+      <span style="font-size:13px;color:var(--text-muted);">→ forecast for <b>${qLabel(nextQ(_quarter))}</b></span>
+      <span style="font-size:12px;color:var(--text-hint);">${_loading ? 'Reading HubSpot…' : _error ? `<span style="color:var(--danger-text);">${esc(_error)}</span>` : data ? `Read from HubSpot ${new Date(data.at).toLocaleString()}` : ''}</span>
+      ${r ? `<button class="btn btn-primary btn-sm" id="fc-rfq" style="margin-left:auto;" ${total ? '' : 'disabled'} title="Send these Needed numbers to an admin for approval, then make an RFQ">Submit for RFQ</button>` : ''}
+    </div>`;
+    if (!data) { el.innerHTML = head + `<div class="empty">${_loading ? 'Reading deals and line items from HubSpot…' : 'No data yet.'}</div>`; bindHead(el); return; }
+
+    const map = s.bundleMap || {};
+    const red = r.rows.filter(x => x.zone === 'red').length, amber = r.rows.filter(x => x.zone === 'amber').length;
+    const tabs = [['overview', 'Overview'], ['assumptions', 'Assumptions'], ['mapping', 'Bundle mapping', r.unmapped.length], ['deals', 'Deals']];
+    const body = { overview: () => overviewTab(r), assumptions: () => assumptionsTab(r, s, data), mapping: () => mappingTab(r, map), deals: () => dealsTab(data) }[_tab]();
+
+    el.innerHTML = head + `
+      ${r.unmapped.length ? `<div class="fc-banner"><span><b>${r.unmapped.length} HubSpot product${r.unmapped.length !== 1 ? 's aren’t' : ' isn’t'} mapped</b>, so ${r.unmapped.length !== 1 ? 'they’re' : 'it’s'} left out of the forecast: ${esc(r.unmapped.map(h => h.name).join(', '))}</span>
+        <button class="btn btn-ghost btn-sm fc-goto" data-tab="mapping">Map now</button></div>` : ''}
+      <div class="fc-kpis">
+        ${kpi('var(--electric)', `Units to order · ${qLabel(nextQ(_quarter))}`, total.toLocaleString(), `across ${r.rows.filter(x => x.needed).length} product${r.rows.filter(x => x.needed).length !== 1 ? 's' : ''}`)}
+        ${kpi('var(--danger-text)', 'Will run out', red, 'before an order placed today lands')}
+        ${kpi('var(--aio-orange)', 'Order now', amber, `runs out within ${AMBER_WEEKS} wk after lead time`)}
+        ${kpi('var(--border-strong)', `Hardware deals · ${qLabel(_quarter)}`, r.hwDeals, `of ${data.signed.length} deals signed`)}
+        ${kpi('var(--success-text)', 'Projected conversions', r.B, `${r.pct}% of ${data.pool.length} marketing deals`)}
       </div>
-
-      <details ${r.unmapped.length ? 'open' : ''} style="margin-bottom:14px;"><summary style="cursor:pointer;font-weight:600;">HubSpot bundle contents (${r.hsItems.length - r.unmapped.length}/${r.hsItems.length} set)</summary>
-        <div class="table-wrap" style="margin-top:8px;"><table>
-          <thead><tr><th>HubSpot product</th><th>Qty in ${esc(_quarter.replace('-', ' '))}</th><th>Contains</th><th></th></tr></thead>
-          <tbody>${r.hsItems.map(h => `<tr>
-            <td>${esc(h.name)}</td><td>${fmt(h.qty)} <span style="color:var(--text-hint);font-size:12px;">on ${h.deals} deal${h.deals !== 1 ? 's' : ''}</span></td>
-            <td style="font-size:12px;">${partsText(map[h.key])}</td>
-            <td><button class="btn btn-ghost btn-sm fc-map-edit" data-k="${esc(h.key)}">Edit</button></td>
-          </tr>${_editing === h.key ? editorHtml(h) : ''}`).join('')}</tbody>
-        </table></div>
-      </details>
-
-      <details style="margin-bottom:14px;"><summary style="cursor:pointer;font-weight:600;">Signed deals in ${esc(_quarter.replace('-', ' '))} (${data.signed.length})</summary>
-        <div class="table-wrap" style="margin-top:8px;"><table>
-          <thead><tr><th>Deal</th><th>Signed</th><th>Stage</th><th>One-off line items</th></tr></thead>
-          <tbody>${data.signed.map(d => `<tr><td><a href="${esc(data.dealUrl + d.id)}" target="_blank" rel="noopener">${esc(d.name)}</a></td><td>${esc(d.signedDate.slice(0, 10))}</td><td>${esc(d.stage)}</td>
-            <td style="font-size:12px;">${d.items.map(i => `${fmt(i.qty)} × ${esc(i.name)}`).join('<br>') || '—'}</td></tr>`).join('')}</tbody>
-        </table></div>
-      </details>
-
-      <details><summary style="cursor:pointer;font-weight:600;">Open marketing deals (${data.pool.length})</summary>
-        <div class="table-wrap" style="margin-top:8px;"><table>
-          <thead><tr><th>Deal</th><th>Stage</th><th>Modules</th></tr></thead>
-          <tbody>${data.pool.map(d => `<tr><td><a href="${esc(data.dealUrl + d.id)}" target="_blank" rel="noopener">${esc(d.name)}</a></td><td>${esc(d.stage)}</td><td>${esc(d.modules.join(', '))}</td></tr>`).join('')}</tbody>
-        </table></div>
-      </details>
-      <p style="font-size:12px;color:var(--text-hint);margin-top:12px;">Read from HubSpot ${new Date(data.at).toLocaleString()} · ${data.excludedTests} test-account deals left out · marketing deal = Modules Used without POS/Payments, not lost, churned or cancelled.</p>`;
+      <div class="fc-tabs" role="tablist">${tabs.map(([k, label, n]) => `<button class="fc-tab${k === _tab ? ' active' : ''}" role="tab" aria-selected="${k === _tab}" data-tab="${k}">${label}${n ? ` <span class="fc-tab-n">${n}</span>` : ''}</button>`).join('')}</div>
+      <div class="fc-tab-body">${body}</div>`;
 
     bindHead(el);
+    el.querySelectorAll('.fc-tab, .fc-goto').forEach(b => b.addEventListener('click', () => { _tab = b.dataset.tab; draw(); }));
+    el.querySelector('#fc-rfq').addEventListener('click', () => RFQ.openSubmit(r.rows, nextQ(_quarter)));
     const num = v => v === '' ? 0 : Number(v);
     const setIn = (key, p, v) => { const o = { ...(s[key] || {}) }; if (!v) delete o[p]; else o[p] = v; save(key, o); };
-    el.querySelector('#fc-pct').addEventListener('change', e => save('conversionPct', Math.min(100, Math.max(0, num(e.target.value)))));
+    el.querySelector('#fc-pct')?.addEventListener('change', e => save('conversionPct', Math.min(100, Math.max(0, num(e.target.value)))));
     el.querySelectorAll('.fc-perdeal').forEach(i => i.addEventListener('change', () => setIn('perDeal', i.dataset.p, Math.max(0, num(i.value)))));
     el.querySelectorAll('.fc-lead').forEach(i => i.addEventListener('change', () => setIn('leadWeeks', i.dataset.p, Math.max(0, Math.round(num(i.value))))));
     el.querySelectorAll('.fc-z').forEach(i => i.addEventListener('change', () => setIn('z', i.dataset.p, Math.round(num(i.value)))));
-    el.querySelector('#fc-fill').addEventListener('click', () => {
+    el.querySelector('#fc-fill')?.addEventListener('click', () => {
       if (Object.keys(s.perDeal || {}).length && !confirm('Replace every per-deal number with this quarter\'s average?')) return;
       const o = {};
       r.rows.forEach(x => { if (x.avg) o[x.product] = Math.round(x.avg * 100) / 100; });
@@ -281,7 +325,7 @@ const Forecast = (() => {
       if (!_draft.parts.length) _draft.parts.push(['', 1]);
       draw();
     }));
-    if (_editing) bindEditor(el, r.hsItems.find(h => h.key === _editing), map);
+    if (_editing && _tab === 'mapping') bindEditor(el, r.hsItems.find(h => h.key === _editing), map);
   }
 
   function bindHead(el) {

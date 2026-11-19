@@ -120,6 +120,8 @@ const Activity = (() => {
     addPendingDeployment:    pd => ({ text: `Deployment staged: ${n(pd.serials)}× ${pd.product} → ${pd.customer}`, detail: pd, serials: pd.serials }),
     removePendingDeployment: id => remove('Staged deployment', 'pendingDeployments', id),
     updatePendingDeployment: (id, u) => update('Staged deployment', 'pendingDeployments', id, u),
+    addRfq:        r => ({ text: `RFQ request submitted: ${(r.lines || []).length} product${(r.lines || []).length !== 1 ? 's' : ''} for ${r.quarter || 'the forecast'}`, detail: r }),
+    updateRfq:     (id, u) => update('RFQ', 'rfqs', id, u),
     importJSON:    () => ({ text: 'ENTIRE DATASET REPLACED from a JSON backup' }),
     addDocumentToShipment:      (id, m) => ({ text: `Document attached to shipment ${label(find('shipments', id))}: ${m?.name}` }),
     removeDocumentFromShipment: (id, path) => ({ text: `Document removed from shipment ${label(find('shipments', id))}: ${String(path).split('/').pop()}` }),

@@ -11,10 +11,11 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.4.3/dist/css/tom-select.min.css" />
-  <link rel="stylesheet" href="css/styles.v4.css?v=149" />
+  <link rel="stylesheet" href="css/styles.v4.css?v=153" />
   <link rel="stylesheet" href="css/dashboard.css?v=144" />
   <link rel="stylesheet" href="css/palette.css?v=134" />
   <link rel="stylesheet" href="css/catalog.css?v=141" />
+  <link rel="stylesheet" href="css/rfq.css?v=153" />
   <style>
     .b-used { background: #FAE4E1 !important; color: #D5381D !important; border: 1px solid #D5381D !important; font-size: 12px; padding: 1px 8px; border-radius: 16px; font-weight: 500; }
     .used-toggle input:checked + .used-toggle-track { background: #D5381D !important; }
@@ -218,6 +219,7 @@
       <div class="nav-group">
         <div class="nav-group-label">Orders</div>
         <button class="nav-item" data-view="orders"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M9 12h6M9 16h6"/></svg><span class="nav-label">Purchase Orders</span><span id="order-count-badge" class="nav-badge"></span></button>
+        <button class="nav-item" data-view="rfqs"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><path d="M9 14h6M9 17h4"/></svg><span class="nav-label">RFQs</span><span id="rfq-count-badge" class="nav-badge"></span></button>
         <button class="nav-item" data-view="transit"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 17V6H3v11h2"/><path d="M14 9h4l3 3v5h-2"/><path d="M9 17h6"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg><span class="nav-label">In Transit</span><span id="transit-count-badge" class="nav-badge"></span></button>
         <button class="nav-item" data-view="shipment-history"><svg class="nav-ico" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8"/><path d="M10 12h4"/></svg><span class="nav-label">Shipment History</span></button>
       </div>
@@ -577,6 +579,11 @@
   </section>
 
   <!-- ORDERS -->
+  <!-- RFQs: forecast count → admin approval → RFQ PDF (js/rfq.js) -->
+  <section id="v-rfqs" class="view" style="display:none;">
+    <div id="rfq-root"></div>
+  </section>
+
   <section id="v-orders" class="view" style="display:none;">
     <div class="panel-toolbar">
       <span class="toolbar-title">Purchase Orders</span>
@@ -1327,8 +1334,8 @@
 </div>
 <script src="js/auth.js?v=147"></script>
 <script src="js/auth-ui.js?v=147"></script>
-<script src="js/db.js?v=148"></script>
-<script src="js/activity.js?v=147"></script>
+<script src="js/db.js?v=151"></script>
+<script src="js/activity.js?v=151"></script>
 <script src="js/hubspot-picker.js?v=134"></script>
 <script src="js/inventory.js?v=150"></script>
 <script src="js/reports.js?v=141"></script>
@@ -1359,8 +1366,9 @@
 <script src="js/device-map.js?v=147"></script>
 <script src="js/buddy-access.js?v=144"></script>
 <script src="js/networking.js?v=141"></script>
-<script src="js/forecast.js?v=149"></script>
-<script src="js/changelog.js?v=152"></script>
+<script src="js/forecast.js?v=153"></script>
+<script src="js/rfq.js?v=153"></script>
+<script src="js/changelog.js?v=153"></script>
 <script src="js/forms/shared.js?v=149"></script>
 <script src="js/forms/stock-in.js?v=131"></script>
 <script src="js/forms/products.js?v=141"></script>
@@ -1368,7 +1376,7 @@
 <script src="js/forms/orders.js?v=150"></script>
 <script src="js/forms/transit.js?v=131"></script>
 <script src="js/forms/stock-out.js?v=149"></script>
-<script src="js/app.js?v=147"></script>
+<script src="js/app.js?v=151"></script>
 </body>
 </html>
 
