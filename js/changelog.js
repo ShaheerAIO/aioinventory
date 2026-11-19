@@ -4,6 +4,14 @@
  */
 var CHANGELOG = [
   {
+    version: 'v155',
+    date: '2026-11-19',
+    title: 'Forecast Stock Graph',
+    changes: [
+      { type: 'new', text: 'A line graph of stock per product: units in stock week by week over the last 13 weeks, and a dashed line projecting stock + in transit 26 weeks ahead at each product\u2019s monthly use. An amber glow on a line marks when to order that product and a red glow when an order would land too late. Hover for exact numbers and zones; click a product below the graph to show or hide its line (up to 8 at once)' },
+    ],
+  },
+  {
     version: 'v154',
     date: '2026-11-19',
     title: 'RFQ Ship-To and Vendor Contacts',

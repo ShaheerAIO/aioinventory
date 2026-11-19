@@ -946,8 +946,49 @@ select:-webkit-autofill, textarea:-webkit-autofill {
 .fc-card-stats span { font-size: 11px; color: var(--text-hint); }
 .fc-legend { display: flex; flex-direction: column; gap: 4px; margin-top: 14px; font-size: 12px; color: var(--text-hint); }
 .fc-sub { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 8px; }
+/* Forecast stock chart — categorical slots validated (scripts/validate_palette.js) on the app's light and dark surfaces */
+.fc-chart { --fc-s1:#2a78d6; --fc-s2:#eb6834; --fc-s3:#1baf7a; --fc-s4:#eda100; --fc-s5:#e87ba4; --fc-s6:#008300; --fc-s7:#6250d6; --fc-s8:#e34948;
+  border: 1px solid var(--border); border-radius: var(--r-lg); background: var(--bg); padding: 14px 16px 12px; margin-bottom: 16px; }
+@media (prefers-color-scheme: dark) {
+  .fc-chart { --fc-s1:#3987e5; --fc-s2:#d95926; --fc-s3:#199e70; --fc-s4:#c98500; --fc-s5:#d55181; --fc-s6:#0ca30c; --fc-s7:#9085e9; --fc-s8:#e66767; }
+}
+.fc-chart-head { display: flex; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.fc-chart-note { font-size: 12px; color: var(--text-hint); }
+.fc-chart-plot { position: relative; padding: 0 0 22px 0; margin-left: 4px; }
+.fc-chart-plot svg { display: block; width: 100%; height: 260px; overflow: visible; }
+.fc-grid { stroke: var(--border); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.fc-today, .fc-cross { stroke: var(--border-strong); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.fc-line path { fill: none; stroke: var(--c); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.fc-line path.fc-proj { stroke-dasharray: 5 4; }
+.fc-halo { stroke-width: 9; stroke-linecap: round; opacity: .3; vector-effect: non-scaling-stroke; }
+.fc-halo-amber { stroke: var(--aio-orange); }
+.fc-halo-red { stroke: var(--danger-text); }
+.fc-key-amber, .fc-key-red { display: inline-block; width: 16px; height: 7px; border-radius: 4px; margin: 0 2px 0 6px; vertical-align: middle; opacity: .45; }
+.fc-key-amber { background: var(--aio-orange); margin-left: 0; }
+.fc-key-red { background: var(--danger-text); }
+.fc-tip-r .fc-zone { font-size: 10px; padding: 0 6px; margin-left: 4px; }
+@media (prefers-color-scheme: dark) {
+  .fc-halo, .fc-key-amber, .fc-key-red { opacity: .6; }
+  .fc-halo-red { stroke: #e66767; } .fc-key-red { background: #e66767; }
+}
+.fc-dot { position: absolute; width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border-radius: 50%; box-shadow: 0 0 0 2px var(--bg); pointer-events: none; }
+.fc-axis-y span, .fc-axis-x span { position: absolute; font-size: 11px; color: var(--text-hint); font-variant-numeric: tabular-nums; white-space: nowrap; pointer-events: none; }
+.fc-axis-y span { left: 0; transform: translateY(-50%); }
+.fc-axis-x span { bottom: 0; transform: translateX(-50%); }
+.fc-axis-x span:first-child { transform: none; }
+.fc-axis-x span:last-child { transform: translateX(-100%); }
+.fc-axis-x b { color: var(--text); font-weight: 600; }
+.fc-tip { position: absolute; top: 8px; min-width: 180px; padding: 8px 10px; background: var(--bg); border: 1px solid var(--border-md); border-radius: var(--r-sm); box-shadow: var(--shadow-pop); font-size: 12px; pointer-events: none; z-index: 2; }
+.fc-tip-h { font-weight: 600; color: var(--text); margin-bottom: 4px; }
+.fc-tip-r { display: grid; grid-template-columns: 10px 1fr auto; gap: 8px; align-items: center; color: var(--text-muted); }
+.fc-tip-r b { color: var(--text); font-variant-numeric: tabular-nums; }
+.fc-swatch { display: inline-block; width: 10px; height: 10px; border-radius: 3px; border: 1px solid var(--border-strong); flex: none; }
+.fc-tip-r .fc-swatch, .fc-chip.on .fc-swatch { border-color: transparent; }
+.fc-legend-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.fc-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border: 1px solid var(--border-md); border-radius: 999px; background: none; font: inherit; font-size: 12px; color: var(--text-hint); cursor: pointer; }
+.fc-chip.on { color: var(--text); background: var(--bg-2); }
 @media (max-width: 900px) { .fc-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 600px) { .fc-head #fc-rfq { margin-left: 0 !important; } }
+@media (max-width: 600px) { .fc-head #fc-rfq { margin-left: 0 !important; } .fc-x-minor { display: none; } }
 
 /* ── Searchable selects (Tom Select on <select data-search>) ───────────── */
 /* The wrapper inherits .fi (border, radius, size); the inner control is bare. */

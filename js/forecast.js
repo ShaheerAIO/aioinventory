@@ -199,10 +199,153 @@ const Forecast = (() => {
     </div>`;
   }
 
-  function overviewTab(r) {
+  // ── stock chart: units per product over time, one line each ──
+  // Solid: units in stock each week for the last 13 weeks, rebuilt backwards from today's count
+  // (every IN after a week added stock that wasn't there yet; every OUT after it took away
+  // stock that was). Dashed: stock + in transit from today, used at the Use / month rate.
+  const PAST_WEEKS = 13, AHEAD_WEEKS = 26, MAX_LINES = 8, WEEK_MS = 7 * 864e5;
+  const _colors = {};      // product → palette slot (1–8); a product keeps its colour while shown
+  let _shown = null;       // products drawn on the chart; null = pick the most urgent
+
+  function stockHistory(products, now = Date.now()) {
+    const start = now - PAST_WEEKS * WEEK_MS;
+    const delta = {};      // product → [{ t, n }] for every movement since start
+    DB.getData().movements.forEach(mv => {
+      const t = new Date(mv.date).getTime();
+      if (!(t > start) || !products.has(mv.product)) return;
+      (delta[mv.product] ||= []).push({ t, n: mv.type === 'IN' ? mv.serials.length : mv.type === 'OUT' ? -mv.serials.length : 0 });
+    });
+    return (p, current) => Array.from({ length: PAST_WEEKS + 1 }, (_, i) => {
+      const t = start + i * WEEK_MS;
+      const later = (delta[p] || []).filter(d => d.t > t).reduce((a, d) => a + d.n, 0);
+      return Math.max(0, current - later);
+    });
+  }
+
+  function chartSeries(rows) {
+    const hist = stockHistory(new Set(rows.map(x => x.product)));
+    return rows.map(x => {
+      const past = hist(x.product, x.inStock);
+      const start = x.inStock + x.inTransit, perWeek = x.perMonth / WEEKS_PER_MONTH;
+      const ahead = Array.from({ length: AHEAD_WEEKS + 1 }, (_, i) => Math.max(0, start - perWeek * i));
+      // Weeks from today at which the projection turns amber / red / hits zero (same rule as the zone)
+      const cover = perWeek ? start / perWeek : null, lead = x.lead || DEFAULT_LEAD_WEEKS;
+      const zoneAt = k => cover == null ? '' : cover - k < lead ? 'red' : cover - k < lead + AMBER_WEEKS ? 'amber' : '';
+      return { product: x.product, past, ahead, zoneAt, cover, lead };
+    });
+  }
+
+  function pickShown(held) {   // product names, most urgent first
+    if (_shown) _shown = _shown.filter(p => held.includes(p));
+    if (!_shown || !_shown.length) _shown = held.slice(0, MAX_LINES);
+    Object.keys(_colors).forEach(p => { if (!_shown.includes(p)) delete _colors[p]; });
+    _shown.forEach(p => {
+      if (_colors[p]) return;
+      const used = new Set(Object.values(_colors));
+      _colors[p] = [1, 2, 3, 4, 5, 6, 7, 8].find(n => !used.has(n));
+    });
+  }
+
+  function niceMax(v) {
+    if (v <= 5) return 5;
+    const step = Math.pow(10, Math.floor(Math.log10(v)));
+    return [1, 2, 5, 10].map(m => m * step).find(m => m >= v);
+  }
+
+  // Amber then red glow under a product's dashed line, until it reaches zero
+  function zoneHalo(s, x, y) {
+    if (s.cover == null) return '';
+    const end = Math.min(AHEAD_WEEKS, s.cover);
+    const val = k => Math.max(0, s.ahead[0] - s.ahead[0] / s.cover * k);
+    const seg = (a, b, cls) => {
+      a = Math.max(0, a); b = Math.min(end, b);
+      return b > a ? `<line class="fc-halo fc-halo-${cls}" x1="${x(PAST_WEEKS + a)}" y1="${y(val(a))}" x2="${x(PAST_WEEKS + b)}" y2="${y(val(b))}"/>` : '';
+    };
+    const red = s.cover - s.lead, amber = red - AMBER_WEEKS;
+    return seg(amber, red, 'amber') + seg(red, end, 'red');
+  }
+
+  function chartHtml(series) {
+    const W = 760, H = 260, L = 40, R = 12, T = 12, B = 26;
+    const n = PAST_WEEKS + AHEAD_WEEKS;
+    const shown = series.filter(s => _shown.includes(s.product));
+    const max = niceMax(Math.max(1, ...shown.flatMap(s => [...s.past, ...s.ahead])));
+    const x = i => L + (W - L - R) * i / n;
+    const y = v => T + (H - T - B) * (1 - v / max);
+    const path = (vals, off) => vals.map((v, i) => `${i ? 'L' : 'M'}${x(i + off).toFixed(1)},${y(v).toFixed(1)}`).join('');
+    const ticks = [0, 0.2, 0.4, 0.6, 0.8, 1].map(f => Math.round(max * f));
+    const now = Date.now();
+    const dateAt = i => new Date(now + (i - PAST_WEEKS) * WEEK_MS).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+    const xTicks = [0, 4, 8, PAST_WEEKS, PAST_WEEKS + 8, PAST_WEEKS + 17, n];
+    return `<div class="fc-chart">
+      <div class="fc-chart-head"><div><div class="fc-sub" style="margin:0;">Stock per product</div>
+        <div class="fc-chart-note">Solid: units in stock over the last ${PAST_WEEKS} weeks. Dashed: stock + in transit from today, used at each product's Use / month.<br><span class="fc-key-amber"></span> Amber glow: order now. <span class="fc-key-red"></span> Red glow: an order placed then lands after it runs out.</div></div></div>
+      <div class="fc-chart-plot">
+        <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Units in stock per product, past ${PAST_WEEKS} weeks and projected ${AHEAD_WEEKS} weeks">
+          ${ticks.map(t => `<line class="fc-grid" x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}"/>`).join('')}
+          <line class="fc-today" x1="${x(PAST_WEEKS)}" x2="${x(PAST_WEEKS)}" y1="${T}" y2="${H - B}"/>
+          ${shown.map(s => zoneHalo(s, x, y)).join('')}
+          ${shown.map(s => `<g class="fc-line" style="--c:var(--fc-s${_colors[s.product]});">
+            <path d="${path(s.past, 0)}"/><path class="fc-proj" d="${path(s.ahead, PAST_WEEKS)}"/></g>`).join('')}
+          <line class="fc-cross" x1="0" x2="0" y1="${T}" y2="${H - B}" style="display:none;"/>
+        </svg>
+        ${shown.map(s => `<span class="fc-dot" style="background:var(--fc-s${_colors[s.product]});left:${(x(PAST_WEEKS) / W * 100).toFixed(2)}%;top:${y(s.past[PAST_WEEKS]).toFixed(1)}px;"></span>`).join('')}
+        <div class="fc-axis-y">${ticks.map(t => `<span style="top:${(y(t) / H * 100).toFixed(2)}%;">${t.toLocaleString()}</span>`).join('')}</div>
+        <div class="fc-axis-x">${xTicks.map(i => `<span${[4, 8, PAST_WEEKS + 17].includes(i) ? ' class="fc-x-minor"' : ''} style="left:${(x(i) / W * 100).toFixed(2)}%;">${i === PAST_WEEKS ? '<b>Today</b>' : dateAt(i)}</span>`).join('')}</div>
+        <div class="fc-tip" style="display:none;"></div>
+      </div>
+      <div class="fc-legend-chips">${series.map(s => {
+        const on = _shown.includes(s.product);
+        return `<button class="fc-chip${on ? ' on' : ''}" data-p="${esc(s.product)}" aria-pressed="${on}" ${!on && _shown.length >= MAX_LINES ? `title="Up to ${MAX_LINES} lines at once. Hide one first."` : ''}>
+          <span class="fc-swatch" style="${on ? `background:var(--fc-s${_colors[s.product]});` : ''}"></span>${esc(s.product)}</button>`;
+      }).join('')}</div>
+    </div>`;
+  }
+
+  function bindChart(el, series) {
+    const plot = el.querySelector('.fc-chart-plot');
+    if (!plot) return;
+    const svg = plot.querySelector('svg'), tip = plot.querySelector('.fc-tip'), cross = plot.querySelector('.fc-cross');
+    const W = 760, L = 40, R = 12, n = PAST_WEEKS + AHEAD_WEEKS;
+    const shown = series.filter(s => _shown.includes(s.product));
+    plot.addEventListener('pointermove', e => {
+      const box = svg.getBoundingClientRect();
+      const i = Math.round(((e.clientX - box.left) / box.width * W - L) / (W - L - R) * n);
+      if (i < 0 || i > n) { tip.style.display = cross.style.display = 'none'; return; }
+      const cx = L + (W - L - R) * i / n;
+      cross.setAttribute('x1', cx); cross.setAttribute('x2', cx); cross.style.display = '';
+      const when = i === PAST_WEEKS ? 'Today' : new Date(Date.now() + (i - PAST_WEEKS) * WEEK_MS).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+      const val = s => i <= PAST_WEEKS ? s.past[i] : s.ahead[i - PAST_WEEKS];
+      tip.innerHTML = `<div class="fc-tip-h">${when}${i > PAST_WEEKS ? ' · projected' : ''}</div>` +
+        [...shown].sort((a, b) => val(b) - val(a)).map(s => `<div class="fc-tip-r"><span class="fc-swatch" style="background:var(--fc-s${_colors[s.product]});"></span><span>${esc(s.product)}</span><b>${fmt(val(s))}${i > PAST_WEEKS && s.zoneAt(i - PAST_WEEKS) && val(s) > 0 ? ` <span class="fc-zone fc-zone-${s.zoneAt(i - PAST_WEEKS)}">${s.zoneAt(i - PAST_WEEKS) === 'red' ? 'Red' : 'Amber'}</span>` : ''}</b></div>`).join('');
+      tip.style.display = '';
+      const px = cx / W * box.width;
+      tip.style.left = (px > box.width / 2 ? px - tip.offsetWidth - 12 : px + 12) + 'px';
+    });
+    plot.addEventListener('pointerleave', () => { tip.style.display = cross.style.display = 'none'; });
+    el.querySelectorAll('.fc-chip').forEach(b => b.addEventListener('click', () => {
+      const p = b.dataset.p;
+      if (_shown.includes(p)) { if (_shown.length > 1) _shown = _shown.filter(q => q !== p); }
+      else if (_shown.length < MAX_LINES) _shown = [..._shown, p];
+      else { UI.showAlert(`Up to ${MAX_LINES} lines at once. Hide one first.`, 'error'); return; }
+      draw();
+    }));
+  }
+
+  // Products to chart: the forecast's, most urgent first, then anything else we hold
+  function chartRows(r, stock) {
+    const sorted = [...r.rows].sort((p, q) => ZONE_RANK[p.zone] - ZONE_RANK[q.zone] || q.needed - p.needed || p.product.localeCompare(q.product));
+    const extra = Object.entries(stock).filter(([p, o]) => !sorted.some(x => x.product === p) && o.inStock + o.inTransit > 0)
+      .map(([product, o]) => ({ product, inStock: o.inStock, inTransit: o.inTransit, perMonth: 0, zone: '' }))
+      .sort((p, q) => p.product.localeCompare(q.product));
+    return chartSeries([...sorted, ...extra]).filter(s => s.past.some(Boolean) || s.ahead.some(Boolean));
+  }
+
+  function overviewTab(r, series) {
     const rows = [...r.rows].sort((p, q) => ZONE_RANK[p.zone] - ZONE_RANK[q.zone] || q.needed - p.needed || p.product.localeCompare(q.product));
-    if (!rows.length) return `<div class="empty">Map the HubSpot products in Bundle mapping to see the forecast.</div>`;
-    return `<div class="fc-cards">${rows.map(productCard).join('')}</div>
+    const chart = series.length ? chartHtml(series) : '';
+    if (!rows.length) return chart + `<div class="empty">Map the HubSpot products in Bundle mapping to see the forecast.</div>`;
+    return chart + `<div class="fc-cards">${rows.map(productCard).join('')}</div>
       <div class="fc-legend">
         <span><span class="fc-zone fc-zone-red">Red</span> stock runs out inside the lead time, so an order placed today lands too late.</span>
         <span><span class="fc-zone fc-zone-amber">Amber</span> it runs out within ${AMBER_WEEKS} weeks after the lead time, so order now.</span>
@@ -271,7 +414,8 @@ const Forecast = (() => {
     const quarters = recentQuarters();
     const data = _cache[_quarter];
     const s = settings();
-    const r = data && compute(data, s, stockByProduct(), usedPerMonth());
+    const stock = stockByProduct();
+    const r = data && compute(data, s, stock, usedPerMonth());
     const total = r ? r.rows.reduce((a, x) => a + x.needed, 0) : 0;
 
     const head = `<div class="fc-head">
@@ -288,7 +432,9 @@ const Forecast = (() => {
     const map = s.bundleMap || {};
     const red = r.rows.filter(x => x.zone === 'red').length, amber = r.rows.filter(x => x.zone === 'amber').length;
     const tabs = [['overview', 'Overview'], ['assumptions', 'Assumptions'], ['mapping', 'Bundle mapping', r.unmapped.length], ['deals', 'Deals']];
-    const body = { overview: () => overviewTab(r), assumptions: () => assumptionsTab(r, s, data), mapping: () => mappingTab(r, map), deals: () => dealsTab(data) }[_tab]();
+    const series = _tab === 'overview' ? chartRows(r, stock) : [];
+    if (series.length) pickShown(series.map(x => x.product));
+    const body = { overview: () => overviewTab(r, series), assumptions: () => assumptionsTab(r, s, data), mapping: () => mappingTab(r, map), deals: () => dealsTab(data) }[_tab]();
 
     el.innerHTML = head + `
       ${r.unmapped.length ? `<div class="fc-banner"><span><b>${r.unmapped.length} HubSpot product${r.unmapped.length !== 1 ? 's aren’t' : ' isn’t'} mapped</b>, so ${r.unmapped.length !== 1 ? 'they’re' : 'it’s'} left out of the forecast: ${esc(r.unmapped.map(h => h.name).join(', '))}</span>
@@ -304,6 +450,7 @@ const Forecast = (() => {
       <div class="fc-tab-body">${body}</div>`;
 
     bindHead(el);
+    if (series.length) bindChart(el, series);
     el.querySelectorAll('.fc-tab, .fc-goto').forEach(b => b.addEventListener('click', () => { _tab = b.dataset.tab; draw(); }));
     el.querySelector('#fc-rfq').addEventListener('click', () => RFQ.openSubmit(r.rows, nextQ(_quarter)));
     const num = v => v === '' ? 0 : Number(v);
