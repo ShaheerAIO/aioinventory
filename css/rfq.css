@@ -76,3 +76,8 @@
 .rfq-paper .d-ctl button:disabled { opacity: 0 !important; cursor: default; }
 .rfq-paper .d-add { margin: -12px 0 20px; border: 1px dashed var(--rule); background: none; color: var(--ink-3); font: 600 11px Poppins, system-ui, sans-serif; padding: 5px 10px; border-radius: 4px; cursor: pointer; }
 .rfq-paper .d-add:hover { color: var(--accent); border-color: var(--accent); }
+.rfq-paper .d-addr .ed { margin-top: 0; margin-bottom: 0; }
+.rfq-paper .d-addr .ed.n { font-size: 12px; font-weight: 700; color: var(--ink-strong); }
+.rfq-paper .d-addr .ed.c { color: var(--ink-strong); font-weight: 500; }
+.rfq-paper .d-addr .ed.e { color: var(--accent); }
+.rfq-paper .d-vhint { font-size: 9.5px; color: var(--rule); margin-top: 4px; }

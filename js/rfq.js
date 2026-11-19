@@ -58,8 +58,22 @@ const RFQ = (() => {
       incoterms: '',
       payment: rec?.paymentTerms || '',
       notes: DEFAULT_NOTES,
+      shipTo: { ...SHIP_TO },
       lines: (req.lines || []).map(l => ({ product: l.product, desc: '', qty: l.qty })),
     };
+  }
+
+  // Contact details typed on the RFQ are saved to the vendor's Suppliers record;
+  // a vendor known only by name (from movements) gets a record created.
+  const VENDOR_FIELDS = ['address', 'contactName', 'phone', 'email'];
+  function vendorUpdate(name, records, field, value, now) {
+    if (!name || !VENDOR_FIELDS.includes(field)) return null;
+    const v = String(value || '').trim();
+    const rec = supplierRecord(name, records);
+    if (rec) return (rec[field] || '') === v ? null : { op: 'update', id: rec.id, changes: { [field]: v } };
+    if (!v) return null;
+    return { op: 'add', record: { id: now, name, contactName: '', email: '', phone: '', website: '', address: '', paymentTerms: '',
+      leadTimeDays: '', currency: '', notes: '', [field]: v, createdAt: new Date(now).toISOString() } };
   }
 
   function supplierRecord(name, records) {
@@ -204,10 +218,9 @@ const RFQ = (() => {
 
   function closeEditor() { _editing = null; _fitObserver?.disconnect(); render(); }
 
-  // Vendor contact lines under the name. In the editor the name is a dropdown.
-  function addressHtml(name, rec, nameHtml) {
-    if (!name && !nameHtml) return '<div class="empty">Not selected</div>';
-    let h = nameHtml || `<div class="n">${esc(name)}</div>`;
+  function addressHtml(name, rec) {
+    if (!name) return '<div class="empty">Not selected</div>';
+    let h = `<div class="n">${esc(name)}</div>`;
     if (rec?.address) h += `<div>${esc(rec.address)}</div>`;
     if (rec?.contactName) h += `<div class="c">${esc(rec.contactName)}</div>`;
     if (rec?.phone) h += `<div>${esc(rec.phone)}</div>`;
@@ -238,6 +251,15 @@ const RFQ = (() => {
           <td class="d-ctl"><button type="button" data-up="${i}" title="Move up" ${i ? '' : 'disabled'}>↑</button><button type="button" data-del="${i}" title="Remove line">×</button></td></tr>`
       : `<tr><td class="no">${i + 1}</td><td class="l sku">${esc(l.product)}</td><td class="l desc">${esc(l.desc)}</td><td>${Number(l.qty) || 0}</td></tr>`;
     const showNotes = edit || String(d.notes || '').trim();
+    const ship = d.shipTo || SHIP_TO;
+    const shipHtml = edit
+      ? `<input class="ed n" data-ship="name" value="${esc(ship.name)}" placeholder="Name">
+         <textarea class="ed" rows="1" data-ship="address" placeholder="Address">${esc(ship.address)}</textarea>`
+      : addressHtml(ship.name, { address: ship.address });
+    const vf = (k, ph, cls = '') => `<textarea class="ed ${cls}" rows="1" data-vf="${k}" placeholder="${ph}">${esc(rec?.[k])}</textarea>`;
+    const vendorHtml = !edit ? addressHtml(d.supplier, rec)
+      : vendorSel + (d.supplier ? vf('address', 'Add address') + vf('contactName', 'Add contact name', 'c') + vf('phone', 'Add phone') + vf('email', 'Add email', 'e')
+        + '<div class="d-vhint">Saved to this vendor in Catalog → Suppliers</div>' : '');
     return `<div>
       <div class="d-head">
         <div class="d-logo"><img src="assets/aio-mark.svg" alt="AIO"></div>
@@ -246,8 +268,8 @@ const RFQ = (() => {
           <div class="d-co-addr">6489 Camden Avenue<br>San Jose CA 95120<br>United States</div></div>
       </div>
       <div class="d-parties">
-        <div><h3 class="d-h">Ship to</h3><div class="d-addr">${addressHtml(SHIP_TO.name, { address: SHIP_TO.address })}</div></div>
-        <div><h3 class="d-h">Vendor details</h3><div class="d-addr">${addressHtml(d.supplier, rec, edit ? vendorSel : '')}</div></div>
+        <div><h3 class="d-h">Ship to</h3><div class="d-addr">${shipHtml}</div></div>
+        <div><h3 class="d-h">Vendor details</h3><div class="d-addr">${vendorHtml}</div></div>
       </div>
       <table class="d-table d-meta">
         <thead><tr><th>RFQ #</th><th>Buyer</th><th>Currency</th><th>Date</th><th>Quote Due By</th></tr></thead>
@@ -296,13 +318,23 @@ const RFQ = (() => {
     fit();
   }
 
+  // Fires when a vendor contact field loses focus with a changed value.
+  function saveVendorField(name, field, value) {
+    const u = vendorUpdate(name, DB.getSupplierRecords(), field, value, Date.now());
+    if (!u) return;
+    if (u.op === 'update') DB.updateSupplier(u.id, u.changes);
+    else { DB.addSupplier(u.record); DB.addCustomSupplier(name); }
+    const st = document.getElementById('rfq-status');
+    if (st) st.textContent = `Saved to ${name} in Catalog → Suppliers.`;
+  }
+
   function drawEditor() {
     const el = root(), d = _editing.draft;
     const products = Inventory.PRODUCTS.map(p => p.name).filter(n => n !== 'Other');
     el.innerHTML = `<div id="rfq-editor">
       <div class="rfq-bar">
         <button class="btn btn-ghost btn-sm" id="rfq-back">← Back</button>
-        <div class="hint" id="rfq-status">Click any field on the page to edit it. Vendor address and contact come from Catalog → Suppliers.</div>
+        <div class="hint" id="rfq-status">Click any field on the page to edit it. Vendor contact details you add are saved to the vendor in Catalog → Suppliers.</div>
         <button class="btn btn-ghost btn-sm" id="rfq-save">Save draft</button>
         <button class="btn btn-primary btn-sm" id="rfq-issue" title="Saves the PDF here for everyone and downloads a copy">Generate PDF &amp; issue</button>
       </div>
@@ -319,12 +351,14 @@ const RFQ = (() => {
       const t = e.target;
       grow(t);
       if (t.dataset.f) d[t.dataset.f] = t.value;
+      else if (t.dataset.ship) d.shipTo = { ...(d.shipTo || SHIP_TO), [t.dataset.ship]: t.value };
       else if (t.dataset.l != null) {
         const l = d.lines[Number(t.dataset.l)];
         l[t.dataset.k] = t.dataset.k === 'qty' ? (parseInt(t.value) || 0) : t.value;
       }
     });
     paper.addEventListener('change', e => {
+      if (e.target.dataset.vf) { saveVendorField(d.supplier, e.target.dataset.vf, e.target.value); return; }
       if (!e.target.matches('[data-vendor]')) return;
       d.supplier = e.target.value;
       const rec = supplierRecord(d.supplier, DB.getSupplierRecords());
@@ -373,44 +407,67 @@ const RFQ = (() => {
     _busy = true;
     const status = document.getElementById('rfq-status'), btn = document.getElementById('rfq-issue');
     btn.disabled = true;
+    let number, blob, step = 'generate';
     try {
       status.textContent = 'Generating PDF…';
-      await loadHtml2pdf();
-      const number = nextNumber(DB.getRfqs());
+      await withTimeout(loadHtml2pdf(), 30000, 'the PDF engine took too long to load');
+      number = nextNumber(DB.getRfqs());
       const paper = document.getElementById('rfq-paper');
       paper.innerHTML = paperHtml(draft, number);
       paper.classList.add('exporting');
-      let blob;
       try {
-        blob = await window.html2pdf().set({
+        blob = await withTimeout(window.html2pdf().set({
           margin: 0, filename: `${number}.pdf`,
           image: { type: 'jpeg', quality: 0.98 },
-          html2canvas: { scale: 2, useCORS: true, scrollX: 0, scrollY: 0, backgroundColor: '#ffffff' },
+          html2canvas: {
+            scale: 2, useCORS: true, scrollX: 0, scrollY: 0, backgroundColor: '#ffffff',
+            // html2canvas copies the whole page before drawing; skip every view except
+            // html2pdf's own overlay (which holds the RFQ), or a big inventory page freezes it.
+            ignoreElements: el => el.parentElement?.tagName === 'BODY' && !el.classList.contains('html2pdf__overlay'),
+          },
           jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
           pagebreak: { mode: ['css', 'legacy'], avoid: 'tr' },
-        }).from(paper).outputPdf('blob');
+        }).from(paper).outputPdf('blob'), 60000, 'making the PDF took too long');
       } finally { paper.classList.remove('exporting'); }
 
-      status.textContent = 'Saving PDF…';
-      const pdf = await DB.uploadDocument('rfq', id, new File([blob], `${number}.pdf`, { type: 'application/pdf' }));
-      DB.updateRfq(id, { status: 'issued', number, pdf, draft: JSON.parse(JSON.stringify(draft)), issuedBy: me(), issuedAt: new Date().toISOString() });
+      // Hand over the PDF first, so a failed save never costs the document.
+      download(blob, `${number}.pdf`);
 
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob); a.download = `${number}.pdf`;
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(a.href), 10000);
+      step = 'save';
+      status.textContent = 'Saving PDF…';
+      const pdf = await withTimeout(DB.uploadDocument('rfq', id, new File([blob], `${number}.pdf`, { type: 'application/pdf' })),
+        60000, 'the upload took too long');
+      DB.updateRfq(id, { status: 'issued', number, pdf, draft: JSON.parse(JSON.stringify(draft)), issuedBy: me(), issuedAt: new Date().toISOString() });
 
       _editing = null;
       render();
       UI.showAlert(`${number} issued and saved.`, 'success');
     } catch (e) {
-      status.textContent = '';
+      console.error('RFQ issue failed at step', step, e);
       if (_editing) drawPreview();  // put the editable page back
-      UI.showAlert(`Couldn't issue the RFQ: ${e.message}`, 'error');
+      const why = String(e.code || '').startsWith('storage/') ? `${e.message} (is Firebase Storage set up for this project?)` : e.message;
+      const msg = step === 'save'
+        ? `${number}.pdf was downloaded, but saving it here failed, so the RFQ is not issued yet: ${why}`
+        : `Couldn't make the PDF: ${why}`;
+      status.textContent = msg;
+      UI.showAlert(msg, 'error');
     } finally {
       _busy = false;
       if (btn.isConnected) btn.disabled = false;
     }
+  }
+
+  function withTimeout(promise, ms, message) {
+    let t;
+    return Promise.race([promise, new Promise((_, reject) => { t = setTimeout(() => reject(new Error(message)), ms); })])
+      .finally(() => clearTimeout(t));
+  }
+
+  function download(blob, filename) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 10000);
   }
 
   // ── submit modal (opened from the Forecast) ────────────────────────────
@@ -446,5 +503,5 @@ const RFQ = (() => {
   }
 
   return { render, updateBadge, openSubmit, submit,
-    requestLinesFromForecast, nextNumber, draftFromRequest, canTransition, issueWarnings };
+    requestLinesFromForecast, nextNumber, draftFromRequest, canTransition, issueWarnings, vendorUpdate };
 })();

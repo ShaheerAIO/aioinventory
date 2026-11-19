@@ -4,6 +4,16 @@
  */
 var CHANGELOG = [
   {
+    version: 'v154',
+    date: '2026-11-19',
+    title: 'RFQ Ship-To and Vendor Contacts',
+    changes: [
+      { type: 'improved', text: 'The RFQ\u2019s Ship to name and address can be changed on the page' },
+      { type: 'improved', text: 'Picking a vendor on an RFQ shows its address, contact, phone and email. Fill in anything missing right on the page \u2014 it\u2019s saved to that vendor in Catalog \u2192 Suppliers for next time' },
+      { type: 'fixed', text: 'Generate PDF & issue no longer hangs. The PDF downloads first, and if saving it fails you\u2019re told why instead of waiting forever' },
+    ],
+  },
+  {
     version: 'v153',
     date: '2026-11-19',
     title: 'Forecast Dashboard',

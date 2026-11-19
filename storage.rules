@@ -1,0 +1,35 @@
+rules_version = '2';
+
+// AIO Inventory — Cloud Storage security rules
+//
+// Files live under documents/<entity>-<id>/<timestamp>_<name>, written by
+// DB.uploadDocument (js/db.js): shipment documents (In Transit, Shipment
+// History) and issued RFQ PDFs (js/rfq.js). The app shows them through their
+// download URLs, which carry their own token, so `read` here only covers SDK reads.
+//
+// Roles come from users/<uid> in Firestore, the same check as canEdit() in
+// firestore.rules (cross-service rules: Storage reads that doc).
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    function canEdit() {
+      return request.auth != null
+        && firestore.exists(/databases/(default)/documents/users/$(request.auth.uid))
+        && firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.role
+             in ['superadmin', 'admin', 'edit'];
+    }
+
+    match /documents/{folder}/{file} {
+      allow read:   if request.auth != null;
+      // Uploads are new files only (each name is timestamped), up to 25 MB.
+      // Nothing in the app overwrites or deletes a stored file.
+      allow create: if canEdit() && request.resource.size < 25 * 1024 * 1024;
+      allow update, delete: if false;
+    }
+
+    // Everything else stays closed.
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+  }
+}

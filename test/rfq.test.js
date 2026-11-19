@@ -34,6 +34,7 @@ const products = [{ name: 'D3 Pro', supplier: 'Sunmi' }, { name: 'KDS', supplier
   eq('shared supplier picked (case-insensitive)', d.supplier, 'Sunmi');
   eq('terms and currency from the supplier record', [d.payment, d.currency], ['30% deposit', 'RMB']);
   eq('quote due 14 days out', [d.docDate, d.dueDate], ['2026-11-18', '2026-12-02']);
+  eq('ship-to starts as AIO', d.shipTo.name, 'AIO APP INC');
   eq('lines carried over', d.lines, [{ product: 'D3 Pro', desc: '', qty: 5 }, { product: 'KDS', desc: '', qty: 2 }]);
 }
 {
@@ -51,6 +52,18 @@ console.log('issueWarnings');
 eq('a complete draft passes', R.issueWarnings({ supplier: 'Sunmi', docDate: '2026-11-18', dueDate: '2026-12-02', lines: [{ product: 'D3 Pro', qty: 5 }] }), []);
 eq('every problem listed', R.issueWarnings({ supplier: '', docDate: '2026-11-18', dueDate: '2026-11-01', lines: [{ product: 'D3 Pro', qty: 0 }, { product: '', qty: 3 }] }), [
   'No vendor is selected.', 'A line has a quantity of 0.', 'The quote due date is before the document date.']);
+
+console.log('vendorUpdate');
+{
+  const recs = [{ id: 7, name: 'Sunmi', phone: '123' }];
+  eq('existing vendor: only the changed field is updated (case-insensitive name)', R.vendorUpdate('sunmi', recs, 'email', ' a@b.c ', 1), { op: 'update', id: 7, changes: { email: 'a@b.c' } });
+  eq('existing vendor: unchanged value writes nothing', R.vendorUpdate('Sunmi', recs, 'phone', '123', 1), null);
+  eq('existing vendor: clearing a field is saved', R.vendorUpdate('Sunmi', recs, 'phone', '', 1), { op: 'update', id: 7, changes: { phone: '' } });
+  const add = R.vendorUpdate('Acme', recs, 'address', 'Shenzhen', 1700000000000);
+  eq('vendor with no record gets one, with the full supplier shape', [add.op, add.record.name, add.record.address, add.record.id, add.record.contactName, 'currency' in add.record], ['add', 'Acme', 'Shenzhen', 1700000000000, '', true]);
+  eq('blank value for a vendor with no record writes nothing', R.vendorUpdate('Acme', recs, 'address', '  ', 1), null);
+  eq('no vendor or an unknown field writes nothing', [R.vendorUpdate('', recs, 'email', 'x', 1), R.vendorUpdate('Sunmi', recs, 'name', 'x', 1)], [null, null]);
+}
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
