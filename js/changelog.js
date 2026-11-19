@@ -4,6 +4,14 @@
  */
 var CHANGELOG = [
   {
+    version: 'v156',
+    date: '2026-11-19',
+    title: 'Forecast Graph Product Picker',
+    changes: [
+      { type: 'improved', text: 'The forecast stock graph opens on the 5 most-used products (most deployments in the last 90 days). A Products dropdown lists every product we hold, most used first with its monthly use, to add or remove lines (up to 8 at once). The legend under the graph is now just a key' },
+    ],
+  },
+  {
     version: 'v155',
     date: '2026-11-19',
     title: 'Forecast Stock Graph',

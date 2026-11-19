@@ -203,9 +203,15 @@ const Forecast = (() => {
   // Solid: units in stock each week for the last 13 weeks, rebuilt backwards from today's count
   // (every IN after a week added stock that wasn't there yet; every OUT after it took away
   // stock that was). Dashed: stock + in transit from today, used at the Use / month rate.
-  const PAST_WEEKS = 13, AHEAD_WEEKS = 26, MAX_LINES = 8, WEEK_MS = 7 * 864e5;
+  const PAST_WEEKS = 13, AHEAD_WEEKS = 26, WEEK_MS = 7 * 864e5;
+  const DEFAULT_LINES = 5, MAX_LINES = 8;   // 8 = colours that stay distinguishable (incl. colour-blind)
   const _colors = {};      // product → palette slot (1–8); a product keeps its colour while shown
-  let _shown = null;       // products drawn on the chart; null = pick the most urgent
+  let _shown = null;       // products drawn on the chart; null = the most used
+  let _pickOpen = false;   // the product dropdown stays open across redraws
+  if (typeof document !== 'undefined') document.addEventListener('click', e => {
+    const pick = document.querySelector('.fc-pick[open]');
+    if (pick && !pick.contains(e.target)) { pick.open = false; _pickOpen = false; }
+  });
 
   function stockHistory(products, now = Date.now()) {
     const start = now - PAST_WEEKS * WEEK_MS;
@@ -231,13 +237,13 @@ const Forecast = (() => {
       // Weeks from today at which the projection turns amber / red / hits zero (same rule as the zone)
       const cover = perWeek ? start / perWeek : null, lead = x.lead || DEFAULT_LEAD_WEEKS;
       const zoneAt = k => cover == null ? '' : cover - k < lead ? 'red' : cover - k < lead + AMBER_WEEKS ? 'amber' : '';
-      return { product: x.product, past, ahead, zoneAt, cover, lead };
+      return { product: x.product, past, ahead, zoneAt, cover, lead, used: x.hist || 0 };
     });
   }
 
-  function pickShown(held) {   // product names, most urgent first
+  function pickShown(held) {   // product names, most used first
     if (_shown) _shown = _shown.filter(p => held.includes(p));
-    if (!_shown || !_shown.length) _shown = held.slice(0, MAX_LINES);
+    if (!_shown || !_shown.length) _shown = held.slice(0, DEFAULT_LINES);
     Object.keys(_colors).forEach(p => { if (!_shown.includes(p)) delete _colors[p]; });
     _shown.forEach(p => {
       if (_colors[p]) return;
@@ -279,7 +285,17 @@ const Forecast = (() => {
     const xTicks = [0, 4, 8, PAST_WEEKS, PAST_WEEKS + 8, PAST_WEEKS + 17, n];
     return `<div class="fc-chart">
       <div class="fc-chart-head"><div><div class="fc-sub" style="margin:0;">Stock per product</div>
-        <div class="fc-chart-note">Solid: units in stock over the last ${PAST_WEEKS} weeks. Dashed: stock + in transit from today, used at each product's Use / month.<br><span class="fc-key-amber"></span> Amber glow: order now. <span class="fc-key-red"></span> Red glow: an order placed then lands after it runs out.</div></div></div>
+        <div class="fc-chart-note">Solid: units in stock over the last ${PAST_WEEKS} weeks. Dashed: stock + in transit from today, used at each product's Use / month.<br><span class="fc-key-amber"></span> Amber glow: order now. <span class="fc-key-red"></span> Red glow: an order placed then lands after it runs out.</div></div>
+        <details class="fc-pick"${_pickOpen ? ' open' : ''}><summary class="btn btn-ghost btn-sm">Products · ${_shown.length} of ${series.length}</summary>
+          <div class="fc-pick-menu">
+            <div class="fc-pick-note">Up to ${MAX_LINES} at once · most used first</div>
+            ${series.map(s => {
+              const on = _shown.includes(s.product), full = !on && _shown.length >= MAX_LINES;
+              return `<label class="fc-pick-row${full ? ' off' : ''}"><input type="checkbox" class="fc-pick-cb" data-p="${esc(s.product)}"${on ? ' checked' : ''}${full || (on && _shown.length === 1) ? ' disabled' : ''}>
+                <span class="fc-swatch" style="${on ? `background:var(--fc-s${_colors[s.product]});` : ''}"></span><span class="fc-pick-name">${esc(s.product)}</span>
+                <span class="fc-pick-used">${s.used ? `${fmt(s.used)}/mo` : ''}</span></label>`;
+            }).join('')}
+          </div></details></div>
       <div class="fc-chart-plot">
         <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Units in stock per product, past ${PAST_WEEKS} weeks and projected ${AHEAD_WEEKS} weeks">
           ${ticks.map(t => `<line class="fc-grid" x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}"/>`).join('')}
@@ -294,11 +310,7 @@ const Forecast = (() => {
         <div class="fc-axis-x">${xTicks.map(i => `<span${[4, 8, PAST_WEEKS + 17].includes(i) ? ' class="fc-x-minor"' : ''} style="left:${(x(i) / W * 100).toFixed(2)}%;">${i === PAST_WEEKS ? '<b>Today</b>' : dateAt(i)}</span>`).join('')}</div>
         <div class="fc-tip" style="display:none;"></div>
       </div>
-      <div class="fc-legend-chips">${series.map(s => {
-        const on = _shown.includes(s.product);
-        return `<button class="fc-chip${on ? ' on' : ''}" data-p="${esc(s.product)}" aria-pressed="${on}" ${!on && _shown.length >= MAX_LINES ? `title="Up to ${MAX_LINES} lines at once. Hide one first."` : ''}>
-          <span class="fc-swatch" style="${on ? `background:var(--fc-s${_colors[s.product]});` : ''}"></span>${esc(s.product)}</button>`;
-      }).join('')}</div>
+      <div class="fc-legend">${shown.map(s => `<span><span class="fc-swatch" style="background:var(--fc-s${_colors[s.product]});"></span>${esc(s.product)}</span>`).join('')}</div>
     </div>`;
   }
 
@@ -323,22 +335,21 @@ const Forecast = (() => {
       tip.style.left = (px > box.width / 2 ? px - tip.offsetWidth - 12 : px + 12) + 'px';
     });
     plot.addEventListener('pointerleave', () => { tip.style.display = cross.style.display = 'none'; });
-    el.querySelectorAll('.fc-chip').forEach(b => b.addEventListener('click', () => {
-      const p = b.dataset.p;
-      if (_shown.includes(p)) { if (_shown.length > 1) _shown = _shown.filter(q => q !== p); }
-      else if (_shown.length < MAX_LINES) _shown = [..._shown, p];
-      else { UI.showAlert(`Up to ${MAX_LINES} lines at once. Hide one first.`, 'error'); return; }
+    const pick = el.querySelector('.fc-pick');
+    pick.addEventListener('toggle', () => { _pickOpen = pick.open; });
+    el.querySelectorAll('.fc-pick-cb').forEach(cb => cb.addEventListener('change', () => {
+      const p = cb.dataset.p;
+      _shown = cb.checked ? [..._shown, p].slice(0, MAX_LINES) : _shown.filter(q => q !== p);
       draw();
     }));
   }
 
-  // Products to chart: the forecast's, most urgent first, then anything else we hold
+  // Products to chart: the forecast's plus anything else we hold, most used (last 90 days) first
   function chartRows(r, stock) {
-    const sorted = [...r.rows].sort((p, q) => ZONE_RANK[p.zone] - ZONE_RANK[q.zone] || q.needed - p.needed || p.product.localeCompare(q.product));
-    const extra = Object.entries(stock).filter(([p, o]) => !sorted.some(x => x.product === p) && o.inStock + o.inTransit > 0)
-      .map(([product, o]) => ({ product, inStock: o.inStock, inTransit: o.inTransit, perMonth: 0, zone: '' }))
-      .sort((p, q) => p.product.localeCompare(q.product));
-    return chartSeries([...sorted, ...extra]).filter(s => s.past.some(Boolean) || s.ahead.some(Boolean));
+    const extra = Object.entries(stock).filter(([p, o]) => !r.rows.some(x => x.product === p) && o.inStock + o.inTransit > 0)
+      .map(([product, o]) => ({ product, inStock: o.inStock, inTransit: o.inTransit, perMonth: 0, hist: 0, zone: '' }));
+    const sorted = [...r.rows, ...extra].sort((p, q) => q.hist - p.hist || q.perMonth - p.perMonth || p.product.localeCompare(q.product));
+    return chartSeries(sorted).filter(s => s.past.some(Boolean) || s.ahead.some(Boolean));
   }
 
   function overviewTab(r, series) {
