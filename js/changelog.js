@@ -4,6 +4,14 @@
  */
 var CHANGELOG = [
   {
+    version: 'v152',
+    date: '2026-11-18',
+    title: 'Units Owned by Product',
+    changes: [
+      { type: 'new', text: 'Overview has a \u201cUnits owned by product\u201d table: for each product, how many are in stock, how many are deployed with customers, and the total of the two' },
+    ],
+  },
+  {
     version: 'v150',
     date: '2026-11-17',
     title: 'Import a PO From File',

@@ -202,6 +202,45 @@
           </tfoot>
         </table>`
       : '<div class="empty">No stock deployed yet</div>';
+
+    // ── Units owned by product (holding + deployed) ────────────────────
+    const owned = {};
+    byProduct.forEach(p => { owned[p.product] = { product: p.product, category: p.category, holding: p.inStock, deployed: 0 }; });
+    deployedByProduct.forEach(p => {
+      if (!owned[p.product]) owned[p.product] = { product: p.product, category: p.category, holding: 0, deployed: 0 };
+      owned[p.product].deployed = p.units;
+    });
+    const ownedRows = Object.values(owned).filter(p => p.holding + p.deployed > 0).sort((a, b) => a.product.localeCompare(b.product));
+    const ownedHolding  = ownedRows.reduce((a, p) => a + p.holding, 0);
+    const ownedDeployed = ownedRows.reduce((a, p) => a + p.deployed, 0);
+    document.getElementById('dash-owned-stock').innerHTML = ownedRows.length
+      ? `<table class="product-stock-table">
+          <thead><tr>
+            <th style="width:36%">Product</th>
+            <th style="width:19%">Category</th>
+            <th style="width:15%" title="Units in stock (any condition)">Holding</th>
+            <th style="width:15%" title="Units with customers">Deployed</th>
+            <th style="width:15%" title="Holding + deployed">Total</th>
+          </tr></thead>
+          <tbody>
+            ${ownedRows.map(p => `<tr>
+              <td style="font-weight:500">${esc(p.product)}</td>
+              <td><span class="cat-badge">${esc(p.category || '—')}</span></td>
+              <td style="font-size:13px;color:var(--success-text)">${p.holding}</td>
+              <td style="font-size:13px;color:var(--aio-orange-dark)">${p.deployed}</td>
+              <td style="font-size:13px;font-weight:700;color:var(--text)">${p.holding + p.deployed}</td>
+            </tr>`).join('')}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="2" style="font-weight:700;font-size:12px;color:var(--text-muted)">Total</td>
+              <td style="font-weight:700;font-size:13px;color:var(--success-text)">${ownedHolding}</td>
+              <td style="font-weight:700;font-size:13px;color:var(--aio-orange-dark)">${ownedDeployed}</td>
+              <td style="font-weight:700;font-size:13px;color:var(--text)">${ownedHolding + ownedDeployed}</td>
+            </tr>
+          </tfoot>
+        </table>`
+      : '<div class="empty">No units yet</div>';
     document.getElementById('dash-recent').innerHTML = recent.length
       ? `<table><thead><tr><th style="width:40%">Product</th><th style="width:13%">Type</th><th style="width:25%">Location</th><th style="width:22%">Date</th></tr></thead><tbody>
          ${recent.map(m => `<tr><td style="font-weight:500">${esc(m.product)}</td><td><span class="badge ${m.type==='IN'?'b-in':'b-out'}">${m.type}</span>${m.isTransfer?'<span class="badge b-transfer" style="margin-left:3px;">⇄</span>':''}</td><td><span class="loc-badge">${esc(m.location||'—')}</span></td><td style="color:var(--text-hint)">${fmtDate(m.date)}</td></tr>`).join('')}
