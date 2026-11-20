@@ -9,7 +9,7 @@
    own list, and holds the dashboard login.
    ───────────────────────────────────────────────────────────────────────────── */
 const BuddyAccess = (() => {
-  const ENDPOINT = 'https://us-central1-aio-inventory-b9b29.cloudfunctions.net/aioBuddyAccess';
+  const ENDPOINT = ENV.functionsBase + '/aioBuddyAccess';
   const MAX_SHOWN = 200;
 
   function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }

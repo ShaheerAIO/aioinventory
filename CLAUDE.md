@@ -76,6 +76,18 @@ without Firebase.
 - `ENTRA-SETUP.md` — Entra app registration + Firebase console setup, and the break-glass admin login.
 - `assets/` — AIO brand kit assets (source: `/Volumes/Shaheer T7/Projects - AIO/AIO Brand Kit/`, see its `DESIGN-LANGUAGE.md`): `aio-mark.svg` / `aio-mark-white.svg` logos, `favicon.svg`, `apple-touch-icon.png`, and Coolvetica fonts (headings via `--font-display`; Poppins stays the UI font). Electric Blue (`--electric*`) is the secondary colour and backs the `--info-*` tokens. `logo.png` is the old logo and is now unused. `.nojekyll` — leftover from an earlier GitHub Pages setup; a stale Pages build still exists at `shaheeraio.github.io/aioinventory` but Vercel is what people use.
 
+## Stage sandbox
+`js/env.js` (`ENV`) picks the backend by hostname: only `aioinventory.vercel.app` uses production
+(`aio-inventory-b9b29`); every other host — `https://aioinventory-stage.vercel.app` (the `stage` branch),
+other previews, localhost — uses the sandbox Firebase project `aio-inventory-stage`, seeded once with a
+copy of production (2026-11-20, not kept in sync). Firebase config and Cloud Function URLs come from
+`ENV.firebase` / `ENV.functionsBase`; never hardcode the production project again. `vercel.json` routes
+`/__/auth` to the matching project by host. Stage deploys only the read-only functions
+(`hubspotCompanySearch`, `hubspotCompanyDocs`, `hardwareForecast`, `poImport`) —
+**never deploy `aioDevices`, `aioBuddyAccess` or the HubSpot sync to stage**; they write to real systems:
+`firebase deploy --only functions:hubspotCompanySearch,functions:hubspotCompanyDocs,functions:hardwareForecast,functions:poImport --project aio-inventory-stage`.
+Flow: feature branch → merge to `stage` to test → merge to `main` to release.
+
 ## Build / Run / Test
 There is **no build step** in this repo, and no test framework/runner — but there is one
 dependency-free test file, run directly with node:
@@ -120,7 +132,7 @@ firebase deploy --only functions
 Data backup/restore via browser console: `DB.exportJSON()` and `DB.importJSON('<json>')`.
 
 ## Conventions & Gotchas
-- **Script load order is load-bearing** (see bottom of `index.html`): `auth.js → auth-ui.js → db.js → activity.js → hubspot-picker.js → inventory.js → reports.js → xlsx → ui/core.js → ui/*.js → ui/command-palette.js → audit.js → device-map.js → buddy-access.js → networking.js → changelog.js → forms/shared.js → forms/*.js → app.js`. Each module assumes its dependencies are already defined as globals.
+- **Script load order is load-bearing** (see bottom of `index.html`): `env.js → auth.js → auth-ui.js → db.js → activity.js → hubspot-picker.js → inventory.js → reports.js → xlsx → ui/core.js → ui/*.js → ui/command-palette.js → audit.js → device-map.js → buddy-access.js → networking.js → changelog.js → forms/shared.js → forms/*.js → app.js`. Each module assumes its dependencies are already defined as globals.
 - **Cache-busting query strings** (`?v=101`, `?v=108`, ...) are appended to each `<script src>` in `index.html`. When you change a JS file, **bump its version number** in `index.html` so browsers reload it.
 - **Firebase config is committed in source** (`db.js` and `auth.js` both inline the same `FB_CONFIG` for project `aio-inventory-b9b29`). This is a client-side Firebase web key (normal for Firebase), but be aware it is in the repo; security relies on Firestore/Auth rules, not on hiding the key.
 - **Single shared Firestore document** (`inventory/main`) holds *all* inventory data and is fully read into memory and rewritten on save. Writes set a `_pendingWrite` flag so the app ignores its own `onSnapshot` echo. Keep this in mind for concurrency — last write generally wins on the whole document.

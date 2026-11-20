@@ -20,14 +20,7 @@ const Auth = (() => {
   let _authReady    = false;
   let _redirectError = null;  // a failed redirect never reaches onAuthStateChanged
 
-  const FB_CONFIG = {
-    apiKey:            "AIzaSyCwlZg9YaGfQDKuVBDI4RAkEzKcDg7Cgdo",
-    authDomain:        "aioinventory.vercel.app",
-    projectId:         "aio-inventory-b9b29",
-    storageBucket:     "aio-inventory-b9b29.firebasestorage.app",
-    messagingSenderId: "146229036238",
-    appId:             "1:146229036238:web:c91467e73e3e2912683c9f"
-  };
+  const FB_CONFIG = ENV.firebase;
 
   // ── Initialise ──────────────────────────────────────────────────────────
   async function init() {

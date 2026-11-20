@@ -7,7 +7,7 @@
    APN is exactly "Broadband" and its auth type is none. Nothing is changed in UniFi. Admin only, like Map Devices.
    ───────────────────────────────────────────────────────────────────────────── */
 const Networking = (() => {
-  const ENDPOINT = 'https://us-central1-aio-inventory-b9b29.cloudfunctions.net/aioDevices';
+  const ENDPOINT = ENV.functionsBase + '/aioDevices';
 
   function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 

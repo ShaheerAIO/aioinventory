@@ -638,7 +638,7 @@
   // The poImport Cloud Function reads a supplier PO / pro-forma / packing list
   // with Claude and returns the order; this fills the form for the person to check.
   // Nothing is saved until they press Place order.
-  const PO_IMPORT_ENDPOINT = 'https://us-central1-aio-inventory-b9b29.cloudfunctions.net/poImport';
+  const PO_IMPORT_ENDPOINT = ENV.functionsBase + '/poImport';
 
   function setImportStatus(html) {
     const el = document.getElementById('ord-import-status');

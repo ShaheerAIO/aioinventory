@@ -34,7 +34,7 @@ const DB = {
 };
 globalThis.Auth = { isSuperAdmin: () => true, isAdmin: () => true };
 const { Inventory } = new Function('DB', invSrc + '\n; return { Inventory };')(DB);
-const { DeviceMap } = new Function('DB', 'Inventory', dmSrc + '\n; return { DeviceMap };')(DB, Inventory);
+const { DeviceMap } = new Function('DB', 'Inventory', 'ENV', dmSrc + '\n; return { DeviceMap };')(DB, Inventory, { functionsBase: '' });
 const R = DeviceMap._rules;
 
 let pass = 0, fail = 0;

@@ -105,6 +105,8 @@ const { searchHubspotCompanies } = require('./hubspotCompanies');
 
 const PICKER_ORIGINS = [
   'https://aioinventory.vercel.app',
+  'https://aioinventory-stage.vercel.app',
+  'https://aioinventory-git-stage-aioapp1.vercel.app',
   'https://shaheeraio.github.io',
   'http://localhost:8080',
   'http://localhost:3000',

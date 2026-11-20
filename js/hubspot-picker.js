@@ -8,7 +8,7 @@
    Company ID box, which is how the mapping was entered before.
    ───────────────────────────────────────────────────────────────────────────── */
 const HubspotPicker = (() => {
-  const ENDPOINT = 'https://us-central1-aio-inventory-b9b29.cloudfunctions.net/hubspotCompanySearch';
+  const ENDPOINT = ENV.functionsBase + '/hubspotCompanySearch';
 
   function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
@@ -153,7 +153,7 @@ const HubspotPicker = (() => {
   }
 
   /* ── Quotes & invoices for a linked customer (Stock Out, before scanning) ── */
-  const DOCS_ENDPOINT = 'https://us-central1-aio-inventory-b9b29.cloudfunctions.net/hubspotCompanyDocs';
+  const DOCS_ENDPOINT = ENV.functionsBase + '/hubspotCompanyDocs';
   const DOCS_CACHE_MS = 60 * 1000;
   const _docsCache = new Map(); // companyId -> { at, data }
   let _docsSeq = 0;

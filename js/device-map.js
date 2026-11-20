@@ -15,7 +15,7 @@
    where inventory and the dashboard disagree, with a fix for each.
    ───────────────────────────────────────────────────────────────────────────── */
 const DeviceMap = (() => {
-  const ENDPOINT = 'https://us-central1-aio-inventory-b9b29.cloudfunctions.net/aioDevices';
+  const ENDPOINT = ENV.functionsBase + '/aioDevices';
 
   // ── Rules (pure — covered by test/device-map.test.js) ──────────────────────
   // Inventory category → dashboard device type. Everything else (routers, mounts,

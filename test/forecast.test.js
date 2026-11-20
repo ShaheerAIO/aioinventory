@@ -65,7 +65,7 @@ async function fakeFetch(url, opts) {
 
   // ── client: the formula ──
   const src = fs.readFileSync(root + '/js/forecast.js', 'utf8');
-  const Forecast = new Function(src + '\nreturn Forecast;')();
+  const Forecast = new Function('ENV', src + '\nreturn Forecast;')({ functionsBase: '' });
   const data = {
     signed: [
       { items: [{ key: '100', name: 'QSR', qty: 2 }, { key: '300', name: 'Onboarding', qty: 1 }] },

@@ -19,7 +19,7 @@
    admin adjusts Z for them. The HubSpot side is the hardwareForecast function.
    ───────────────────────────────────────────────────────────────────────────── */
 const Forecast = (() => {
-  const ENDPOINT = 'https://us-central1-aio-inventory-b9b29.cloudfunctions.net/hardwareForecast';
+  const ENDPOINT = ENV.functionsBase + '/hardwareForecast';
 
   function esc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
   const fmt = n => (Math.round(n * 10) / 10).toLocaleString();
