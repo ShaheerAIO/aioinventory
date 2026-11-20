@@ -17,8 +17,16 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ── Who is asking ─────────────────────────────────────────────────
+    // Signed in = through Microsoft (Entra), or the one break-glass password
+    // account (production uid; see ENTRA-SETUP.md). Email/password sign-up is
+    // open at the Firebase level (turning it off would also stop first-time
+    // Microsoft sign-ins), so a self-made password account must count as
+    // signed out: otherwise it could read everything and, using the email of
+    // someone in pendingUsers, claim their pre-assigned role.
     function signedIn() {
-      return request.auth != null;
+      return request.auth != null
+        && ( request.auth.token.firebase.sign_in_provider == 'microsoft.com'
+          || request.auth.uid == 'af77EwcKhFZciPwB2jL7tM292Y82' );
     }
     function profile() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
